@@ -1,35 +1,11 @@
 # Shared analysis rules for every package in the workspace.
 #
-# No third-party lint package is used, so the core keeps zero non-Flutter
-# dependencies. Rules are listed explicitly instead.
+# very_good_analysis is a dev dependency only: it shapes the code we write and
+# never ships in an app, so the `butterscope` core keeps zero non-Flutter
+# runtime dependencies.
+
+include: package:very_good_analysis/analysis_options.yaml
 
 analyzer:
-  language:
-    strict-casts: true
-    strict-inference: true
-    strict-raw-types: true
   exclude:
     - "**/build/**"
-
-linter:
-  rules:
-    - always_declare_return_types
-    - avoid_dynamic_calls
-    - avoid_print
-    - avoid_relative_lib_imports
-    - avoid_slow_async_io
-    - avoid_type_to_string
-    - cancel_subscriptions
-    - close_sinks
-    - directives_ordering
-    - prefer_const_constructors
-    - prefer_final_fields
-    - prefer_final_locals
-    - prefer_single_quotes
-    - sort_constructors_first
-    - test_types_in_equals
-    - throw_in_finally
-    - unawaited_futures
-    - unnecessary_lambdas
-    - unnecessary_statements
-    - use_super_parameters

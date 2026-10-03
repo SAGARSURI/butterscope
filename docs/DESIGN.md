@@ -278,6 +278,9 @@ Designed in M9 from M8's measurements. These principles are fixed now:
 | `butterscope_sample` | Proof app with ordinary tests and planted regressions | Not shipped. |
 
 - **No third-party runtime dependencies** in `butterscope`.
+- **Lints:** [very_good_analysis](https://pub.dev/packages/very_good_analysis)
+  11.x, as a dev dependency of every package; one shared
+  `analysis_options.yaml` at the root.
 - **Toolchain:** Flutter 3.47.5 (Dart 3.13.4), pinned in `.fvmrc`; CI reads the
   same file.
 
