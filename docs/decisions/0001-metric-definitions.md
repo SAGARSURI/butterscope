@@ -82,9 +82,12 @@ device data exists, except where marked open.
    smooth frames, which dilute the hitch ratio, the janky rate and the p90
    and p99 values. The hitch time, the counts, the worst values and the
    missed vsyncs are not diluted. Spans should wrap the flow tightly, and
-   absolute budgets are set per flow from M8's data. **(open, M2: whether
-   the hitch time also adds missed vsyncs. M2 measures both on the phones
-   before the hitch ratio is frozen.)**
+   absolute budgets are set per flow from M8's data. As defined, the hitch
+   ratio cannot see frames that never rendered: an app that misses every
+   other vsync with smooth frames in between reads zero, and only the
+   missed vsyncs show it. **(open, M2: whether the hitch time also adds
+   missed vsyncs. M2 measures both on the phones before the hitch ratio is
+   frozen.)**
 
 4. **Percentiles use nearest rank.** `p` is a whole number from 1 to 100.
    Sort the values ascending and take rank `⌈p × n ÷ 100⌉`, counting from 1,
@@ -147,9 +150,12 @@ device data exists, except where marked open.
    alone a screen at half its declared rate looks the same as an app that
    misses every other vsync. Voiding it would let a severe, repeatable
    regression pass as `INVALID`, which never counts against the code. So
-   the span is judged with its declared `B`: the slice's frames count as
-   missed vsyncs and janky frames, and can `FAIL`. Which cause it was is
-   settled by comparison. Base and head run interleaved on the same unit,
+   the span is judged with its declared `B`, and its missing frames count
+   as missed vsyncs, a gate metric, which can `FAIL`. Missed vsyncs are the
+   signal here: when every frame that does render stays within `B`, those
+   frames are smooth, so the janky rate, the overrun and the hitch ratio
+   all read zero for the slice. Which cause it was is settled by
+   comparison. Base and head run interleaved on the same unit,
    so a screen that drops on its own is as likely in either:
 
    - Mismatches in most head repetitions of a span and few base ones point

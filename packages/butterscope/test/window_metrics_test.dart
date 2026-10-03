@@ -130,6 +130,20 @@ void main() {
     expect(metrics.missedVsyncMillis, closeTo(25, 0.001));
   });
 
+  test('sees an app that misses every other vsync only as missed vsyncs', () {
+    // At 120 Hz, every frame renders well within B, but the app misses
+    // every other vsync, so frames land 16.7 ms apart as on a 60 Hz screen.
+    // Every frame is smooth, so the janky rate and the hitch ratio read
+    // zero; only the missed vsyncs show the frames that never happened.
+    final frames = samples(List.filled(11, (2000, 1000)), gapMicros: 16667);
+    final metrics = WindowMetrics.of(frames, FrameBudget(120));
+    expect(metrics.jankyCount, 0);
+    expect(metrics.hitchRatio, 0);
+    expect(metrics.missedVsyncCount, 10);
+    expect(metrics.missedVsyncMillis, closeTo(83.333, 0.001));
+    expect(metrics.observedRefreshRate, closeTo(60, 0.01));
+  });
+
   test('counts each janky frame under exactly one thread', () {
     // At 60 Hz: one frame late on each thread alone, one late on both, and
     // one smooth frame.

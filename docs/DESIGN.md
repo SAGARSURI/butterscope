@@ -142,9 +142,12 @@ follow the requests instead.)
 **A rate mismatch is a flag, never `INVALID` on its own.** From frame
 timings alone, a screen at half its declared rate looks the same as an app
 that misses every other vsync. Voiding the span would let a severe,
-repeatable regression pass, so it is judged with its declared `B` and can
-`FAIL`; the comparison decides the cause (section 9). Only a change in the
-declared rate itself makes a span `INVALID` (section 7.2). See
+repeatable regression pass, so it is judged with its declared `B`, and its
+missing frames count as **missed vsyncs**, a gate metric, which can `FAIL`.
+They are the only signal when every frame that renders stays within `B`:
+those frames are smooth, so the janky rate and the hitch ratio read zero.
+The comparison decides the cause (section 9). Only a change in the declared
+rate itself makes a span `INVALID` (section 7.2). See
 [0001](decisions/0001-metric-definitions.md).
 
 ## 5. Metrics
@@ -156,8 +159,8 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 
 | Metric | Definition |
 | --- | --- |
-| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. **(open, M2: whether hitch time adds missed vsyncs.)** |
-| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what each frame's own UI time explains (that part is already its overrun). Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss. |
+| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. It cannot see frames that never rendered: an app that misses every other vsync with smooth frames in between reads zero. **(open, M2: whether hitch time adds missed vsyncs.)** |
+| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what each frame's own UI time explains (that part is already its overrun). Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only gate metric that sees dropped frames between smooth ones. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
@@ -352,7 +355,7 @@ Designed in M9 from M8's measurements. These principles are fixed now:
   run interleaved on the same unit, so a screen that drops on its own is as
   likely in either. Mismatches in most head repetitions of a span and few
   base ones point at the change: every repetition is judged and the span
-  can `FAIL`. Otherwise the mismatched repetitions are left out and re-run,
+  can `FAIL`, on missed vsyncs when the frames that rendered were smooth. Otherwise the mismatched repetitions are left out and re-run,
   and a span that cannot get enough clean repetitions is `INVALID`.
 - Unstable flows (section 6, item 7) are reported, not gated.
 
