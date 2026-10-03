@@ -36,13 +36,45 @@ The full set of rules is in [docs/DESIGN.md](docs/DESIGN.md).
 ## Toolchain
 
 Flutter is pinned in [`.fvmrc`](.fvmrc) and managed with
-[FVM](https://fvm.app). CI reads the same file.
+[FVM](https://fvm.app). CI reads the same file. The repo is a
+[pub workspace](https://dart.dev/tools/pub/workspaces) run with
+[Melos](https://melos.invertase.dev), configured in the root `pubspec.yaml`.
+
+Once per clone:
 
 ```sh
-fvm install
-fvm flutter pub get
-fvm flutter analyze
+# Links the pinned Flutter at .fvm/flutter_sdk.
+fvm use
+# Once per machine. Puts `melos` in ~/.pub-cache/bin, which must be on PATH.
+fvm dart pub global activate melos
+# Resolves every package.
+melos bootstrap
 ```
 
-The repo is a [pub workspace](https://dart.dev/tools/pub/workspaces): one
-`pub get` at the root resolves every package.
+Day to day:
+
+```sh
+melos run check           # what CI checks: format, analyze and test
+melos run check:changed   # the same, for the packages this branch changed
+melos analyze             # every package, infos included
+melos format              # every package; `dart format .` covers the repo
+melos test                # every package with a test folder
+```
+
+`check:changed` analyzes and tests the packages changed since the branch left
+`origin/main` and every package that depends on them, using Melos's `--diff`
+and `--include-dependents` filters. Uncommitted edits count, staged or not; a
+new file counts once it is staged with `git add`. A change to
+a file every package shares, such as the root `pubspec.yaml` or
+`analysis_options.yaml`, checks every package instead. CI always checks every
+package.
+
+- Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
+  pinned Flutter. The global Melos hands over to the version pinned in the
+  root `pubspec.yaml`.
+- Versions every package shares (the Dart and Flutter constraints,
+  `very_good_analysis`) are set once, under `melos: command: bootstrap:` in
+  the root `pubspec.yaml`. Change them there and run `melos bootstrap`, which
+  writes them into each package. CI fails if a package disagrees.
+- `.fvmrc` turns off FVM's own Melos integration (`updateMelosSettings`): it
+  writes the SDK path to a `melos.yaml`, which Melos 8 no longer reads.

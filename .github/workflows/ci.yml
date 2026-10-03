@@ -17,6 +17,10 @@ jobs:
     # Pinned, not ubuntu-latest, so the host image changes only on purpose.
     runs-on: ubuntu-24.04
     timeout-minutes: 20
+    env:
+      # The root pubspec points Melos at FVM's SDK link, which CI does not
+      # have; "auto" uses the Flutter SDK set up below.
+      MELOS_SDK_PATH: auto
     steps:
       - uses: actions/checkout@v7
 
@@ -27,46 +31,69 @@ jobs:
           channel: stable
           cache: true
 
-      - name: Show toolchain
-        run: flutter --version
-
+      # Resolve before any Melos command: a global Melos reads the pinned
+      # version from pubspec.lock and crashes when the lock lacks it. This
+      # way a stale lock is reported by the next check instead.
       - name: Resolve workspace
         run: flutter pub get
 
-      # The Flutter tool can rewrite project files (for example, its
-      # analysis_options.yaml migration) or create new ones (pubspec.lock).
-      # A clean checkout must stay clean, untracked files included.
+      # Any Melos 8 works here: it hands over to the version pinned in the
+      # root pubspec.yaml and pubspec.lock.
+      - name: Install Melos
+        run: |
+          dart pub global activate melos 8.9.0
+          echo "${PUB_CACHE:-$HOME/.pub-cache}/bin" >> "$GITHUB_PATH"
+
+      - name: Show toolchain
+        run: |
+          flutter --version
+          melos --version
+
+      - name: Bootstrap workspace
+        run: melos bootstrap
+
+      # Resolution and bootstrap can rewrite project files (pubspec.lock,
+      # shared versions in a package's pubspec.yaml, the Flutter tool's
+      # analysis_options.yaml migration) or create new ones. A clean
+      # checkout must stay clean, untracked files included.
       - name: Tools left the repository unchanged
         run: |
           changes=$(git status --porcelain --untracked-files=all)
           [ -z "$changes" ] && exit 0
           echo "$changes"
           echo "$changes" | cut -c4- | while read -r file; do
+            # GitHub cuts an annotation at about 4 KB: show the start there
+            # and all of it in the job log.
             if git ls-files --error-unmatch -- "$file" > /dev/null 2>&1; then
-              title="Changed by flutter pub get"
-              body=$(git diff -- "$file" | tool/ci/escape.sh)
+              title="Changed by pub get or melos bootstrap"
+              echo "::group::$file (diff)"; git diff -- "$file"; echo "::endgroup::"
+              body=$(git diff -- "$file" | head -c 3000 | tool/ci/escape.sh)
             else
-              # GitHub cuts an annotation at about 4 KB: show the start
-              # there and the whole file in the job log.
-              title="Created by flutter pub get"
+              title="Created by pub get or melos bootstrap"
               echo "::group::$file"; cat "$file"; echo "::endgroup::"
               body=$(head -c 3000 "$file" | tool/ci/escape.sh)
             fi
-            echo "::error file=$file,title=$title::Commit this file, or ignore it if it is generated. The first 3 KB:%0A%0A$body"
+            echo "::error file=$file,title=$title::Commit this change, or ignore the file if it is generated. The first 3 KB:%0A%0A$body"
           done
           exit 1
 
+      # The whole repository, not only the workspace packages that
+      # `melos format` covers, so a Dart file under tool/ or at the root is
+      # checked too. dart format skips hidden folders such as .dart_tool.
       - name: Check formatting
         run: |
           dart format . > /dev/null
           if ! git diff --quiet; then
             for file in $(git diff --name-only); do
               diff=$(git diff -- "$file" | tool/ci/escape.sh)
-              echo "::error file=$file,title=Not formatted::Run dart format.%0A$diff"
+              echo "::error file=$file,title=Not formatted::Run dart format . at the repository root.%0A$diff"
             done
             exit 1
           fi
 
+      # One pass over the whole workspace, so the paths in annotations are
+      # relative to the repository root. Locally, `melos analyze` runs the
+      # same analyzer with the same --fatal-infos, package by package.
       # Logs go to the runner's temp folder, outside the checkout.
       - name: Analyze
         run: |
@@ -80,42 +107,11 @@ jobs:
           sed -nE 's/^ *(error|warning|info) • (.*) • ([^ ]+):([0-9]+):([0-9]+) • ([a-z0-9_]+)$/::error file=\3,line=\4,col=\5,title=\6::\2/p' "$log"
           exit 1
 
-      # A failing test is annotated on the line that declares it, from the
-      # runner's JSON report; the log tail is the fallback when there is no
-      # report (for example, the package did not compile).
+      # Melos runs tool/ci/test_package.sh in every package with a test
+      # folder. It annotates a failing test on the line that declares it, and
+      # posts each package's result as a notice.
       - name: Host tests
-        run: |
-          status=0
-          log="$RUNNER_TEMP/test.log"
-          report="$RUNNER_TEMP/test.json"
-          for dir in packages/* tools/* apps/*; do
-            [ -d "$dir/test" ] || { echo "No tests in $dir yet"; continue; }
-            if grep -q "sdk: flutter" "$dir/pubspec.yaml"; then
-              runner="flutter test"
-            else
-              runner="dart test"
-            fi
-            rm -f "$report"
-            echo "::group::$dir"
-            # The step runs under `bash -e`; `|| result=$?` keeps a failure
-            # from ending it before the annotations are written.
-            result=0
-            (cd "$dir" && $runner --reporter expanded --file-reporter "json:$report") > "$log" 2>&1 || result=$?
-            cat "$log"
-            echo "::endgroup::"
-            if [ $result -eq 0 ]; then
-              echo "::notice title=Tests in $dir::$(tail -n 1 "$log" | tool/ci/escape.sh)"
-              continue
-            fi
-            status=1
-            annotations=$(python3 tool/ci/test_annotations.py "$report" "$dir")
-            if [ -n "$annotations" ]; then
-              echo "$annotations"
-            else
-              echo "::error title=Tests failed in $dir::$(tail -n 300 "$log" | tool/ci/escape.sh)"
-            fi
-          done
-          exit $status
+        run: melos run test:ci --no-select
 
   # The one check that branch protection requires. It waits for every job
   # above and passes only when all of them succeeded, so a new job (the
