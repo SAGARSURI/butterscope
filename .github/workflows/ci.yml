@@ -77,13 +77,16 @@ jobs:
           done
           exit 1
 
+      # The whole repository, not only the workspace packages that
+      # `melos format` covers, so a Dart file under tool/ or at the root is
+      # checked too. dart format skips hidden folders such as .dart_tool.
       - name: Check formatting
         run: |
-          melos format > /dev/null
+          dart format . > /dev/null
           if ! git diff --quiet; then
             for file in $(git diff --name-only); do
               diff=$(git diff -- "$file" | tool/ci/escape.sh)
-              echo "::error file=$file,title=Not formatted::Run melos format.%0A$diff"
+              echo "::error file=$file,title=Not formatted::Run dart format . at the repository root.%0A$diff"
             done
             exit 1
           fi

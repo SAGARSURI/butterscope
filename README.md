@@ -56,7 +56,7 @@ Day to day:
 ```sh
 melos run check   # what CI checks: format, analyze and test
 melos analyze     # every package, infos included
-melos format      # every package
+melos format      # every package; `dart format .` covers the whole repo
 melos test        # every package with a test folder
 ```
 

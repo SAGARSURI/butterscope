@@ -38,9 +38,12 @@ melos:
   scripts:
     check:
       description: >-
-        The host checks CI runs: formats, analyzes and tests every package.
+        The host checks CI runs: formats the whole repository, then analyzes
+        and tests every package.
       steps:
-        - format --set-exit-if-changed
+        # From the root, so Dart files outside the packages are formatted
+        # too; dart format skips hidden folders such as .fvm and .dart_tool.
+        - dart format --set-exit-if-changed .
         - analyze
         - test
 
