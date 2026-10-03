@@ -46,8 +46,9 @@ void main() {
     test('ignores the gap after a janky frame', () {
       // At 120 Hz, 7 frames in 10 take 12 ms and push the next vsync back by
       // a whole interval. The mode of all gaps would read 60 Hz.
-      final builds = [for (var i = 0; i < 200; i++) i % 10 < 7 ? 12000 : 2000];
-      final gaps = [for (final build in builds) build > 8333 ? 16667 : 8333];
+      int buildAt(int i) => i % 10 < 7 ? 12000 : 2000;
+      final builds = List.generate(200, buildAt);
+      final gaps = builds.map((b) => b > 8333 ? 16667 : 8333).toList();
       final frames = framesWithGaps(gaps, builds: builds);
       final observed = observeRefreshRate(frames, FrameBudget(120));
       expect(observed, closeTo(120, 0.5));
