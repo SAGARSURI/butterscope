@@ -4,11 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// 125 Hz gives a budget of exactly 8000 µs, so every edge is exact.
 final FrameBudget budget = FrameBudget(125);
 
-ClassifiedFrame judge(
-  int buildMicros,
-  int rasterMicros, {
-  int waitMicros = 0,
-}) {
+ClassifiedFrame judge(int buildMicros, int rasterMicros, {int waitMicros = 0}) {
   return ClassifiedFrame(
     FrameSample(
       vsyncStartMicros: 0,

@@ -8,12 +8,22 @@
 /// Throws an [ArgumentError] when [values] is empty or [percent] is not
 /// between 1 and 100.
 T nearestRankPercentile<T extends num>(Iterable<T> values, int percent) {
+  return nearestRankOfSorted(values.toList()..sort(), percent);
+}
+
+/// The [percent]th percentile of [sorted], by the nearest-rank method.
+///
+/// Same as [nearestRankPercentile], for values already sorted in ascending
+/// order, so a caller can sort once and read several percentiles.
+///
+/// Throws an [ArgumentError] when [sorted] is empty or [percent] is not
+/// between 1 and 100.
+T nearestRankOfSorted<T extends num>(List<T> sorted, int percent) {
   if (percent < 1 || percent > 100) {
     throw RangeError.range(percent, 1, 100, 'percent');
   }
-  final sorted = values.toList()..sort();
   if (sorted.isEmpty) {
-    throw ArgumentError.value(values, 'values', 'must not be empty');
+    throw ArgumentError.value(sorted, 'sorted', 'must not be empty');
   }
   final rank = (percent * sorted.length + 99) ~/ 100;
   return sorted[rank - 1];

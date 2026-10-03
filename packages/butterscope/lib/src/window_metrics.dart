@@ -1,6 +1,7 @@
 import 'package:butterscope/src/classified_frame.dart';
 import 'package:butterscope/src/frame_budget.dart';
 import 'package:butterscope/src/frame_sample.dart';
+import 'package:butterscope/src/missed_vsyncs.dart';
 import 'package:butterscope/src/percentile.dart';
 import 'package:butterscope/src/refresh_rate.dart';
 
@@ -14,7 +15,16 @@ final class WindowMetrics {
   /// Computes the metrics for [frames], in frame order, against [budget].
   factory of(List<FrameSample> frames, FrameBudget budget) {
     final judged = [for (final frame in frames) ClassifiedFrame(frame, budget)];
-    int count(bool Function(ClassifiedFrame) test) => judged.where(test).length;
+    final classes = [for (final frame in judged) frame.frameClass];
+    final threads = [for (final frame in judged) frame.thread];
+
+    int countAtLeast(FrameClass floor) {
+      return classes.where((c) => c.isAtLeast(floor)).length;
+    }
+
+    int countOn(JankThread thread) {
+      return threads.where((t) => t == thread).length;
+    }
 
     var hitchMicros = 0.0;
     for (final frame in judged) {
@@ -22,18 +32,20 @@ final class WindowMetrics {
     }
     final hitchMillis = hitchMicros / Duration.microsecondsPerMillisecond;
 
-    final uis = [for (final frame in judged) frame.uiMultiple];
-    final rasters = [for (final frame in judged) frame.rasterMultiple];
+    // Sorted once; every percentile reads from these.
+    final uis = [for (final frame in judged) frame.uiMultiple]..sort();
+    final rasters = [for (final frame in judged) frame.rasterMultiple]..sort();
 
     return WindowMetrics._(
       budget: budget,
       frameCount: frames.length,
-      jankyCount: count((f) => f.frameClass.isAtLeast(FrameClass.janky)),
-      severeCount: count((f) => f.frameClass.isAtLeast(FrameClass.severe)),
-      stallCount: count((f) => f.frameClass.isAtLeast(FrameClass.stall)),
-      uiJankyCount: count((f) => f.thread == JankThread.ui),
-      rasterJankyCount: count((f) => f.thread == JankThread.raster),
-      bothJankyCount: count((f) => f.thread == JankThread.both),
+      jankyCount: countAtLeast(FrameClass.janky),
+      severeCount: countAtLeast(FrameClass.severe),
+      stallCount: countAtLeast(FrameClass.stall),
+      uiJankyCount: countOn(JankThread.ui),
+      rasterJankyCount: countOn(JankThread.raster),
+      bothJankyCount: countOn(JankThread.both),
+      missedVsyncCount: countMissedVsyncs(frames, budget),
       uiP90: _percentile(uis, 90),
       uiP99: _percentile(uis, 99),
       worstUi: _percentile(uis, 100),
@@ -55,6 +67,7 @@ final class WindowMetrics {
     required this.uiJankyCount,
     required this.rasterJankyCount,
     required this.bothJankyCount,
+    required this.missedVsyncCount,
     required this.uiP90,
     required this.uiP99,
     required this.worstUi,
@@ -90,6 +103,15 @@ final class WindowMetrics {
   /// Janky frames that were late on both threads.
   final int bothJankyCount;
 
+  /// Vsyncs that passed with no frame between the window's frames. See
+  /// [countMissedVsyncs].
+  ///
+  /// Catches what per-frame times cannot: work queued on the UI thread
+  /// before a frame was requested delays the request itself, so the next
+  /// frame starts on time and looks smooth, and only the missing frames
+  /// show.
+  final int missedVsyncCount;
+
   /// The 90th percentile UI time (wait plus build), as a multiple of the
   /// budget.
   final double? uiP90;
@@ -114,16 +136,15 @@ final class WindowMetrics {
   final double hitchMillis;
 
   /// Time spent drawing in milliseconds: frame count × budget plus
-  /// [hitchMillis]. Idle time between frames is not included.
+  /// [hitchMillis]. During a test frames run back to back, so this is close
+  /// to the window's wall-clock length.
   final double renderingMillis;
 
   /// The most common frame interval in the window, as a rate in hertz, or
   /// `null` when it cannot be observed. See [observeRefreshRate].
   ///
-  /// A diagnostic. It equals the screen's refresh rate only while frames run
-  /// back to back; when frames are drawn on demand it follows the data, for
-  /// example 30 Hz for updates every 33 ms. The refresh-rate guard uses the
-  /// rate observed on the calibration animation instead.
+  /// It equals the screen's refresh rate while frames run back to back,
+  /// which they always do during a test under `benchmarkLive`.
   final double? observedRefreshRate;
 
   /// Janky frames as a share of all frames, from 0 to 1.
@@ -131,10 +152,9 @@ final class WindowMetrics {
 
   /// Milliseconds of lateness per second of rendering: the headline metric.
   ///
-  /// Compare it with the same flow's baseline. Apple's 5 ms/s threshold
-  /// assumes frames run back to back; when frames are sparse, rendering time
-  /// is short and the ratio reads higher, so absolute budgets are set per
-  /// flow.
+  /// Compare it with the same flow's baseline. During a test, idle time in
+  /// the window still produces frames, which dilute the ratio; the hitch
+  /// time and the counts are not diluted.
   double? get hitchRatio {
     if (renderingMillis == 0) return null;
     return hitchMillis * Duration.millisecondsPerSecond / renderingMillis;
@@ -152,7 +172,7 @@ final class WindowMetrics {
 
   double? _share(int count) => frameCount == 0 ? null : count / frameCount;
 
-  static double? _percentile(List<double> values, int percent) {
-    return values.isEmpty ? null : nearestRankPercentile(values, percent);
+  static double? _percentile(List<double> sorted, int percent) {
+    return sorted.isEmpty ? null : nearestRankOfSorted(sorted, percent);
   }
 }

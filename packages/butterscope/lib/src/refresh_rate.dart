@@ -11,11 +11,11 @@ const double _tolerance = 0.05;
 
 /// The refresh rate [frames] were actually drawn at, in hertz.
 ///
-/// Only meaningful while frames run back to back, as in an animation or a
-/// scroll. Flutter draws a frame only when one is requested, so for frames
-/// drawn on demand the result follows the requests: updates every 33 ms
-/// read as 30 Hz on any screen. The refresh-rate guard therefore uses the
-/// rate observed on the calibration animation.
+/// Only meaningful while frames run back to back. Under the
+/// `benchmarkLive` frame policy that Butterscope sets, the test binding
+/// requests a new frame after every frame, so they always do during a test.
+/// Outside a test, Flutter draws a frame only when one is requested, and the
+/// result follows the requests: updates every 33 ms read as 30 Hz.
 ///
 /// Uses the gap from each smooth frame's vsync to the next frame's, in the
 /// order of [frames]. A janky frame pushes the next vsync back by whole
@@ -57,6 +57,6 @@ double? observeRefreshRate(List<FrameSample> frames, FrameBudget budget) {
     }
   }
 
-  final interval = nearestRankPercentile(gaps.sublist(bestLow, bestHigh), 50);
+  final interval = nearestRankOfSorted(gaps.sublist(bestLow, bestHigh), 50);
   return Duration.microsecondsPerSecond / interval;
 }

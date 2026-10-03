@@ -12,27 +12,34 @@ engine raised more edges the design did not pin down: what happens at exactly
 the budget, whether the frame classes nest on every screen, how the observed
 refresh rate tolerates timestamp jitter, and what an empty window reports.
 
-Reviewing the engine against the Flutter 3.47.5 sources found three wrong
-assumptions in the first draft:
+Two reviews against the Flutter 3.47.5 sources then found how frames are
+really produced during a test:
 
-- **UI-thread work outside the frame was invisible.** The engine records a
-  frame's vsync time when the signal arrives, then posts the frame to the UI
-  thread (`shell/common/vsync_waiter.cc`); building starts only when the UI
-  thread picks it up (`Animator::BeginFrame` in `shell/common/animator.cc`).
-  Work that keeps the UI thread busy, such as a stream listener decoding a
-  message, a timer or a platform message handler, lands in `vsyncOverhead`,
-  not in `buildDuration`. Judging the UI thread on build time alone counted
-  such frames as smooth.
-- **The observed refresh rate assumed frames run back to back.** Flutter
-  draws a frame only when one is requested, and the `benchmarkLive` policy
-  keeps it that way. When frames follow data, such as price updates every
-  33 ms, the gaps follow the data.
-- **Apple's 5 ms/s threshold does not transfer to sparse frames**, because
-  rendering time is short when frames are few.
+- **Frames run back to back for the whole test.** Under the `benchmarkLive`
+  policy, the live test binding draws every frame and requests the next one
+  as soon as each finishes, and `pump` only waits
+  (`packages/flutter_test/lib/src/binding.dart`, `handleBeginFrame`,
+  `handleDrawFrame`, `pump`). Every vsync should produce a frame, including
+  while nothing changes on screen.
+- **UI-thread work outside the frame shows up in two places.** The engine
+  records a frame's vsync time when the signal arrives and posts the frame
+  to the UI thread (`engine/src/flutter/shell/common/vsync_waiter.cc`);
+  building starts only when the UI thread picks it up
+  (`Animator::BeginFrame` in `shell/common/animator.cc`). Work that starts
+  after the frame was requested, such as a stream listener decoding a
+  message, lands in `vsyncOverhead`, not in `buildDuration`. Work already
+  queued when the next frame is requested delays the request itself
+  (`Animator::RequestFrame` posts it as a UI task), so the next frame starts
+  on time and the cost shows only as vsyncs with no frame.
+- **A slow raster thread also costs frames.** When the two-frame pipeline is
+  full, `Animator::BeginFrame` skips the frame and tries again at the next
+  vsync.
+- **Raster time stops at the GPU.** The rasterizer records its finish after
+  handing the frame over; GPU execution is not in it.
 
 These definitions decide every number a baseline holds. Changing one later
 invalidates the baselines recorded under it, so they are settled before any
-device data exists.
+device data exists, except where marked open.
 
 ## Decision
 
@@ -46,36 +53,38 @@ device data exists.
    between the UI and raster threads, and does not apply here. A negative
    wait counts as none.
 
-2. **Rendering time is the hitch ratio's denominator.**
+2. **Missed vsyncs count the frames that never happened.** Because every
+   vsync should produce a frame during a test, a gap of `k` intervals
+   between consecutive frames' `vsyncStart` means `k − 1` vsyncs passed with
+   no frame. Each gap is rounded to whole intervals of `B`; gaps of zero or
+   less are ignored; long gaps count in full, because during a test they
+   are freezes. This catches UI work queued before a frame was requested,
+   which per-frame times miss, and frames skipped while the raster pipeline
+   was full.
+
+3. **Rendering time is the hitch ratio's denominator.**
 
    `rendering time = frame count × B + Σ positive overrun`
 
    `hitch ratio = Σ positive overrun (ms) ÷ rendering time (s)`
 
-   Time with no frames, such as a test waiting on a fake or between gestures,
-   adds nothing. The ratio is always below 1000 ms/s. It is for comparing a
-   flow with its own baseline. When frames run back to back, rendering time
-   is close to wall-clock time and Apple's 5 ms/s reading applies; when
-   frames are sparse it reads higher (ten updates a second for 10 s at
-   120 Hz is under 1 s of rendering, so one 50 ms hitch reads about
-   57 ms/s). Absolute budgets are therefore set per flow from M8's data.
+   It is defined from the frames alone, so it needs no second clock and
+   does not depend on where a window's boundaries fall between frames.
+   Because frames run back to back during a test, it is close to the
+   window's wall-clock length. Idle time inside a window therefore adds
+   smooth frames, which dilute the hitch ratio, the janky rate and the p90
+   and p99 values. The hitch time, the counts, the worst values and the
+   missed vsyncs are not diluted. Spans should wrap the flow tightly, and
+   absolute budgets are set per flow from M8's data. **(open, M2: whether
+   the hitch time also adds missed vsyncs. M2 measures both on the phones
+   before the hitch ratio is frozen.)**
 
-   Considered and rejected:
-
-   - The span's wall-clock duration. Idle time varies between runs of the
-     same test and dilutes a regression: a 30 ms hitch reads 15 ms/s in a
-     2 s span and 60 ms/s in the 0.5 s it actually played.
-   - First `vsyncStart` to last `rasterFinish`. Still counts idle gaps
-     between bursts of frames.
-   - The sum of episode durations. Depends on the idle-gap threshold, which
-     M8 tunes, so the metric would move when that tuning changes.
-
-3. **Percentiles use nearest rank.** `p` is a whole number from 1 to 100.
+4. **Percentiles use nearest rank.** `p` is a whole number from 1 to 100.
    Sort the values ascending and take rank `⌈p × n ÷ 100⌉`, counting from 1,
    computed in integers. The result is always one of the values. The worst
    value is p100.
 
-4. **Frame classes nest by construction and use these edges**, with
+5. **Frame classes nest by construction and use these edges**, with
    `slowest = max(UI time, raster time)`:
 
    | Class | Rule |
@@ -90,55 +99,56 @@ device data exists.
    stall rule is the same as the design's. The thread tag compares UI time
    and raster time with `B` separately.
 
-5. **Observed refresh rate is the mode of the vsync gaps after smooth
-   frames, with a tolerance, and the guard reads it only from the
-   calibration animation.** Take the gap from each smooth frame's
+6. **Observed refresh rate is the mode of the vsync gaps after smooth
+   frames, with a tolerance.** Take the gap from each smooth frame's
    `vsyncStart` to the next reported frame's, in the order the frames were
    reported (not by `frameNumber`). A janky frame pushes the next vsync back
    by whole intervals, so the gap after it is left out. Ignore gaps of zero
-   or less and gaps of 100 ms or more (rendering paused). For each gap `g`,
-   its group is every gap from `0.95 g` to `1.05 g`, both edges included.
-   The largest group wins, ties going to the shorter `g`. The interval is
-   the nearest-rank median of that group, and the rate is
-   `1 000 000 ÷ interval` hertz. With no usable gap, there is no observed
-   rate. The tolerance absorbs timestamp jitter; 5% keeps 120 Hz and 144 Hz
-   (8.33 ms and 6.94 ms, 20% apart) distinct.
+   or less and gaps of 100 ms or more. For each gap `g`, its group is every
+   gap from `0.95 g` to `1.05 g`, both edges included. The largest group
+   wins, ties going to the shorter `g`. The interval is the nearest-rank
+   median of that group, and the rate is `1 000 000 ÷ interval` hertz. With
+   no usable gap, there is no observed rate. The tolerance absorbs timestamp
+   jitter; 5% keeps 120 Hz and 144 Hz (8.33 ms and 6.94 ms, 20% apart)
+   distinct.
 
-   This equals the screen's rate only while frames run back to back. The
-   refresh-rate guard therefore compares the declared rate with the rate
-   observed on the calibration animation (M2), which runs continuously at
-   the start of every run. The rate observed in a span or episode is a
-   diagnostic.
+   Frames run back to back during a test, so this is the screen's rate in
+   every window, and the refresh-rate guard checks it per span; a rate that
+   drops part-way through a run is caught where it drops. Outside a test,
+   frames are drawn on demand and this follows the requests instead.
 
-6. **A refresh rate must be positive and finite.** A screen can report 0
+7. **A refresh rate must be positive and finite.** A screen can report 0
    when its rate is not known. The recorder checks the declared rate first
    and makes the run `INVALID` with a named reason, rather than crashing.
 
-7. **Raster time is the raster thread's time up to handing the frame to the
-   GPU.** GPU execution is not in it, so GPU-bound work may show up only
-   indirectly, on a later frame. **(open, M8: a GPU-bound plant shows
+8. **Raster time is the raster thread's time up to handing the frame to the
+   GPU.** GPU-bound work may show up only indirectly, as raster time on a
+   later frame or as missed vsyncs. **(open, M8: a GPU-bound plant shows
    whether it is caught on both phones.)**
 
-8. **Units.** Times are kept in microseconds, as `FrameTiming` reports them.
+9. **Units.** Times are kept in microseconds, as `FrameTiming` reports them.
    The budget is fractional (16 666.67 µs at 60 Hz). Results are reported in
    milliseconds, milliseconds per second, multiples of `B` and hertz.
 
-9. **Empty windows.** Counts are 0. Rates, percentiles, the worst UI and
-   raster times, the hitch ratio and the observed refresh rate have no
-   value: they are undefined, not zero.
+10. **Empty windows.** Counts, including missed vsyncs, are 0. Rates,
+    percentiles, the worst UI and raster times, the hitch ratio and the
+    observed refresh rate have no value: they are undefined, not zero.
 
 ## Consequences
 
-- Jank from work outside the frame, the common case when messages are
-  decoded on the UI isolate, is caught and tagged `ui`. M4's `sync_decode`
-  plant decodes in a stream listener to prove it, and M2 checks that the
-  normal wait on both phones is well under `B`.
-- A test that waits longer, or less, between gestures gets the same hitch
-  ratio, as long as the frames are the same.
+- UI-thread jank is caught whichever way it lands: as UI time when the work
+  starts after the frame was requested, as missed vsyncs when it was
+  already queued. M4's `sync_decode` plant decodes in a stream listener, and
+  M2 and M8 confirm both paths on both phones; iOS reports the vsync time
+  from `CADisplayLink`, which is not yet verified for this.
+- Test code runs on the same UI thread. Finders, expectations and gesture
+  dispatch inside a span can cost frames and are counted as the app's.
+  **(open, M5: measure the harness's cost and keep test steps outside
+  spans where possible.)**
+- Episodes cannot be split on gaps with no frames, because frames never
+  pause during a test. **(open, M5: split on activity instead.)**
 - A flow that renders fewer frames with the same hitches gets a higher hitch
   ratio. The frame count is reported beside it to explain that.
-- Flows that draw on demand cannot make a run `INVALID` through the
-  refresh-rate guard, because the guard reads the calibration animation.
 - A run where most frames are janky still reads the screen's real rate from
   its smooth frames, and a screen that really runs slower than declared is
   still caught, because its smooth frames are spaced at its real interval.

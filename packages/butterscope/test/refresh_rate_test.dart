@@ -87,8 +87,9 @@ void main() {
     });
 
     test('follows the requests when frames are drawn on demand', () {
-      // Updates every 33 ms on a 120 Hz screen: the window reads 30 Hz. This
-      // is why the refresh-rate guard uses the calibration animation.
+      // Outside a test, updates every 33 ms on a 120 Hz screen read 30 Hz.
+      // Under benchmarkLive frames run back to back, so this cannot happen
+      // during a run.
       final frames = framesWithGaps(List.filled(50, 33333));
       expect(observeRefreshRate(frames, FrameBudget(120)), closeTo(30, 0.01));
     });

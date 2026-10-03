@@ -106,7 +106,26 @@ void main() {
       expect(metrics.worstRaster, isNull);
       expect(metrics.hitchRatio, isNull);
       expect(metrics.observedRefreshRate, isNull);
+      expect(metrics.missedVsyncCount, 0);
     });
+  });
+
+  test('counts frames lost to UI work queued before the frame request', () {
+    // At 120 Hz, a 33 ms decode runs before the next frame is requested.
+    // Every frame starts on time and looks smooth, but three vsyncs pass
+    // with no frame.
+    const vsyncs = [0, 8333, 16667, 50000, 58333];
+    final frames = [
+      for (final vsync in vsyncs)
+        FrameSample(
+          vsyncStartMicros: vsync,
+          buildMicros: 2000,
+          rasterMicros: 1000,
+        ),
+    ];
+    final metrics = WindowMetrics.of(frames, FrameBudget(120));
+    expect(metrics.jankyCount, 0);
+    expect(metrics.missedVsyncCount, 3);
   });
 
   test('counts each janky frame under exactly one thread', () {
@@ -198,7 +217,7 @@ void main() {
     }
   });
 
-  test('idle time between frames does not change the hitch ratio', () {
+  test('the hitch ratio depends only on the frames', () {
     final idleFrames = samples(tenFrames, gapMicros: 500000);
     final busy = WindowMetrics.of(samples(tenFrames), budget);
     final idle = WindowMetrics.of(idleFrames, budget);
