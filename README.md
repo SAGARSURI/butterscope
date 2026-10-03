@@ -62,8 +62,9 @@ melos test                # every package with a test folder
 ```
 
 `check:changed` analyzes and tests the packages changed since the branch left
-`origin/main` (uncommitted edits included) and every package that depends on
-them, using Melos's `--diff` and `--include-dependents` filters. A change to
+`origin/main` and every package that depends on them, using Melos's `--diff`
+and `--include-dependents` filters. Uncommitted edits count, staged or not; a
+new file counts once it is staged with `git add`. A change to
 a file every package shares, such as the root `pubspec.yaml` or
 `analysis_options.yaml`, checks every package instead. CI always checks every
 package.
