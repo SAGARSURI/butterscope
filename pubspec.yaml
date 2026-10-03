@@ -4,8 +4,11 @@ publish_to: none
 environment:
   sdk: ^3.13.0
 
-# The shared analysis_options.yaml at this root includes it.
 dev_dependencies:
+  # Pins Melos for everyone and for CI: a globally activated Melos hands over
+  # to this version.
+  melos: ^8.9.0
+  # The shared analysis_options.yaml at this root includes it.
   very_good_analysis: ^11.0.0
 
 workspace:
@@ -13,3 +16,39 @@ workspace:
   - packages/butterscope_test
   - tools/butterscope_cli
   - apps/sample
+
+# Melos runs the workspace: `melos bootstrap`, `melos analyze`,
+# `melos format`, `melos test`, and the scripts below with `melos run`.
+melos:
+  # The Flutter version pinned in .fvmrc; `fvm use` creates this link. CI
+  # sets MELOS_SDK_PATH=auto to use the SDK it installed instead.
+  sdkPath: .fvm/flutter_sdk
+
+  command:
+    bootstrap:
+      # Versions every package shares, kept in one place. Bootstrap writes
+      # them into each package that declares them, and CI fails when that
+      # changes a file, so a package cannot drift.
+      environment:
+        sdk: ^3.13.0
+        flutter: ">=3.47.5"
+      dev_dependencies:
+        very_good_analysis: ^11.0.0
+
+  scripts:
+    check:
+      description: The host checks CI runs. Formats, analyzes and tests every package.
+      steps:
+        - format --set-exit-if-changed
+        - analyze
+        - test
+
+    test:ci:
+      description: CI only. Tests each package with a JSON report, so failures are annotated on the test that failed.
+      exec:
+        command: $MELOS_ROOT_PATH/tool/ci/test_package.sh
+        # One at a time keeps each package's output whole and unprefixed,
+        # which GitHub needs to read the annotations.
+        concurrency: 1
+      packageFilters:
+        dirExists: test

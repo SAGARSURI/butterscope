@@ -36,13 +36,33 @@ The full set of rules is in [docs/DESIGN.md](docs/DESIGN.md).
 ## Toolchain
 
 Flutter is pinned in [`.fvmrc`](.fvmrc) and managed with
-[FVM](https://fvm.app). CI reads the same file.
+[FVM](https://fvm.app). CI reads the same file. The repo is a
+[pub workspace](https://dart.dev/tools/pub/workspaces) run with
+[Melos](https://melos.invertase.dev), configured in the root `pubspec.yaml`.
+
+Once per clone:
 
 ```sh
-fvm install
-fvm flutter pub get
-fvm flutter analyze
+fvm use                              # the pinned Flutter, linked at .fvm/flutter_sdk
+fvm dart pub global activate melos   # once per machine; needs ~/.pub-cache/bin on PATH
+melos bootstrap                      # resolves every package
 ```
 
-The repo is a [pub workspace](https://dart.dev/tools/pub/workspaces): one
-`pub get` at the root resolves every package.
+Day to day:
+
+```sh
+melos run check   # what CI checks: format, analyze and test
+melos analyze     # every package, infos included
+melos format      # every package
+melos test        # every package with a test folder
+```
+
+- Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
+  pinned Flutter. The global Melos hands over to the version pinned in the
+  root `pubspec.yaml`.
+- Versions every package shares (the Dart and Flutter constraints,
+  `very_good_analysis`) are set once, under `melos: command: bootstrap:` in
+  the root `pubspec.yaml`. Change them there and run `melos bootstrap`, which
+  writes them into each package. CI fails if a package disagrees.
+- `.fvmrc` turns off FVM's own Melos integration (`updateMelosSettings`): it
+  writes the SDK path to a `melos.yaml`, which Melos 8 no longer reads.
