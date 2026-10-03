@@ -1,0 +1,18 @@
+# Dart and Flutter
+.dart_tool/
+.packages
+build/
+*.iml
+.idea/
+.vscode/
+.flutter-plugins
+.flutter-plugins-dependencies
+
+# FVM: the SDK symlink and cache; .fvmrc is committed
+.fvm/
+
+# Butterscope run output (collected reports, local baselines)
+.butterscope/
+
+# OS
+.DS_Store
