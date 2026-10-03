@@ -1,0 +1,19 @@
+name: butterscope_test
+description: Attaches Butterscope to Flutter integration tests with one line.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+  flutter: ">=3.47.5"
+
+dependencies:
+  butterscope:
+    path: ../butterscope
+  flutter:
+    sdk: flutter
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter

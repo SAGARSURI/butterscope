@@ -1,0 +1,11 @@
+name: butterscope_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+workspace:
+  - packages/butterscope
+  - packages/butterscope_test
+  - tools/butterscope_cli
+  - apps/sample
