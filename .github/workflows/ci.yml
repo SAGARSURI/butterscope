@@ -46,10 +46,13 @@ jobs:
               title="Changed by flutter pub get"
               body=$(git diff -- "$file" | tool/ci/escape.sh)
             else
+              # GitHub cuts an annotation at about 4 KB: show the start
+              # there and the whole file in the job log.
               title="Created by flutter pub get"
-              body=$(head -c 60000 "$file" | tool/ci/escape.sh)
+              echo "::group::$file"; cat "$file"; echo "::endgroup::"
+              body=$(head -c 3000 "$file" | tool/ci/escape.sh)
             fi
-            echo "::error file=$file,title=$title::Commit this file, or ignore it if it is generated.%0A%0A$body"
+            echo "::error file=$file,title=$title::Commit this file, or ignore it if it is generated. The first 3 KB:%0A%0A$body"
           done
           exit 1
 

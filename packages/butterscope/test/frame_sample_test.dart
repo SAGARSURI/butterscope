@@ -18,6 +18,7 @@ void main() {
     );
 
     expect(sample.vsyncStartMicros, 1000);
+    expect(sample.vsyncOverheadMicros, 500);
     expect(sample.buildMicros, 8000);
     expect(sample.rasterMicros, 6000);
     expect(sample.frameNumber, 7);

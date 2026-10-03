@@ -51,8 +51,8 @@ void main() {
       expect(metrics.stallCount, 1);
     });
 
-    test('has a worst build of 17.0 B', () {
-      expect(metrics.worstBuild, closeTo(17, 0.05));
+    test('has a worst UI time of 17.0 B', () {
+      expect(metrics.worstUi, closeTo(17, 0.05));
     });
 
     test('splits janky frames by thread', () {
@@ -65,8 +65,8 @@ void main() {
     });
 
     test('reports percentiles as multiples of B', () {
-      expect(metrics.buildP90, closeTo(2.4, 0.001));
-      expect(metrics.buildP99, closeTo(17, 0.001));
+      expect(metrics.uiP90, closeTo(2.4, 0.001));
+      expect(metrics.uiP99, closeTo(17, 0.001));
       expect(metrics.rasterP90, closeTo(0.72, 0.001));
       expect(metrics.rasterP99, closeTo(1.32, 0.001));
       expect(metrics.worstRaster, closeTo(1.32, 0.001));
@@ -98,9 +98,9 @@ void main() {
     test('has no rates, percentiles or hitch ratio', () {
       expect(metrics.jankyRate, isNull);
       expect(metrics.jankyRateOn(JankThread.ui), isNull);
-      expect(metrics.buildP90, isNull);
-      expect(metrics.buildP99, isNull);
-      expect(metrics.worstBuild, isNull);
+      expect(metrics.uiP90, isNull);
+      expect(metrics.uiP99, isNull);
+      expect(metrics.worstUi, isNull);
       expect(metrics.rasterP90, isNull);
       expect(metrics.rasterP99, isNull);
       expect(metrics.worstRaster, isNull);
@@ -123,13 +123,28 @@ void main() {
     expect(metrics.jankyRateOn(JankThread.both), 0.25);
   });
 
+  test('counts a frame that waited for the UI thread as UI lateness', () {
+    // At 60 Hz, a 30 ms wait (work outside the frame) before a 2 ms build.
+    const waited = FrameSample(
+      vsyncStartMicros: 0,
+      buildMicros: 2000,
+      rasterMicros: 2000,
+      vsyncOverheadMicros: 30000,
+    );
+    final metrics = WindowMetrics.of(const [waited], budget);
+    expect(metrics.jankyCount, 1);
+    expect(metrics.uiJankyCount, 1);
+    expect(metrics.worstUi, closeTo(1.92, 0.001));
+    expect(metrics.hitchMillis, closeTo(15.333, 0.001));
+  });
+
   test('one smooth frame', () {
     final metrics = WindowMetrics.of(samples(const [(8000, 4000)]), budget);
     expect(metrics.frameCount, 1);
     expect(metrics.jankyRate, 0);
-    expect(metrics.buildP90, closeTo(0.48, 0.001));
-    expect(metrics.buildP99, closeTo(0.48, 0.001));
-    expect(metrics.worstBuild, closeTo(0.48, 0.001));
+    expect(metrics.uiP90, closeTo(0.48, 0.001));
+    expect(metrics.uiP99, closeTo(0.48, 0.001));
+    expect(metrics.worstUi, closeTo(0.48, 0.001));
     expect(metrics.hitchRatio, 0);
     expect(metrics.observedRefreshRate, isNull);
   });
@@ -167,7 +182,7 @@ void main() {
         expect(metrics.jankyCount, 0);
         expect(metrics.jankyRate, 0);
         expect(metrics.hitchRatio, 0);
-        expect(metrics.worstBuild, closeTo(0.9, 0.001));
+        expect(metrics.worstUi, closeTo(0.9, 0.001));
       });
 
       test('$rate Hz, all stalls', () {

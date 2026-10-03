@@ -40,9 +40,9 @@ any app-specific code (for example a fake socket client).
 | Term | Meaning |
 | --- | --- |
 | **B** | Frame budget in ms: `1000 / refreshRate`. 16.67 at 60 Hz, 8.33 at 120 Hz. |
-| **Build time** | `FrameTiming.buildDuration`: UI thread work for one frame. |
-| **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame. |
-| **Overrun** | `max(build, raster) − B`. Positive means the frame was late. |
+| **UI time** | `FrameTiming.vsyncOverhead + buildDuration`: the wait for the UI thread after the vsync, plus building the frame. Work outside the frame, such as a stream listener or a timer, shows up in the wait. |
+| **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame, up to handing it to the GPU. |
+| **Overrun** | `max(UI, raster) − B`. Positive means the frame was late. |
 | **Hitch ratio** | Total positive overrun (ms) per second of rendering in a span or episode. |
 | **Rendering time** | Frame count × `B` plus the total positive overrun: the time spent drawing, without idle time. |
 | **Episode** | A continuous burst of frames, split automatically by idle gaps. |
@@ -88,27 +88,42 @@ every severe frame is janky.
 
 | Class | Rule | Why |
 | --- | --- | --- |
-| Smooth | `build ≤ B` and `raster ≤ B` | |
-| Janky | `build > B` or `raster > B` | At least one vsync was missed. |
-| Severe | `max(build, raster) > 2B` | Several vsyncs missed: a visible hitch. |
-| Stall | Severe, and `max(build, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
+| Smooth | `UI ≤ B` and `raster ≤ B` | |
+| Janky | `UI > B` or `raster > B` | At least one vsync was missed. |
+| Severe | `max(UI, raster) > 2B` | Several vsyncs missed: a visible hitch. |
+| Stall | Severe, and `max(UI, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
 
 **Thread tag.** Each janky frame is tagged `ui`, `raster` or `both`. This is
-the first fork of Flutter's own triage advice: UI time is Dart work;
-raster-only time is rendering cost (`saveLayer`, clips, shadows, opacity).
+the first fork of Flutter's own triage advice: UI time is Dart work, in the
+frame or keeping it waiting; raster-only time is rendering cost (`saveLayer`,
+clips, shadows, opacity).
 
-**Not used for jank:** `totalSpan` (vsync to raster finish) and
-`vsyncOverhead`. The UI and raster threads are pipelined, so `totalSpan` can
-exceed `B` with no dropped frame. Both are kept as latency diagnostics.
+**Why UI time includes the wait.** The engine records the vsync when the
+signal arrives and starts building only when the UI thread is free, so work
+that keeps the UI thread busy delays the frame without appearing in
+`buildDuration`. The UI thread cannot start the next frame until this one is
+built, so UI time over `B` is a missed vsync whatever the cause.
+
+**Not used for jank:** `totalSpan` (vsync to raster finish). The UI and
+raster threads are pipelined, so `totalSpan` can exceed `B` with no dropped
+frame. It is kept as a latency diagnostic.
+
+**Raster time stops at the GPU.** GPU execution is not in `rasterDuration`,
+so GPU-bound work may show up only indirectly, on a later frame. **(open,
+M8: a GPU-bound plant shows whether it is caught.)**
 
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
 
 **Observed refresh rate** = the most common gap from a smooth frame's
 `vsyncStart` to the next frame's, grouping each gap with those within ±5% of
-it and ignoring gaps of 100 ms or more as pauses. A janky frame pushes the next vsync back
-by whole intervals, so the gap after it is left out and the mode is used, not
-the mean ([0001](decisions/0001-metric-definitions.md)).
+it and ignoring gaps of 100 ms or more as pauses. A janky frame pushes the
+next vsync back by whole intervals, so the gap after it is left out and the
+mode is used, not the mean. It equals the screen's rate only while frames run
+back to back: Flutter draws on demand, so updates every 33 ms read as 30 Hz.
+The refresh-rate guard therefore reads it from the calibration animation at
+the start of each run; in a span it is a diagnostic
+([0001](decisions/0001-metric-definitions.md)).
 
 ## 5. Metrics
 
@@ -119,13 +134,13 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 
 | Metric | Definition |
 | --- | --- |
-| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Starting budget: **5 ms/s**, Apple's threshold for a good experience. |
+| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Apple's 5 ms/s threshold assumes frames run back to back, so absolute budgets are set per flow from M8's data. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
-| p90, p99 build | As multiples of `B`. |
+| p90, p99 UI | As multiples of `B`. |
 | p90, p99 raster | As multiples of `B`. |
-| Worst build, worst raster | As multiples of `B`. |
+| Worst UI, worst raster | As multiples of `B`. |
 | Frame count | Secondary: explains changes in the others (fewer trivial frames can make averages worse). |
 
 **Percentiles** use the nearest-rank method, rank `⌈p × n ÷ 100⌉` of the
@@ -137,9 +152,11 @@ window has counts of 0 and no value for rates, percentiles or the hitch ratio
 
 ### Diagnostic metrics (recorded, never gated)
 
-- Averages of build and raster time.
-- p90 and p99 of `vsyncOverhead` and `totalSpan` (latency, for example
-  tick-to-pixel on a live price screen).
+- Averages of UI, build and raster time.
+- p90 and p99 of `vsyncOverhead` (the wait for the UI thread, to tell it
+  apart from build time) and `totalSpan` (latency, for example tick-to-pixel
+  on a live price screen).
+- The observed refresh rate of each span and episode.
 - Raster cache counts and bytes from `FrameTiming` (`layerCacheCount`,
   `layerCacheBytes`, `pictureCacheCount`, `pictureCacheBytes`).
 - Garbage-collection counts are **not** collected: they need the VM timeline.
@@ -200,7 +217,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | --- | --- | --- |
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`) vs observed (section 4) | Must match. |
+| Refresh rate | Declared (`Display.refreshRate`) vs observed on the calibration animation at the start of the run (section 4) | Must match. A declared rate that is 0 or not finite is `INVALID`. |
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
@@ -278,7 +295,8 @@ Designed in M9 from M8's measurements. These principles are fixed now:
 - Each flow is repeated; a change counts only when it is larger than the
   measured noise and statistically significant (the approach of Reassure and
   criterion.rs).
-- Absolute budgets exist at two levels, warn and error.
+- Absolute budgets exist at two levels, warn and error, set per flow from
+  M8's measurements.
 - A self-check compares `main` with `main` and must pass.
 - Unstable flows (section 6, item 7) are reported, not gated.
 

@@ -16,7 +16,14 @@ void main() {
 
     test('rejects a rate that is not positive and finite', () {
       for (final rate in <double>[0, -60, double.nan, double.infinity]) {
+        expect(FrameBudget.isValidRefreshRate(rate), isFalse);
         expect(() => FrameBudget(rate), throwsArgumentError);
+      }
+    });
+
+    test('accepts any positive, finite rate', () {
+      for (final rate in <double>[59.94, 60, 90, 120, 144]) {
+        expect(FrameBudget.isValidRefreshRate(rate), isTrue);
       }
     });
   });

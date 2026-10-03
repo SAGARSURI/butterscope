@@ -25,7 +25,8 @@ enum FrameClass {
 
 /// The thread that made a janky frame late.
 enum JankThread {
-  /// Only the UI thread, which runs Dart code, was over budget.
+  /// Only the UI thread, which runs Dart code, was over budget: building
+  /// the frame, or other work that kept the frame waiting to start.
   ui,
 
   /// Only the raster thread, which draws the frame, was over budget.
@@ -49,15 +50,27 @@ final class ClassifiedFrame {
   /// The budget it is judged against.
   final FrameBudget budget;
 
+  /// UI thread time in microseconds: the wait for the UI thread after the
+  /// vsync plus the build.
+  ///
+  /// The UI thread cannot start the next frame until this one is built, so
+  /// UI time over the budget means a vsync was missed, whatever caused the
+  /// wait. A negative wait, which a well-behaved engine never reports,
+  /// counts as none.
+  int get uiMicros {
+    final wait = math.max(0, sample.vsyncOverheadMicros);
+    return wait + sample.buildMicros;
+  }
+
   /// The slower thread's time in microseconds.
-  int get slowestMicros => math.max(sample.buildMicros, sample.rasterMicros);
+  int get slowestMicros => math.max(uiMicros, sample.rasterMicros);
 
   /// How late the frame was in microseconds: the slower thread's time minus
   /// the budget. Negative when the frame had time to spare.
   double get overrunMicros => slowestMicros - budget.micros;
 
-  /// The build time as a multiple of the budget.
-  double get buildMultiple => sample.buildMicros / budget.micros;
+  /// The UI time as a multiple of the budget.
+  double get uiMultiple => uiMicros / budget.micros;
 
   /// The raster time as a multiple of the budget.
   double get rasterMultiple => sample.rasterMicros / budget.micros;
@@ -74,7 +87,7 @@ final class ClassifiedFrame {
 
   /// The thread that was over budget, or `null` for a smooth frame.
   JankThread? get thread {
-    final uiLate = sample.buildMicros > budget.micros;
+    final uiLate = uiMicros > budget.micros;
     final rasterLate = sample.rasterMicros > budget.micros;
     if (uiLate && rasterLate) return JankThread.both;
     if (uiLate) return JankThread.ui;

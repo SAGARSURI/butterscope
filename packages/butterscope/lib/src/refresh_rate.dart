@@ -11,6 +11,12 @@ const double _tolerance = 0.05;
 
 /// The refresh rate [frames] were actually drawn at, in hertz.
 ///
+/// Only meaningful while frames run back to back, as in an animation or a
+/// scroll. Flutter draws a frame only when one is requested, so for frames
+/// drawn on demand the result follows the requests: updates every 33 ms
+/// read as 30 Hz on any screen. The refresh-rate guard therefore uses the
+/// rate observed on the calibration animation.
+///
 /// Uses the gap from each smooth frame's vsync to the next frame's, in the
 /// order of [frames]. A janky frame pushes the next vsync back by whole
 /// intervals, so the gap after it is left out. Gaps of zero or less, and

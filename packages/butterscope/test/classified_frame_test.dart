@@ -4,12 +4,17 @@ import 'package:flutter_test/flutter_test.dart';
 /// 125 Hz gives a budget of exactly 8000 µs, so every edge is exact.
 final FrameBudget budget = FrameBudget(125);
 
-ClassifiedFrame judge(int buildMicros, int rasterMicros) {
+ClassifiedFrame judge(
+  int buildMicros,
+  int rasterMicros, {
+  int waitMicros = 0,
+}) {
   return ClassifiedFrame(
     FrameSample(
       vsyncStartMicros: 0,
       buildMicros: buildMicros,
       rasterMicros: rasterMicros,
+      vsyncOverheadMicros: waitMicros,
     ),
     budget,
   );
@@ -86,7 +91,38 @@ void main() {
 
   test('multiples are relative to the budget', () {
     final frame = judge(12000, 4000);
-    expect(frame.buildMultiple, 1.5);
+    expect(frame.uiMultiple, 1.5);
     expect(frame.rasterMultiple, 0.5);
+  });
+
+  group('waiting for the UI thread', () {
+    test('counts as UI time', () {
+      // Neither the 5 ms wait nor the 5 ms build is over the 8 ms budget
+      // alone; together the UI thread missed the next vsync.
+      final frame = judge(5000, 2000, waitMicros: 5000);
+      expect(frame.uiMicros, 10000);
+      expect(frame.frameClass, FrameClass.janky);
+      expect(frame.thread, JankThread.ui);
+      expect(frame.overrunMicros, 2000);
+      expect(frame.uiMultiple, 1.25);
+    });
+
+    test('makes a frame severe when the UI thread was busy elsewhere', () {
+      // A 40 ms decode in a stream listener delays a 3 ms build.
+      final frame = judge(3000, 2000, waitMicros: 40000);
+      expect(frame.frameClass, FrameClass.severe);
+      expect(frame.thread, JankThread.ui);
+    });
+
+    test('of 100 ms or more makes a stall', () {
+      final frame = judge(1000, 1000, waitMicros: 100000);
+      expect(frame.frameClass, FrameClass.stall);
+    });
+
+    test('below zero counts as none', () {
+      final frame = judge(7000, 2000, waitMicros: -500);
+      expect(frame.uiMicros, 7000);
+      expect(frame.frameClass, FrameClass.smooth);
+    });
   });
 }

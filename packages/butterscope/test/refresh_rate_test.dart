@@ -86,6 +86,13 @@ void main() {
       expect(observeRefreshRate(frames, FrameBudget(60)), 100);
     });
 
+    test('follows the requests when frames are drawn on demand', () {
+      // Updates every 33 ms on a 120 Hz screen: the window reads 30 Hz. This
+      // is why the refresh-rate guard uses the calibration animation.
+      final frames = framesWithGaps(List.filled(50, 33333));
+      expect(observeRefreshRate(frames, FrameBudget(120)), closeTo(30, 0.01));
+    });
+
     test('gives ties to the shorter gap', () {
       final frames = framesWithGaps([10000, 10000, 20000, 20000]);
       expect(observeRefreshRate(frames, FrameBudget(60)), 100);

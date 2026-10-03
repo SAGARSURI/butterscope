@@ -22,7 +22,7 @@ final class WindowMetrics {
     }
     final hitchMillis = hitchMicros / Duration.microsecondsPerMillisecond;
 
-    final builds = [for (final frame in judged) frame.buildMultiple];
+    final uis = [for (final frame in judged) frame.uiMultiple];
     final rasters = [for (final frame in judged) frame.rasterMultiple];
 
     return WindowMetrics._(
@@ -34,9 +34,9 @@ final class WindowMetrics {
       uiJankyCount: count((f) => f.thread == JankThread.ui),
       rasterJankyCount: count((f) => f.thread == JankThread.raster),
       bothJankyCount: count((f) => f.thread == JankThread.both),
-      buildP90: _percentile(builds, 90),
-      buildP99: _percentile(builds, 99),
-      worstBuild: _percentile(builds, 100),
+      uiP90: _percentile(uis, 90),
+      uiP99: _percentile(uis, 99),
+      worstUi: _percentile(uis, 100),
       rasterP90: _percentile(rasters, 90),
       rasterP99: _percentile(rasters, 99),
       worstRaster: _percentile(rasters, 100),
@@ -55,9 +55,9 @@ final class WindowMetrics {
     required this.uiJankyCount,
     required this.rasterJankyCount,
     required this.bothJankyCount,
-    required this.buildP90,
-    required this.buildP99,
-    required this.worstBuild,
+    required this.uiP90,
+    required this.uiP99,
+    required this.worstUi,
     required this.rasterP90,
     required this.rasterP99,
     required this.worstRaster,
@@ -90,14 +90,16 @@ final class WindowMetrics {
   /// Janky frames that were late on both threads.
   final int bothJankyCount;
 
-  /// The 90th percentile build time, as a multiple of the budget.
-  final double? buildP90;
+  /// The 90th percentile UI time (wait plus build), as a multiple of the
+  /// budget.
+  final double? uiP90;
 
-  /// The 99th percentile build time, as a multiple of the budget.
-  final double? buildP99;
+  /// The 99th percentile UI time (wait plus build), as a multiple of the
+  /// budget.
+  final double? uiP99;
 
-  /// The longest build time, as a multiple of the budget.
-  final double? worstBuild;
+  /// The longest UI time (wait plus build), as a multiple of the budget.
+  final double? worstUi;
 
   /// The 90th percentile raster time, as a multiple of the budget.
   final double? rasterP90;
@@ -115,14 +117,24 @@ final class WindowMetrics {
   /// [hitchMillis]. Idle time between frames is not included.
   final double renderingMillis;
 
-  /// The refresh rate the frames were drawn at, in hertz, or `null` when it
-  /// cannot be observed. See [observeRefreshRate].
+  /// The most common frame interval in the window, as a rate in hertz, or
+  /// `null` when it cannot be observed. See [observeRefreshRate].
+  ///
+  /// A diagnostic. It equals the screen's refresh rate only while frames run
+  /// back to back; when frames are drawn on demand it follows the data, for
+  /// example 30 Hz for updates every 33 ms. The refresh-rate guard uses the
+  /// rate observed on the calibration animation instead.
   final double? observedRefreshRate;
 
   /// Janky frames as a share of all frames, from 0 to 1.
   double? get jankyRate => _share(jankyCount);
 
   /// Milliseconds of lateness per second of rendering: the headline metric.
+  ///
+  /// Compare it with the same flow's baseline. Apple's 5 ms/s threshold
+  /// assumes frames run back to back; when frames are sparse, rendering time
+  /// is short and the ratio reads higher, so absolute budgets are set per
+  /// flow.
   double? get hitchRatio {
     if (renderingMillis == 0) return null;
     return hitchMillis * Duration.millisecondsPerSecond / renderingMillis;
