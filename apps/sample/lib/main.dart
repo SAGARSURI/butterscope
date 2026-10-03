@@ -7,7 +7,7 @@ void main() {
 /// Placeholder until the calibration screen (M2) and sample screens (M4).
 class SampleApp extends StatelessWidget {
   /// Creates the sample app.
-  const SampleApp({super.key});
+  const new({super.key});
 
   @override
   Widget build(BuildContext context) {
