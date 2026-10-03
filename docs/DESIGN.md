@@ -126,12 +126,18 @@ reached the screen, so overrun approximates how late it was.
 **Observed refresh rate** = the most common gap from a smooth frame's
 `vsyncStart` to the next frame's, grouping each gap with those within ±5% of
 it and ignoring gaps of 100 ms or more, which are freezes, not refresh
-intervals. A janky frame pushes the
-next vsync back by whole intervals, so the gap after it is left out and the
-mode is used, not the mean. Under `benchmarkLive` frames run back to back for
-the whole test, so this is the screen's rate in every span, and the guard
-checks it per span. (Outside a test Flutter draws on demand, and the gaps
-follow the requests instead.) See
+intervals. A janky frame pushes the next vsync back by whole intervals, so
+the gap after it is left out and the mode is used, not the mean. Under
+`benchmarkLive` frames run back to back for the whole test, so this is the
+screen's rate throughout. The guard checks it in one-second slices of each
+span, because one mode over a whole span hides a drop in part of it
+(section 7.2). (Outside a test Flutter draws on demand, and the gaps follow
+the requests instead.)
+
+From frame timings alone, a screen at half its declared rate looks the same
+as an app that misses every other vsync, so a slice where the app does that
+throughout makes its span `INVALID`, not `FAIL`. **(open, M9: reporting one
+that repeats on the head and not on the base.)** See
 [0001](decisions/0001-metric-definitions.md).
 
 ## 5. Metrics
@@ -239,7 +245,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | --- | --- | --- |
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`, read per span) vs observed in each span (section 4) | Must match within 5%; a span that does not is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them. A declared rate that is 0 or not finite is `INVALID`. |
+| Refresh rate | Declared (`Display.refreshRate`, read at the start and end of each span) vs observed in each one-second slice of the span (section 4) | The two declared reads, and every slice with at least 10 qualifying gaps, must match within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them. A declared rate that is 0 or not finite is `INVALID`. **(open, M8: slice length and minimum.)** |
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
@@ -256,7 +262,8 @@ state at start, Flutter version and app commit (both passed with
 
 The refresh rate is not a run field. Each span records the declared rate it
 was measured at and its observed rate, because the declared rate is read per
-span and can change during a run.
+span and can change during a run. A change inside a span makes that span
+`INVALID` (section 7.2).
 
 Two runs are **comparable** only when every identity field except the app
 commit matches. Within comparable runs, spans are matched by name, and a

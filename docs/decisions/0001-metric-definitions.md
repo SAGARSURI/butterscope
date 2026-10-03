@@ -66,8 +66,8 @@ device data exists, except where marked open.
    that per-frame times miss, and frames skipped while the raster pipeline
    was full; the latter may overlap with raster overrun. It is also
    reported as time, count × `B`, so the same freeze reads alike on every
-   screen. The count assumes `B` is right: a span whose observed rate does
-   not match its declared rate is `INVALID` (decision 6).
+   screen. The count assumes `B` is right: a span that fails the
+   refresh-rate guard is `INVALID` (decision 6).
 
 3. **Rendering time is the hitch ratio's denominator.**
 
@@ -120,15 +120,27 @@ device data exists, except where marked open.
    jitter; 5% keeps 120 Hz and 144 Hz (8.33 ms and 6.94 ms, 20% apart)
    distinct.
 
-   Frames run back to back during a test, so this is the screen's rate in
-   every window. The declared rate is read at the start of each span,
-   because Android updates it when the display mode changes, and the
-   refresh-rate guard requires the two to match within 5% per span; a rate
-   that drops part-way through a run is caught where it drops. A span that
-   fails is `INVALID` and none of its metrics are used, since a wrong `B`
-   distorts all of them (at a real rate of two thirds of the declared one or
-   less, every gap reads as a missed vsync). Outside a test, frames are
-   drawn on demand and this follows the requests instead.
+   Frames run back to back during a test, so this is the screen's rate
+   throughout. The refresh-rate guard checks every span in two ways. A span
+   that fails either is `INVALID` and none of its metrics are used, since a
+   wrong `B` distorts all of them (at a real rate of two thirds of the
+   declared one or less, every gap reads as a missed vsync).
+
+   - **The declared rate is read at the start and at the end of the span**,
+     because Android updates it when the display mode changes. `B` comes
+     from the first read, and the two reads must match within 5%.
+   - **The observed rate must match in every part of the span**, not only
+     overall: a screen that drops from 120 Hz to 60 Hz for the last third
+     of a span still reads 120 Hz overall. The span's frames are cut into
+     consecutive one-second slices by `vsyncStart`, the last one shorter;
+     each gap belongs to the slice of the frame it follows. Every slice with
+     at least 10 qualifying gaps must match the declared rate within 5%.
+     **(open, M8: slice length and minimum.)**
+
+   A change too brief to give a slice 10 qualifying gaps, or during which
+   every frame is janky, can still pass if the declared rate is back where
+   it started by the end of the span. Outside a test, frames are drawn on
+   demand and the observed rate follows the requests instead.
 
 7. **A refresh rate must be positive and finite.** A screen can report 0
    when its rate is not known. The recorder checks the declared rate first
@@ -151,9 +163,10 @@ device data exists, except where marked open.
 
 - UI-thread jank is caught whichever way it lands: as UI time when the work
   starts after the frame was requested, as missed vsyncs when it was
-  already queued or ran after the frame was built. M4's `sync_decode` plant decodes in a stream listener, and
-  M2 and M8 confirm both paths on both phones; iOS reports the vsync time
-  from `CADisplayLink`, which is not yet verified for this.
+  already queued or ran after the frame was built. M4's `sync_decode` plant
+  decodes in a stream listener, and M2 and M8 confirm both paths on both
+  phones; iOS reports the vsync time from `CADisplayLink`, which is not yet
+  verified for this.
 - Test code runs on the same UI thread. Finders, expectations and gesture
   dispatch inside a span can cost frames and are counted as the app's.
   **(open, M5: measure the harness's cost and keep test steps outside
@@ -164,6 +177,13 @@ device data exists, except where marked open.
   ratio. The frame count is reported beside it to explain that.
 - A run where most frames are janky still reads the screen's real rate from
   its smooth frames, and a screen that really runs slower than declared is
-  still caught, because its smooth frames are spaced at its real interval.
+  still caught, in every slice with smooth frames, because they are spaced
+  at its real interval.
+- From frame timings alone, a screen at half its declared rate looks the
+  same as an app that misses every other vsync. A slice where the app does
+  that throughout reads as a slower screen, so its span is `INVALID`, not
+  `FAIL`. Base and head run interleaved on the same unit, so such a result
+  that repeats on the head and not on the base points at the code.
+  **(open, M9: how that is reported.)**
 - Baselines recorded under these definitions stay comparable until a later
   record supersedes this one.
