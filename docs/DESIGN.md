@@ -43,7 +43,8 @@ any app-specific code (for example a fake socket client).
 | **Build time** | `FrameTiming.buildDuration`: UI thread work for one frame. |
 | **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame. |
 | **Overrun** | `max(build, raster) − B`. Positive means the frame was late. |
-| **Hitch ratio** | Total positive overrun (ms) per second of a span or episode. |
+| **Hitch ratio** | Total positive overrun (ms) per second of rendering in a span or episode. |
+| **Rendering time** | Frame count × `B` plus the total positive overrun: the time spent drawing, without idle time. |
 | **Episode** | A continuous burst of frames, split automatically by idle gaps. |
 | **Span** | A named window a test marks around a flow. Gates apply to spans. |
 | **Run** | One execution of one test file on one device. |
@@ -90,7 +91,7 @@ every severe frame is janky.
 | Smooth | `build ≤ B` and `raster ≤ B` | |
 | Janky | `build > B` or `raster > B` | At least one vsync was missed. |
 | Severe | `max(build, raster) > 2B` | Several vsyncs missed: a visible hitch. |
-| Stall | `max(build, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
+| Stall | Severe, and `max(build, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
 
 **Thread tag.** Each janky frame is tagged `ui`, `raster` or `both`. This is
 the first fork of Flutter's own triage advice: UI time is Dart work;
@@ -103,9 +104,11 @@ exceed `B` with no dropped frame. Both are kept as latency diagnostics.
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
 
-**Observed refresh rate** = the most common gap between consecutive
-`vsyncStart` timestamps while frames are continuous. Janky frames produce gaps
-that are multiples of the interval, so the mode is used, not the mean.
+**Observed refresh rate** = the most common gap from a smooth frame's
+`vsyncStart` to the next frame's, with gaps within 5% counted as one and gaps
+of 100 ms or more ignored as pauses. A janky frame pushes the next vsync back
+by whole intervals, so the gap after it is left out and the mode is used, not
+the mean ([0001](decisions/0001-metric-definitions.md)).
 
 ## 5. Metrics
 
@@ -116,7 +119,7 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 
 | Metric | Definition |
 | --- | --- |
-| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ span duration (s). Starting budget: **5 ms/s**, Apple's threshold for a good experience. |
+| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Starting budget: **5 ms/s**, Apple's threshold for a good experience. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
@@ -125,9 +128,12 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 | Worst build, worst raster | As multiples of `B`. |
 | Frame count | Secondary: explains changes in the others (fewer trivial frames can make averages worse). |
 
-**Percentiles** use the nearest-rank method, so results never depend on a
-library's interpolation. **Span duration** for the hitch ratio is fixed in M1.
-**(open, M1.)**
+**Percentiles** use the nearest-rank method, rank `⌈p × n ÷ 100⌉` of the
+sorted values, so results never depend on a library's interpolation; the
+worst value is p100. The hitch ratio divides by **rendering time**, not the
+span's wall-clock length, so idle time in a test never dilutes it. An empty
+window has counts of 0 and no value for rates, percentiles or the hitch ratio
+([0001](decisions/0001-metric-definitions.md)).
 
 ### Diagnostic metrics (recorded, never gated)
 
