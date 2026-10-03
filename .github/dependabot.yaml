@@ -1,0 +1,20 @@
+# Keeps the GitHub Actions used in .github/workflows up to date.
+#
+# Dependabot reads this file from the default branch only, so it starts
+# working once this lands on main.
+#
+# Pub dependencies are bumped by hand for now: a new very_good_analysis
+# release can add lint rules that fail CI, so we take those on purpose.
+version: 2
+updates:
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    # One pull request per week for all action bumps, titled "ci: ...".
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+    commit-message:
+      prefix: "ci"

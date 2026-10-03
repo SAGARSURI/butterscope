@@ -1,0 +1,7 @@
+include: ../../analysis_options.yaml
+
+linter:
+  rules:
+    # An app has no public API for others to read; very_good_analysis
+    # suggests turning this off for apps.
+    public_member_api_docs: false

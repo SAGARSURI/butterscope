@@ -1,0 +1,11 @@
+# Shared analysis rules for every package in the workspace.
+#
+# very_good_analysis is a dev dependency only: it shapes the code we write and
+# never ships in an app, so the `butterscope` core keeps zero non-Flutter
+# runtime dependencies.
+
+include: package:very_good_analysis/analysis_options.yaml
+
+analyzer:
+  exclude:
+    - "**/build/**"

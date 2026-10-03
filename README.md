@@ -1,8 +1,8 @@
 # Butterscope
 
 Butterscope watches every frame Flutter renders while your integration tests
-run. It reports jank per flow and fails a pull request when a flow gets
-slower than its baseline.
+run. It reports jank per flow and flags a flow that gets slower than its
+baseline, on Android and iOS.
 
 It is a passive observer. Your tests drive the app as they already do; one
 line in the test file attaches Butterscope. It scripts no interactions and

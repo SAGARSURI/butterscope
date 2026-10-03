@@ -1,0 +1,15 @@
+name: butterscope_workspace
+publish_to: none
+
+environment:
+  sdk: ^3.13.0
+
+# The shared analysis_options.yaml at this root includes it.
+dev_dependencies:
+  very_good_analysis: ^11.0.0
+
+workspace:
+  - packages/butterscope
+  - packages/butterscope_test
+  - tools/butterscope_cli
+  - apps/sample

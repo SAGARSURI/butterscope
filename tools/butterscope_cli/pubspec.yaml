@@ -1,0 +1,11 @@
+name: butterscope_cli
+description: Collects Butterscope reports from device logs and judges them against a baseline.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+dev_dependencies:
+  very_good_analysis: ^11.0.0
