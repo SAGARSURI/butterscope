@@ -33,6 +33,18 @@ jobs:
       - name: Resolve workspace
         run: flutter pub get
 
+      # The Flutter tool can rewrite project files (for example, its
+      # analysis_options.yaml migration). A clean checkout must stay clean.
+      - name: Tools left the repository unchanged
+        run: |
+          if ! git diff --quiet; then
+            for file in $(git diff --name-only); do
+              diff=$(git diff -- "$file" | tool/ci/escape.sh)
+              echo "::error file=$file,title=Changed by flutter pub get::Commit this change.%0A$diff"
+            done
+            exit 1
+          fi
+
       - name: Check formatting
         run: |
           dart format . > /dev/null
