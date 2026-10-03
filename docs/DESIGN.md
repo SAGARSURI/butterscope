@@ -82,8 +82,9 @@ any app-specific code (for example a fake socket client).
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
 `FlutterView.display.refreshRate`, read at the start of each span, because
-Android updates it when the display mode changes, and stored in the run's
-identity.
+Android updates it when the display mode changes. Each span records its own
+declared and observed rate, so one run can hold spans at different rates
+(section 7.3).
 
 Each frame gets one class. The classes are nested: every stall is severe and
 every severe frame is janky.
@@ -215,7 +216,8 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
 ### What the report contains
 
 - **Identity** (section 7.3) and **validity** with reasons.
-- **Per span:** every gate and diagnostic metric.
+- **Per span:** its declared and observed refresh rate, and every gate and
+  diagnostic metric.
 - **Per episode:** the same metrics, plus the route tag when available.
 - **Issues:** one entry per janky frame: time offset, span or episode, thread,
   overrun as a multiple of `B`, class.
@@ -248,14 +250,21 @@ detected mismatch makes the run `INVALID` with a named reason.
 
 ### 7.3 Identity
 
-Every run is stamped with: device model, OS version, declared and observed
-refresh rate, build mode, thermal state at start, Flutter version and app
-commit (both passed with `--dart-define`), and the Butterscope report schema
-version.
+Every run is stamped with: device model, OS version, build mode, thermal
+state at start, Flutter version and app commit (both passed with
+`--dart-define`), and the Butterscope report schema version.
+
+The refresh rate is not a run field. Each span records the declared rate it
+was measured at and its observed rate, because the declared rate is read per
+span and can change during a run.
 
 Two runs are **comparable** only when every identity field except the app
-commit matches. Where possible, base and candidate run on the same physical
-unit in the same session, interleaved.
+commit matches. Within comparable runs, spans are matched by name, and a
+span's results are compared, or pooled across repetitions, only with results
+whose declared rate matches its own within 5%. A candidate span with no
+baseline at its rate is `INVALID` and retried, like a failed guard; the run's
+other spans are still judged. Where possible, base and candidate run on the
+same physical unit in the same session, interleaved.
 
 ### 7.4 Rig rules
 
