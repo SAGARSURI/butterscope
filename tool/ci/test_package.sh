@@ -10,6 +10,7 @@
 set -uo pipefail
 
 root="$MELOS_ROOT_PATH"
+escape="$root/tool/ci/escape.sh"
 dir="${MELOS_PACKAGE_PATH#"$root"/}"
 tmp="${RUNNER_TEMP:-${TMPDIR:-/tmp}}"
 log="$tmp/test-$MELOS_PACKAGE_NAME.log"
@@ -32,15 +33,16 @@ if [ -z "${GITHUB_ACTIONS:-}" ]; then
 fi
 
 if [ "$result" -eq 0 ]; then
-  echo "::notice title=Tests in $dir::$(tail -n 1 "$log" | "$root/tool/ci/escape.sh")"
+  echo "::notice title=Tests in $dir::$(tail -n 1 "$log" | "$escape")"
   exit 0
 fi
 
 # test_annotations.py resolves paths against the repository root.
-annotations=$(cd "$root" && python3 tool/ci/test_annotations.py "$report" "$dir")
+annotations=$(cd "$root" &&
+  python3 tool/ci/test_annotations.py "$report" "$dir")
 if [ -n "$annotations" ]; then
   echo "$annotations"
 else
-  echo "::error title=Tests failed in $dir::$(tail -n 300 "$log" | "$root/tool/ci/escape.sh")"
+  echo "::error title=Tests failed in $dir::$(tail -n 300 "$log" | "$escape")"
 fi
 exit "$result"

@@ -37,14 +37,17 @@ melos:
 
   scripts:
     check:
-      description: The host checks CI runs. Formats, analyzes and tests every package.
+      description: >-
+        The host checks CI runs: formats, analyzes and tests every package.
       steps:
         - format --set-exit-if-changed
         - analyze
         - test
 
     test:ci:
-      description: CI only. Tests each package with a JSON report, so failures are annotated on the test that failed.
+      description: >-
+        For CI. Tests each package with a JSON report, so a failure is
+        annotated on the test that failed.
       exec:
         command: $MELOS_ROOT_PATH/tool/ci/test_package.sh
         # One at a time keeps each package's output whole and unprefixed,

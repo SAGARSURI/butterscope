@@ -43,9 +43,12 @@ Flutter is pinned in [`.fvmrc`](.fvmrc) and managed with
 Once per clone:
 
 ```sh
-fvm use                              # the pinned Flutter, linked at .fvm/flutter_sdk
-fvm dart pub global activate melos   # once per machine; needs ~/.pub-cache/bin on PATH
-melos bootstrap                      # resolves every package
+# Links the pinned Flutter at .fvm/flutter_sdk.
+fvm use
+# Once per machine. Puts `melos` in ~/.pub-cache/bin, which must be on PATH.
+fvm dart pub global activate melos
+# Resolves every package.
+melos bootstrap
 ```
 
 Day to day:
