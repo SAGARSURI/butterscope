@@ -20,7 +20,10 @@ really produced during a test:
   as soon as each finishes, and `pump` only waits
   (`packages/flutter_test/lib/src/binding.dart`, `handleBeginFrame`,
   `handleDrawFrame`, `pump`). Every vsync should produce a frame, including
-  while nothing changes on screen.
+  while nothing changes on screen. The policy's own documentation describes
+  scheduling that follows real frame requests instead, and missed vsyncs,
+  the observed rate and rendering time all rest on this. **(open, M2:
+  confirmed on both phones, including a window where nothing changes.)**
 - **UI-thread work outside the frame shows up in two places.** The engine
   records a frame's vsync time when the signal arrives and posts the frame
   to the UI thread (`engine/src/flutter/shell/common/vsync_waiter.cc`);
@@ -64,7 +67,8 @@ device data exists, except where marked open.
    intervals of `B`; gaps of zero or less are ignored; long gaps count in
    full, because during a test they are freezes. This catches the UI work
    that per-frame times miss, and frames skipped while the raster pipeline
-   was full; the latter may overlap with raster overrun. It is also
+   was full; the latter may overlap with raster overrun. **(open, M2: how
+   much, measured with a slow-raster plant on both phones.)** It is also
    reported as time, count × `B`, so the same freeze reads alike on every
    screen. The count assumes `B` is right; decision 6 says how a wrong one
    is caught.
@@ -144,7 +148,8 @@ device data exists, except where marked open.
      shorter; each gap belongs to the slice of the frame it follows. A slice
      with at least 10 qualifying gaps whose observed rate differs from the
      declared one by more than 5% is a **rate mismatch**, reported with
-     its slice and rate. **(open, M8: slice length and minimum.)**
+     its slice and rate. **(open, M2: slice length and minimum, set from
+     the vsync jitter of clean runs on both phones.)**
 
    A mismatch cannot void a span by itself, because from frame timings
    alone a screen at half its declared rate looks the same as an app that
@@ -177,8 +182,9 @@ device data exists, except where marked open.
 
 8. **Raster time is the raster thread's time up to handing the frame to the
    GPU.** GPU-bound work may show up only indirectly, as raster time on a
-   later frame or as missed vsyncs. **(open, M8: a GPU-bound plant shows
-   whether it is caught on both phones.)**
+   later frame or as missed vsyncs. **(open, M2: a GPU-heavy plant on the
+   calibration screen shows whether it is caught on both phones; M8 checks
+   M4's `gpu_blur` in real flows.)**
 
 9. **Units.** Times are kept in microseconds, as `FrameTiming` reports them.
    The budget is fractional (16 666.67 µs at 60 Hz). Results are reported in
@@ -192,10 +198,11 @@ device data exists, except where marked open.
 
 - UI-thread jank is caught whichever way it lands: as UI time when the work
   starts after the frame was requested, as missed vsyncs when it was
-  already queued or ran after the frame was built. M4's `sync_decode` plant
-  decodes in a stream listener, and M2 and M8 confirm both paths on both
-  phones; iOS reports the vsync time from `CADisplayLink`, which is not yet
-  verified for this.
+  already queued or ran after the frame was built. M2 confirms all three
+  paths on both phones with decodes planted on its calibration screen, in a
+  stream listener and in a post-frame callback; that also verifies the
+  vsync time iOS reports from `CADisplayLink`. M8 confirms them again with
+  M4's `sync_decode` in real flows.
 - Test code runs on the same UI thread. Finders, expectations and gesture
   dispatch inside a span can cost frames and are counted as the app's.
   **(open, M5: measure the harness's cost and keep test steps outside

@@ -120,8 +120,9 @@ frame. It is kept as a latency diagnostic.
 
 **Raster time stops at the GPU.** GPU execution is not in `rasterDuration`,
 so GPU-bound work may show up only indirectly, as raster time on a later
-frame or as missed vsyncs when the raster pipeline is full. **(open, M8: a
-GPU-bound plant shows whether it is caught.)**
+frame or as missed vsyncs when the raster pipeline is full. **(open, M2: a
+GPU-heavy plant on the calibration screen shows whether it is caught; M8
+checks M4's `gpu_blur` in real flows.)**
 
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
@@ -135,9 +136,9 @@ the gap after it is left out and the mode is used, not the mean. Under
 screen's rate throughout, unless the app misses vsyncs. It is also taken in
 one-second slices, because one mode over a whole span hides a drop in part
 of it. A slice with at least 10 qualifying gaps whose rate differs from the
-declared one by more than 5% is a **rate mismatch**. **(open, M8: slice
-length and minimum.)** (Outside a test Flutter draws on demand, and the gaps
-follow the requests instead.)
+declared one by more than 5% is a **rate mismatch**. **(open, M2: slice
+length and minimum, set from the vsync jitter of clean runs.)** (Outside a
+test Flutter draws on demand, and the gaps follow the requests instead.)
 
 **A rate mismatch is a flag, never `INVALID` on its own.** From frame
 timings alone, a screen at half its declared rate looks the same as an app
@@ -198,10 +199,12 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    vsync. Under `LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive` the
    binding draws every frame at vsync and requests the next one as soon as
    each finishes, so frames run back to back for the whole test and every
-   missed vsync is visible. Flutter's docs warn
-   that changing the policy can change test behaviour, so M5 records which
-   ordinary tests run unchanged. A run whose frames are not vsync-driven is
-   `INVALID` (section 7).
+   missed vsync is visible. This is read from the source; the policy's own
+   documentation describes scheduling that follows real frame requests.
+   **(open, M2: confirmed on both phones, including a window where nothing
+   changes on screen.)** Flutter's docs warn that changing the policy can
+   change test behaviour, so M5 records which ordinary tests run unchanged.
+   A run whose frames are not vsync-driven is `INVALID` (section 7).
 3. **Episodes** split the run automatically. An optional navigator observer
    tags each episode with its route. Episodes are advisory: the same flow can
    split differently from run to run. Frames never pause under
@@ -302,7 +305,8 @@ same physical unit in the same session, interleaved.
   60 Hz; Reduce Motion and Low Power Mode off. ProMotion also drops its rate
   on its own; the guard catches that if `Display.refreshRate` reports it,
   and a rate mismatch flags it if not. **(open, M2: what
-  `Display.refreshRate` reports while ProMotion varies.)**
+  `Display.refreshRate` reports while ProMotion varies, and on the S24 when
+  the rate is changed during a run.)**
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.5's app template sets it to true, so the sample app can reach
@@ -324,8 +328,9 @@ same physical unit in the same session, interleaved.
    device logs can truncate long lines (Android logcat does). `butterscope
    collect` reads `adb logcat` or a saved log, reassembles the chunks,
    validates the schema and writes one JSON file per run. A missing or
-   corrupt chunk is reported, never silently dropped. **(open, M7: schema v1,
-   and which log carries the chunks off an iPhone.)**
+   corrupt chunk is reported, never silently dropped. **(open, M7: schema
+   v1. Open, M2: which log carries output off an iPhone, since M2 needs it
+   to read its own results.)**
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run
    through the **Flutter Dart** runner as Android instrumentation, so gestures
    come from inside the app process. The Appium route is not used: it embeds
@@ -355,8 +360,9 @@ Designed in M9 from M8's measurements. These principles are fixed now:
   run interleaved on the same unit, so a screen that drops on its own is as
   likely in either. Mismatches in most head repetitions of a span and few
   base ones point at the change: every repetition is judged and the span
-  can `FAIL`, on missed vsyncs when the frames that rendered were smooth. Otherwise the mismatched repetitions are left out and re-run,
-  and a span that cannot get enough clean repetitions is `INVALID`.
+  can `FAIL`, on missed vsyncs when the frames that rendered were smooth.
+  Otherwise the mismatched repetitions are left out and re-run, and a span
+  that cannot get enough clean repetitions is `INVALID`.
 - Unstable flows (section 6, item 7) are reported, not gated.
 
 **(open, M9: repetitions, statistic, noise thresholds, budgets, and the
