@@ -19,9 +19,9 @@ import 'package:butterscope/src/frame_sample.dart';
 ///
 /// Each gap is rounded to whole intervals of [budget]; gaps of zero or less
 /// are ignored. Long gaps are counted in full, because during a test they
-/// are freezes. The count assumes [budget] is the screen's real rate: a
-/// span that fails the refresh-rate guard is `INVALID` and its count is not
-/// used. Outside a test, frames are drawn only when requested, and this
+/// are freezes. The count assumes [budget] is the screen's real rate; see
+/// `docs/decisions/0001-metric-definitions.md` for how a wrong one is
+/// caught. Outside a test, frames are drawn only when requested, and this
 /// count would include idle time.
 int countMissedVsyncs(List<FrameSample> frames, FrameBudget budget) {
   var missed = 0;

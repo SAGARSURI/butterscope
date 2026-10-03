@@ -66,8 +66,8 @@ device data exists, except where marked open.
    that per-frame times miss, and frames skipped while the raster pipeline
    was full; the latter may overlap with raster overrun. It is also
    reported as time, count × `B`, so the same freeze reads alike on every
-   screen. The count assumes `B` is right: a span that fails the
-   refresh-rate guard is `INVALID` (decision 6).
+   screen. The count assumes `B` is right; decision 6 says how a wrong one
+   is caught.
 
 3. **Rendering time is the hitch ratio's denominator.**
 
@@ -121,25 +121,48 @@ device data exists, except where marked open.
    distinct.
 
    Frames run back to back during a test, so this is the screen's rate
-   throughout. The refresh-rate guard checks every span in two ways. A span
-   that fails either is `INVALID` and none of its metrics are used, since a
-   wrong `B` distorts all of them (at a real rate of two thirds of the
-   declared one or less, every gap reads as a missed vsync).
+   throughout, unless the app misses vsyncs. A wrong `B` distorts every
+   metric (at a real rate of two thirds of the declared one or less, every
+   gap reads as a missed vsync), so the rate is checked in two ways that
+   are treated differently:
 
-   - **The declared rate is read at the start and at the end of the span**,
-     because Android updates it when the display mode changes. `B` comes
-     from the first read, and the two reads must match within 5%.
-   - **The observed rate must match in every part of the span**, not only
-     overall: a screen that drops from 120 Hz to 60 Hz for the last third
-     of a span still reads 120 Hz overall. The span's frames are cut into
-     consecutive one-second slices by `vsyncStart`, the last one shorter;
-     each gap belongs to the slice of the frame it follows. Every slice with
-     at least 10 qualifying gaps must match the declared rate within 5%.
-     **(open, M8: slice length and minimum.)**
+   - **The declared rate is the budget, and a change in it is a guard.**
+     Android updates it when the display mode changes, so the recorder
+     reads it at the start and end of each span and each time a batch of
+     timings arrives, about once a second. Each read is placed in the frame
+     sequence after the last frame reported before it. A span's `B` comes
+     from the read at its start, an episode's from the last read before its
+     first frame. If a later read inside it differs by more than 5%, a span
+     is `INVALID` and none of its metrics are used; an episode, which is
+     not gated, reports the reason instead of metrics.
+   - **The observed rate is a flag, never a guard on its own.** One mode
+     over a whole span hides a drop in part of it, so the frames are also
+     cut into consecutive one-second slices by `vsyncStart`, the last one
+     shorter; each gap belongs to the slice of the frame it follows. A slice
+     with at least 10 qualifying gaps whose observed rate differs from the
+     declared one by more than 5% is a **rate mismatch**, reported with
+     its slice and rate. **(open, M8: slice length and minimum.)**
 
-   A change too brief to give a slice 10 qualifying gaps, or during which
-   every frame is janky, can still pass if the declared rate is back where
-   it started by the end of the span. Outside a test, frames are drawn on
+   A mismatch cannot void a span by itself, because from frame timings
+   alone a screen at half its declared rate looks the same as an app that
+   misses every other vsync. Voiding it would let a severe, repeatable
+   regression pass as `INVALID`, which never counts against the code. So
+   the span is judged with its declared `B`: the slice's frames count as
+   missed vsyncs and janky frames, and can `FAIL`. Which cause it was is
+   settled by comparison. Base and head run interleaved on the same unit,
+   so a screen that drops on its own is as likely in either:
+
+   - Mismatches in most head repetitions of a span and few base ones point
+     at the change. Every repetition is judged, and the span can `FAIL`.
+   - Otherwise the mismatched repetitions are screen noise. They are left
+     out of the comparison and re-run, and a span that cannot get enough
+     clean repetitions is `INVALID`.
+
+   **(open, M9: the thresholds for "most" and "few", with the comparison's
+   other statistics.)** An episode with a mismatch shows its metrics with
+   the flag beside them. A drop too brief to give a slice 10 qualifying
+   gaps, or during which every frame is janky, can still go unflagged when
+   no declared read falls inside it. Outside a test, frames are drawn on
    demand and the observed rate follows the requests instead.
 
 7. **A refresh rate must be positive and finite.** A screen can report 0
@@ -177,13 +200,14 @@ device data exists, except where marked open.
   ratio. The frame count is reported beside it to explain that.
 - A run where most frames are janky still reads the screen's real rate from
   its smooth frames, and a screen that really runs slower than declared is
-  still caught, in every slice with smooth frames, because they are spaced
+  still flagged, in every slice with smooth frames, because they are spaced
   at its real interval.
-- From frame timings alone, a screen at half its declared rate looks the
-  same as an app that misses every other vsync. A slice where the app does
-  that throughout reads as a slower screen, so its span is `INVALID`, not
-  `FAIL`. Base and head run interleaved on the same unit, so such a result
-  that repeats on the head and not on the base points at the code.
-  **(open, M9: how that is reported.)**
+- A screen that drops its rate without the platform reporting it costs
+  re-runs, or a `FAIL` if it drops in most head repetitions and few base
+  ones. Interleaving base and head on one unit makes that unlikely, and M2
+  records whether the phones report their rate changes at all.
+- An app that misses every other vsync is never excused as a slow screen
+  unless the base does the same, so a severe, repeatable regression cannot
+  pass as `INVALID`.
 - Baselines recorded under these definitions stay comparable until a later
   record supersedes this one.

@@ -81,10 +81,13 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`, read at the start of each span, because
-Android updates it when the display mode changes. Each span records its own
-declared and observed rate, so one run can hold spans at different rates
-(section 7.3).
+`FlutterView.display.refreshRate`. Android updates it when the display mode
+changes, so the recorder reads it at the start and end of each span and each
+time a batch of timings arrives, about once a second. Each read is placed in
+the frame sequence after the last frame reported before it. A span's `B`
+comes from the read at its start, and an episode's from the last read before
+its first frame. Each span and episode records its declared and observed
+rate, so one run can hold different rates (section 7.3).
 
 Each frame gets one class. The classes are nested: every stall is severe and
 every severe frame is janky.
@@ -129,15 +132,19 @@ it and ignoring gaps of 100 ms or more, which are freezes, not refresh
 intervals. A janky frame pushes the next vsync back by whole intervals, so
 the gap after it is left out and the mode is used, not the mean. Under
 `benchmarkLive` frames run back to back for the whole test, so this is the
-screen's rate throughout. The guard checks it in one-second slices of each
-span, because one mode over a whole span hides a drop in part of it
-(section 7.2). (Outside a test Flutter draws on demand, and the gaps follow
-the requests instead.)
+screen's rate throughout, unless the app misses vsyncs. It is also taken in
+one-second slices, because one mode over a whole span hides a drop in part
+of it. A slice with at least 10 qualifying gaps whose rate differs from the
+declared one by more than 5% is a **rate mismatch**. **(open, M8: slice
+length and minimum.)** (Outside a test Flutter draws on demand, and the gaps
+follow the requests instead.)
 
-From frame timings alone, a screen at half its declared rate looks the same
-as an app that misses every other vsync, so a slice where the app does that
-throughout makes its span `INVALID`, not `FAIL`. **(open, M9: reporting one
-that repeats on the head and not on the base.)** See
+**A rate mismatch is a flag, never `INVALID` on its own.** From frame
+timings alone, a screen at half its declared rate looks the same as an app
+that misses every other vsync. Voiding the span would let a severe,
+repeatable regression pass, so it is judged with its declared `B` and can
+`FAIL`; the comparison decides the cause (section 9). Only a change in the
+declared rate itself makes a span `INVALID` (section 7.2). See
 [0001](decisions/0001-metric-definitions.md).
 
 ## 5. Metrics
@@ -216,17 +223,22 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    are counted as the app's. **(open, M5: measure the harness's cost and
    keep test steps outside spans where possible.)**
 9. **Recording is cheap; metrics come later.** While recording, the
-   recorder only stores timings. Metrics are computed after recording
-   stops, so they never cost a measured frame.
+   recorder only stores timings and the refresh rates it reads. Metrics are
+   computed after recording stops, so they never cost a measured frame.
 
 ### What the report contains
 
 - **Identity** (section 7.3) and **validity** with reasons.
 - **Per span:** its declared and observed refresh rate, and every gate and
   diagnostic metric.
-- **Per episode:** the same metrics, plus the route tag when available.
-- **Issues:** one entry per janky frame: time offset, span or episode, thread,
-  overrun as a multiple of `B`, class.
+- **Per episode:** its declared and observed refresh rate and the same
+  metrics, plus the route tag when available. An episode whose declared
+  rate changed reports that instead of metrics: it is not gated, but a
+  wrong `B` would mislead its readers just the same. Rate mismatches are
+  flagged beside the metrics of the span or episode they fall in.
+- **Issues:** one entry per janky frame in a span or episode that passed the
+  refresh-rate guard: time offset, span or episode, thread, overrun as a
+  multiple of `B`, class.
 
 ## 7. Validity and environment
 
@@ -245,7 +257,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | --- | --- | --- |
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`, read at the start and end of each span) vs observed in each one-second slice of the span (section 4) | The two declared reads, and every slice with at least 10 qualifying gaps, must match within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them. A declared rate that is 0 or not finite is `INVALID`. **(open, M8: slice length and minimum.)** |
+| Refresh rate | Declared (`Display.refreshRate`, read as in section 4), for every span and episode | Every declared read after the one that set `B` must match it within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them; an episode that fails reports the reason instead of metrics. A declared rate that is 0 or not finite is `INVALID`. The observed rate is not a guard: a rate mismatch is flagged and settled by comparison (sections 4 and 9). |
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
@@ -260,10 +272,10 @@ Every run is stamped with: device model, OS version, build mode, thermal
 state at start, Flutter version and app commit (both passed with
 `--dart-define`), and the Butterscope report schema version.
 
-The refresh rate is not a run field. Each span records the declared rate it
-was measured at and its observed rate, because the declared rate is read per
-span and can change during a run. A change inside a span makes that span
-`INVALID` (section 7.2).
+The refresh rate is not a run field. Each span and episode records the
+declared rate it was measured at and its observed rate, because the declared
+rate can change during a run. A change inside a span makes that span
+`INVALID`, and one inside an episode leaves it without metrics (section 7.2).
 
 Two runs are **comparable** only when every identity field except the app
 commit matches. Within comparable runs, spans are matched by name, and a
@@ -280,11 +292,13 @@ same physical unit in the same session, interleaved.
   runs, and the phone out of its case.
 - **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
-  own; the refresh-rate guard catches that.
+  own; the refresh-rate guard catches that when Android reports the change,
+  and a rate mismatch flags it otherwise (section 4).
 - **iPhone 17 Pro** (iOS): ProMotion, adaptive up to 120 Hz. Limit Frame Rate
   off (Settings › Accessibility › Motion), because it caps the screen at
   60 Hz; Reduce Motion and Low Power Mode off. ProMotion also drops its rate
-  on its own; the refresh-rate guard catches that. **(open, M2: what
+  on its own; the guard catches that if `Display.refreshRate` reports it,
+  and a rate mismatch flags it if not. **(open, M2: what
   `Display.refreshRate` reports while ProMotion varies.)**
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
@@ -334,9 +348,16 @@ Designed in M9 from M8's measurements. These principles are fixed now:
 - Absolute budgets exist at two levels, warn and error, set per flow from
   M8's measurements.
 - A self-check compares `main` with `main` and must pass.
+- **Rate mismatches are settled by symmetry** (section 4). Base and head
+  run interleaved on the same unit, so a screen that drops on its own is as
+  likely in either. Mismatches in most head repetitions of a span and few
+  base ones point at the change: every repetition is judged and the span
+  can `FAIL`. Otherwise the mismatched repetitions are left out and re-run,
+  and a span that cannot get enough clean repetitions is `INVALID`.
 - Unstable flows (section 6, item 7) are reported, not gated.
 
-**(open, M9: repetitions, statistic, noise thresholds, budgets.)**
+**(open, M9: repetitions, statistic, noise thresholds, budgets, and the
+thresholds for "most" and "few" rate mismatches.)**
 
 ### 9.1 When it runs
 
