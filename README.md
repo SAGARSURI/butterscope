@@ -54,11 +54,19 @@ melos bootstrap
 Day to day:
 
 ```sh
-melos run check   # what CI checks: format, analyze and test
-melos analyze     # every package, infos included
-melos format      # every package; `dart format .` covers the whole repo
-melos test        # every package with a test folder
+melos run check           # what CI checks: format, analyze and test
+melos run check:changed   # the same, for the packages this branch changed
+melos analyze             # every package, infos included
+melos format              # every package; `dart format .` covers the repo
+melos test                # every package with a test folder
 ```
+
+`check:changed` analyzes and tests the packages changed since the branch left
+`origin/main` (uncommitted edits included) and every package that depends on
+them, using Melos's `--diff` and `--include-dependents` filters. A change to
+a file every package shares, such as the root `pubspec.yaml` or
+`analysis_options.yaml`, checks every package instead. CI always checks every
+package.
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the

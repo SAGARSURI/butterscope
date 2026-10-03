@@ -47,6 +47,13 @@ melos:
         - analyze
         - test
 
+    check:changed:
+      description: >-
+        A quicker `check`: analyzes and tests only the packages this branch
+        changed and the packages that depend on them (--diff with
+        --include-dependents). See tool/check_changed.sh.
+      run: tool/check_changed.sh
+
     test:ci:
       description: >-
         For CI. Tests each package with a JSON report, so a failure is
