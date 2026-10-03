@@ -283,6 +283,9 @@ Designed in M9 from M8's measurements. These principles are fixed now:
   `analysis_options.yaml` at the root.
 - **Toolchain:** Flutter 3.47.5 (Dart 3.13.4), pinned in `.fvmrc`; CI reads the
   same file.
+- **CI gate:** branch protection requires one check, `required`, which passes
+  only when every other CI job succeeded. Each new job is added to its
+  `needs`. Dependabot bumps the GitHub Actions weekly.
 
 ## 11. References
 

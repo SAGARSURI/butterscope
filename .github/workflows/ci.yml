@@ -48,3 +48,29 @@ jobs:
             fi
             echo "::endgroup::"
           done
+
+  # The one check that branch protection requires. It waits for every job
+  # above and passes only when all of them succeeded, so a new job (the
+  # device run in M3, the judge in M9) is added to `needs` here and the
+  # branch settings never change.
+  #
+  # `always()` makes it run even when a job fails; without it this job would
+  # be skipped, and GitHub counts a skipped required check as passing. A
+  # skipped job fails it too, because none of our jobs are meant to skip.
+  required:
+    name: required
+    if: ${{ always() }}
+    needs:
+      - analyze-and-test
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every job succeeded
+        env:
+          NEEDS: ${{ toJSON(needs) }}
+        run: |
+          jq -r 'to_entries[] | "\(.key): \(.value.result)"' <<< "$NEEDS"
+          if ! jq -e 'all(.[]; .result == "success")' <<< "$NEEDS" > /dev/null; then
+            echo "::error::Not every job succeeded."
+            exit 1
+          fi
