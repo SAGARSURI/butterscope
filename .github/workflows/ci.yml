@@ -78,7 +78,9 @@ jobs:
               runner="dart test"
             fi
             echo "::group::$dir"
-            if ! (cd "$dir" && $runner --reporter expanded) > test.log 2>&1; then
+            if (cd "$dir" && $runner --reporter expanded) > test.log 2>&1; then
+              echo "::notice title=Tests in $dir::$(tail -n 1 test.log | tool/ci/escape.sh)"
+            else
               status=1
               echo "::error title=Tests failed in $dir::$(tail -n 300 test.log | tool/ci/escape.sh)"
             fi

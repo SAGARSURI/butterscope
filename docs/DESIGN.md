@@ -105,8 +105,8 @@ exceed `B` with no dropped frame. Both are kept as latency diagnostics.
 reached the screen, so overrun approximates how late it was.
 
 **Observed refresh rate** = the most common gap from a smooth frame's
-`vsyncStart` to the next frame's, with gaps within 5% counted as one and gaps
-of 100 ms or more ignored as pauses. A janky frame pushes the next vsync back
+`vsyncStart` to the next frame's, grouping each gap with those within ±5% of
+it and ignoring gaps of 100 ms or more as pauses. A janky frame pushes the next vsync back
 by whole intervals, so the gap after it is left out and the mode is used, not
 the mean ([0001](decisions/0001-metric-definitions.md)).
 

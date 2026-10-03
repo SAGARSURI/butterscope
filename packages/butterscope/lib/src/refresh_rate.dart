@@ -11,11 +11,13 @@ const double _tolerance = 0.05;
 
 /// The refresh rate [frames] were actually drawn at, in hertz.
 ///
-/// Uses the gap from each smooth frame's vsync to the next frame's, in frame
-/// order. A janky frame pushes the next vsync back by whole intervals, so the
-/// gap after it is left out. Gaps of zero or less, and gaps of 100 ms or
-/// more, are ignored. The result is the most common gap, not the mean: gaps
-/// within 5% of each other count as one, and ties go to the shorter gap.
+/// Uses the gap from each smooth frame's vsync to the next frame's, in the
+/// order of [frames]. A janky frame pushes the next vsync back by whole
+/// intervals, so the gap after it is left out. Gaps of zero or less, and
+/// gaps of 100 ms or more, are ignored. The result is the most common gap,
+/// not the mean: each gap `g` is grouped with every gap from `0.95 g` to
+/// `1.05 g`, the largest group wins, ties go to the shorter `g`, and the
+/// interval is the group's nearest-rank median.
 ///
 /// Returns `null` when no gap qualifies, for example with fewer than two
 /// frames or no smooth frame. See `docs/decisions/0001-metric-definitions.md`.

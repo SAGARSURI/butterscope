@@ -61,9 +61,29 @@ void main() {
     });
 
     test('ignores pauses of 100 ms or more', () {
-      final gaps = [...gapsAt(90, 50), 100000, 250000, ...gapsAt(90, 50)];
+      // Five pauses outnumber three real gaps; counted, they would win.
+      final gaps = [...List.filled(5, 100000), 11111, 11111, 11111];
       final frames = framesWithGaps(gaps);
-      expect(observeRefreshRate(frames, FrameBudget(90)), closeTo(90, 0.5));
+      expect(observeRefreshRate(frames, FrameBudget(90)), closeTo(90, 0.01));
+    });
+
+    test('counts a gap just under 100 ms but not one of exactly 100 ms', () {
+      final budget = FrameBudget(60);
+      final under = observeRefreshRate(framesWithGaps([99999]), budget);
+      expect(under, closeTo(10, 0.001));
+      expect(observeRefreshRate(framesWithGaps([100000]), budget), isNull);
+    });
+
+    test('ignores gaps of zero or less', () {
+      final frames = framesWithGaps([0, 0, 0, -10, 16667, 16667]);
+      expect(observeRefreshRate(frames, FrameBudget(60)), closeTo(60, 0.01));
+    });
+
+    test('takes the median of the winning group, not the mean', () {
+      // All five gaps are within 5% of 10000 µs. The median is 10000 µs
+      // (100 Hz); the mean, 10160 µs, would read 98.4 Hz.
+      final frames = framesWithGaps([10000, 10000, 10000, 10400, 10400]);
+      expect(observeRefreshRate(frames, FrameBudget(60)), 100);
     });
 
     test('gives ties to the shorter gap', () {

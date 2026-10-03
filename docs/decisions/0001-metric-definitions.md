@@ -40,9 +40,10 @@ device data exists.
    - The sum of episode durations. Depends on the idle-gap threshold, which
      M8 tunes, so the metric would move when that tuning changes.
 
-2. **Percentiles use nearest rank.** Sort the values ascending and take rank
-   `⌈p × n ÷ 100⌉`, counting from 1, computed in integers. The result is
-   always one of the values. The worst value is p100.
+2. **Percentiles use nearest rank.** `p` is a whole number from 1 to 100.
+   Sort the values ascending and take rank `⌈p × n ÷ 100⌉`, counting from 1,
+   computed in integers. The result is always one of the values. The worst
+   value is p100.
 
 3. **Frame classes nest by construction and use these edges:**
 
@@ -59,12 +60,13 @@ device data exists.
 
 4. **Observed refresh rate is the mode of the vsync gaps after smooth
    frames, with a tolerance.** Take the gap from each smooth frame's
-   `vsyncStart` to the next frame's, in frame order. A janky frame pushes the
-   next vsync back by whole intervals, so the gap after it says how late the
-   frame was, not how fast the screen is; it is left out. Ignore gaps of zero
-   or less and gaps of 100 ms or more (rendering paused). For each gap, count
-   the gaps within ±5% of it. The gap with the most neighbours wins, ties
-   going to the shorter gap. The interval is the nearest-rank median of that
+   `vsyncStart` to the next reported frame's, in the order the frames were
+   reported (not by `frameNumber`). A janky frame pushes the next vsync back
+   by whole intervals, so the gap after it says how late the frame was, not
+   how fast the screen is; it is left out. Ignore gaps of zero or less and
+   gaps of 100 ms or more (rendering paused). For each gap `g`, its group is
+   every gap from `0.95 g` to `1.05 g`, both edges included. The largest
+   group wins, ties going to the shorter `g`. The interval is the nearest-rank median of that
    group, and the rate is `1 000 000 ÷ interval` hertz. With no usable gap,
    there is no observed rate. The tolerance absorbs timestamp jitter; 5%
    keeps 120 Hz and 144 Hz (8.33 ms and 6.94 ms, 20% apart) distinct.
@@ -73,9 +75,9 @@ device data exists.
    The budget is fractional (16 666.67 µs at 60 Hz). Results are reported in
    milliseconds, milliseconds per second, multiples of `B` and hertz.
 
-6. **Empty windows.** Counts are 0. Rates, percentiles, the worst frame, the
-   hitch ratio and the observed refresh rate have no value: they are
-   undefined, not zero.
+6. **Empty windows.** Counts are 0. Rates, percentiles, the worst build and
+   raster times, the hitch ratio and the observed refresh rate have no value:
+   they are undefined, not zero.
 
 ## Consequences
 
