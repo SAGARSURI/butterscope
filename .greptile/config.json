@@ -1,0 +1,101 @@
+{
+  "instructions": "The rules with ids starting dcm- apply DCM code metrics (https://dcm.dev/docs/metrics/) at DCM's default thresholds. Apply them only to code this pull request adds or changes. Count each metric exactly as its rule defines it. When a value is over its threshold, name the metric, the measured value and the threshold, and suggest a change that brings it back under, such as extracting a function, a widget or a class. Do not report values that are within their thresholds.",
+  "rules": [
+    {
+      "id": "dcm-cyclomatic-complexity",
+      "rule": "Cyclomatic complexity (DCM cyclomatic-complexity, threshold 15): every function, method, getter, setter and constructor with a body must have a cyclomatic complexity of 15 or less. Start at 1 and add 1 for each `if` (statement or collection element), `for` (statement or collection element), `while`, `do`, `catch`, conditional expression (`? :`), `case` of a switch statement or expression other than `default` and the last case, `&&` or `||` in an expression or pattern, `??` or `??=`, and null-aware operator (`?.`, `?..`, `?[]`, `...?`, and `?` before a key or value in a map or set literal).",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "high"
+    },
+    {
+      "id": "dcm-maximum-nesting-level",
+      "rule": "Maximum nesting level (DCM maximum-nesting-level, threshold 5): inside a function, method or constructor, blocks of `if`, `else`, `do`, `while`, `for`, `try`, `catch`, `finally` and `case` must nest at most 5 deep. The body itself is level 0.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-source-lines-of-code",
+      "rule": "Source lines of code (DCM source-lines-of-code, threshold 60): the body of a function, method or constructor must have at most 60 lines that are neither blank nor only a comment.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-lines-of-code",
+      "rule": "Lines of code (DCM lines-of-code, threshold 100): a function, method or constructor must span at most 100 lines from the first line of its signature to its closing brace, counting parameters, blank lines and comments.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "low"
+    },
+    {
+      "id": "dcm-number-of-parameters",
+      "rule": "Number of parameters (DCM number-of-parameters, threshold 6): a function or method must declare at most 6 parameters, positional and named together. A method that returns an instance of its own class, such as `copyWith`, is exempt, as in DCM. Constructors are exempt in this project, because its immutable value classes take one named parameter per field.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-widgets-nesting-level",
+      "rule": "Widgets nesting level (DCM widgets-nesting-level, threshold 8): in a method that returns a widget, such as `build`, widgets must nest at most 8 deep. `SizedBox` does not count toward the depth.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-number-of-used-widgets",
+      "rule": "Number of used widgets (DCM number-of-used-widgets, threshold 20): a method that returns a widget, such as `build`, must use at most 20 widgets in total.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-number-of-methods",
+      "rule": "Number of methods (DCM number-of-methods, threshold 10): a class, mixin, enum, extension or extension type must declare at most 10 methods. Inherited methods count only when the type overrides them.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-weighted-methods-per-class",
+      "rule": "Weighted methods per class (DCM weighted-methods-per-class, threshold 45): the cyclomatic complexities of all methods of a class, mixin, enum, extension or extension type, each counted as in rule dcm-cyclomatic-complexity, must add up to at most 45.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-depth-of-inheritance-tree",
+      "rule": "Depth of inheritance tree (DCM depth-of-inheritance-tree, threshold 5): following `extends` up to the root, a class must be at most 5 levels deep. A class with no `extends`, or that extends `Object`, is at depth 1.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-number-of-implemented-interfaces",
+      "rule": "Number of implemented interfaces (DCM number-of-implemented-interfaces, threshold 3): a class, enum or mixin must implement at most 3 interfaces, counting both the ones it names and the ones those interfaces implement.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-number-of-added-methods",
+      "rule": "Number of added methods (DCM number-of-added-methods, threshold 10): a non-abstract class that extends another class must add at most 10 methods of its own. Overridden methods do not count.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "low"
+    },
+    {
+      "id": "dcm-number-of-overridden-methods",
+      "rule": "Number of overridden methods (DCM number-of-overridden-methods, threshold 10): a class, mixin or enum must override at most 10 methods from its superclass or interfaces.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "low"
+    },
+    {
+      "id": "dcm-number-of-imports",
+      "rule": "Number of imports (DCM number-of-imports, threshold 15): a file must have at most 15 import directives.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "low"
+    },
+    {
+      "id": "dcm-number-of-external-imports",
+      "rule": "Number of external imports (DCM number-of-external-imports, threshold 6): a file must have at most 6 imports of `dart:` libraries and of packages from outside this repository. Imports of this repository's own packages (`butterscope`, `butterscope_test`, `butterscope_cli`, `butterscope_sample`) do not count.",
+      "scope": ["**/lib/**/*.dart"],
+      "severity": "medium"
+    },
+    {
+      "id": "dcm-technical-debt",
+      "rule": "Technical debt (DCM technical-debt, threshold 0): report every TODO comment, `// ignore:` or `// ignore_for_file:` comment, `as dynamic` cast, `@Deprecated` annotation and `// @dart=` language-version comment that this pull request adds to a Dart file, tests included. The threshold is 0, so each one is reported; the author removes it or says in the pull request why it must stay.",
+      "scope": ["**/*.dart"],
+      "severity": "medium"
+    }
+  ]
+}
