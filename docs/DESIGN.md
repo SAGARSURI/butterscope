@@ -40,11 +40,13 @@ any app-specific code (for example a fake socket client).
 | Term | Meaning |
 | --- | --- |
 | **B** | Frame budget in ms: `1000 / refreshRate`. 16.67 at 60 Hz, 8.33 at 120 Hz. |
-| **Build time** | `FrameTiming.buildDuration`: UI thread work for one frame. |
-| **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame. |
-| **Overrun** | `max(build, raster) − B`. Positive means the frame was late. |
-| **Hitch ratio** | Total positive overrun (ms) per second of a span or episode. |
-| **Episode** | A continuous burst of frames, split automatically by idle gaps. |
+| **UI time** | `FrameTiming.vsyncOverhead + buildDuration`: the wait for the UI thread after the vsync, plus building the frame. Work outside the frame, such as a stream listener or a timer, shows up in the wait. |
+| **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame, up to handing it to the GPU. |
+| **Overrun** | `max(UI, raster) − B`. Positive means the frame was late. |
+| **Hitch ratio** | Total positive overrun (ms) per second of rendering in a span or episode. |
+| **Rendering time** | Frame count × `B` plus the total positive overrun. During a test frames run back to back, so it is close to wall-clock time. |
+| **Missed vsyncs** | Vsyncs that passed with no frame between consecutive frames. |
+| **Episode** | A part of a run split out automatically, without the test marking it. **(open, M5: how to split.)** |
 | **Span** | A named window a test marks around a flow. Gates apply to spans. |
 | **Run** | One execution of one test file on one device. |
 | **Identity** | The fields stamped on every run that decide what it can be compared with. |
@@ -79,33 +81,75 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`, read at the start of every run and stored
-in its identity.
+`FlutterView.display.refreshRate`. Android updates it when the display mode
+changes, so the recorder reads it at the start and end of each span and each
+time a batch of timings arrives, about once a second. Each read is placed in
+the frame sequence after the last frame reported before it. A span's `B`
+comes from the read at its start, and an episode's from the last read before
+its first frame. Each span and episode records its declared and observed
+rate, so one run can hold different rates (section 7.3).
 
 Each frame gets one class. The classes are nested: every stall is severe and
 every severe frame is janky.
 
 | Class | Rule | Why |
 | --- | --- | --- |
-| Smooth | `build ≤ B` and `raster ≤ B` | |
-| Janky | `build > B` or `raster > B` | At least one vsync was missed. |
-| Severe | `max(build, raster) > 2B` | Several vsyncs missed: a visible hitch. |
-| Stall | `max(build, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
+| Smooth | `UI ≤ B` and `raster ≤ B` | |
+| Janky | `UI > B` or `raster > B` | At least one vsync was missed. |
+| Severe | `max(UI, raster) > 2B` | Several vsyncs missed: a visible hitch. |
+| Stall | Severe, and `max(UI, raster) ≥ 100 ms` | A perceived freeze. Wall-clock, not budget-relative, because 150 ms feels the same at 60 Hz and 144 Hz. **(open, M8: tune 100 ms.)** |
 
 **Thread tag.** Each janky frame is tagged `ui`, `raster` or `both`. This is
-the first fork of Flutter's own triage advice: UI time is Dart work;
-raster-only time is rendering cost (`saveLayer`, clips, shadows, opacity).
+the first fork of Flutter's own triage advice: UI time is Dart work, in the
+frame or keeping it waiting; raster-only time is rendering cost (`saveLayer`,
+clips, shadows, opacity).
 
-**Not used for jank:** `totalSpan` (vsync to raster finish) and
-`vsyncOverhead`. The UI and raster threads are pipelined, so `totalSpan` can
-exceed `B` with no dropped frame. Both are kept as latency diagnostics.
+**Why UI time includes the wait.** The engine records the vsync when the
+signal arrives and starts building only when the UI thread is free, so work
+that keeps the UI thread busy delays the frame without appearing in
+`buildDuration`. The UI thread cannot start the next frame until this one is
+built, so UI time over `B` is a missed vsync whatever the cause. Work already
+queued when the next frame is requested delays the request itself, so that
+frame starts on time; so does work that runs after a frame is stamped as
+built (semantics, tree finalisation, post-frame callbacks). Both show only as
+missed vsyncs (section 5).
+
+**Not used for jank:** `totalSpan` (vsync to raster finish). The UI and
+raster threads are pipelined, so `totalSpan` can exceed `B` with no dropped
+frame. It is kept as a latency diagnostic.
+
+**Raster time stops at the GPU.** GPU execution is not in `rasterDuration`,
+so GPU-bound work may show up only indirectly, as raster time on a later
+frame or as missed vsyncs when the raster pipeline is full. **(open, M2: a
+GPU-heavy plant on the calibration screen shows whether it is caught; M8
+checks M4's `gpu_blur` in real flows.)**
 
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
 
-**Observed refresh rate** = the most common gap between consecutive
-`vsyncStart` timestamps while frames are continuous. Janky frames produce gaps
-that are multiples of the interval, so the mode is used, not the mean.
+**Observed refresh rate** = the most common gap from a smooth frame's
+`vsyncStart` to the next frame's, grouping each gap with those within ±5% of
+it and ignoring gaps of 100 ms or more, which are freezes, not refresh
+intervals. A janky frame pushes the next vsync back by whole intervals, so
+the gap after it is left out and the mode is used, not the mean. Under
+`benchmarkLive` frames run back to back for the whole test, so this is the
+screen's rate throughout, unless the app misses vsyncs. It is also taken in
+one-second slices, because one mode over a whole span hides a drop in part
+of it. A slice with at least 10 qualifying gaps whose rate differs from the
+declared one by more than 5% is a **rate mismatch**. **(open, M2: slice
+length and minimum, set from the vsync jitter of clean runs.)** (Outside a
+test Flutter draws on demand, and the gaps follow the requests instead.)
+
+**A rate mismatch is a flag, never `INVALID` on its own.** From frame
+timings alone, a screen at half its declared rate looks the same as an app
+that misses every other vsync. Voiding the span would let a severe,
+repeatable regression pass, so it is judged with its declared `B`, and its
+missing frames count as **missed vsyncs**, a gate metric, which can `FAIL`.
+They are the only signal when every frame that renders stays within `B`:
+those frames are smooth, so the janky rate and the hitch ratio read zero.
+The comparison decides the cause (section 9). Only a change in the declared
+rate itself makes a span `INVALID` (section 7.2). See
+[0001](decisions/0001-metric-definitions.md).
 
 ## 5. Metrics
 
@@ -116,24 +160,31 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 
 | Metric | Definition |
 | --- | --- |
-| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ span duration (s). Starting budget: **5 ms/s**, Apple's threshold for a good experience. |
+| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. It cannot see frames that never rendered: an app that misses every other vsync with smooth frames in between reads zero. **(open, M2: whether hitch time adds missed vsyncs.)** |
+| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what each frame's own UI time explains (that part is already its overrun). Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only gate metric that sees dropped frames between smooth ones. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
-| p90, p99 build | As multiples of `B`. |
+| p90, p99 UI | As multiples of `B`. |
 | p90, p99 raster | As multiples of `B`. |
-| Worst build, worst raster | As multiples of `B`. |
+| Worst UI, worst raster | As multiples of `B`. |
 | Frame count | Secondary: explains changes in the others (fewer trivial frames can make averages worse). |
 
-**Percentiles** use the nearest-rank method, so results never depend on a
-library's interpolation. **Span duration** for the hitch ratio is fixed in M1.
-**(open, M1.)**
+**Percentiles** use the nearest-rank method, rank `⌈p × n ÷ 100⌉` of the
+sorted values, so results never depend on a library's interpolation; the
+worst value is p100. The hitch ratio divides by **rendering time**, defined
+from the frames alone. Idle time inside a span adds smooth frames, which
+dilute the hitch ratio, the janky rate and p90/p99, but not the hitch time,
+the counts, the worst values or the missed vsyncs; spans should wrap the flow
+tightly. An empty window has counts of 0 and no value for rates, percentiles
+or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
 
 ### Diagnostic metrics (recorded, never gated)
 
-- Averages of build and raster time.
-- p90 and p99 of `vsyncOverhead` and `totalSpan` (latency, for example
-  tick-to-pixel on a live price screen).
+- Averages of UI, build and raster time.
+- p90 and p99 of `vsyncOverhead` (the wait for the UI thread, to tell it
+  apart from build time) and `totalSpan` (latency, for example tick-to-pixel
+  on a live price screen).
 - Raster cache counts and bytes from `FrameTiming` (`layerCacheCount`,
   `layerCacheBytes`, `pictureCacheCount`, `pictureCacheBytes`).
 - Garbage-collection counts are **not** collected: they need the VM timeline.
@@ -145,15 +196,20 @@ library's interpolation. **Span duration** for the hitch ratio is fixed in M1.
    the report when the tests finish. **(open, M5: API names.)**
 2. **Frame policy: `benchmarkLive`.** The live test binding defaults to
    `fadePointers`, which renders frames at the test's own pump rhythm, not at
-   vsync. `LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive` lets the
-   engine schedule frames the way a real device does. Flutter's docs warn
-   that changing the policy can change test behaviour, so M5 records which
-   ordinary tests run unchanged. A run whose frames are not vsync-driven is
-   `INVALID` (section 7).
-3. **Episodes** split the run automatically: a new episode starts after an
-   idle gap with no frames (**100 ms to start, open M8**). An optional
-   navigator observer tags each episode with its route. Episodes are
-   advisory: the same flow can split differently from run to run.
+   vsync. Under `LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive` the
+   binding draws every frame at vsync and requests the next one as soon as
+   each finishes, so frames run back to back for the whole test and every
+   missed vsync is visible. This is read from the source; the policy's own
+   documentation describes scheduling that follows real frame requests.
+   **(open, M2: confirmed on both phones, including a window where nothing
+   changes on screen.)** Flutter's docs warn that changing the policy can
+   change test behaviour, so M5 records which ordinary tests run unchanged.
+   A run whose frames are not vsync-driven is `INVALID` (section 7).
+3. **Episodes** split the run automatically. An optional navigator observer
+   tags each episode with its route. Episodes are advisory: the same flow can
+   split differently from run to run. Frames never pause under
+   `benchmarkLive`, so episodes cannot split on gaps with no frames.
+   **(open, M5: split on activity instead.)**
 4. **Named spans** mark the flows that are gated:
    `span('open detail', () async { … })`. Names are stable across runs, so
    only spans are compared with a baseline. Spans are flat in v1 (no
@@ -168,14 +224,27 @@ library's interpolation. **Span duration** for the hitch ratio is fixed in M1.
    transport layer, so decoding and state merging still run for real).
    Butterscope only detects nondeterminism, for example frame counts that
    vary a lot between repetitions, and marks the flow unstable.
+8. **Test code shares the UI thread.** Finders, expectations and gesture
+   dispatch run between frames, so inside a span they can cost frames that
+   are counted as the app's. **(open, M5: measure the harness's cost and
+   keep test steps outside spans where possible.)**
+9. **Recording is cheap; metrics come later.** While recording, the
+   recorder only stores timings and the refresh rates it reads. Metrics are
+   computed after recording stops, so they never cost a measured frame.
 
 ### What the report contains
 
 - **Identity** (section 7.3) and **validity** with reasons.
-- **Per span:** every gate and diagnostic metric.
-- **Per episode:** the same metrics, plus the route tag when available.
-- **Issues:** one entry per janky frame: time offset, span or episode, thread,
-  overrun as a multiple of `B`, class.
+- **Per span:** its declared and observed refresh rate, and every gate and
+  diagnostic metric.
+- **Per episode:** its declared and observed refresh rate and the same
+  metrics, plus the route tag when available. An episode whose declared
+  rate changed reports that instead of metrics: it is not gated, but a
+  wrong `B` would mislead its readers just the same. Rate mismatches are
+  flagged beside the metrics of the span or episode they fall in.
+- **Issues:** one entry per janky frame in a span or episode that passed the
+  refresh-rate guard: time offset, span or episode, thread, overrun as a
+  multiple of `B`, class.
 
 ## 7. Validity and environment
 
@@ -194,7 +263,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | --- | --- | --- |
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`) vs observed (section 4) | Must match. |
+| Refresh rate | Declared (`Display.refreshRate`, read as in section 4), for every span and episode | Every declared read after the one that set `B` must match it within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them; an episode that fails reports the reason instead of metrics. A declared rate that is 0 or not finite is `INVALID`. The observed rate is not a guard: a rate mismatch is flagged and settled by comparison (sections 4 and 9). |
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
@@ -205,14 +274,22 @@ detected mismatch makes the run `INVALID` with a named reason.
 
 ### 7.3 Identity
 
-Every run is stamped with: device model, OS version, declared and observed
-refresh rate, build mode, thermal state at start, Flutter version and app
-commit (both passed with `--dart-define`), and the Butterscope report schema
-version.
+Every run is stamped with: device model, OS version, build mode, thermal
+state at start, Flutter version and app commit (both passed with
+`--dart-define`), and the Butterscope report schema version.
+
+The refresh rate is not a run field. Each span and episode records the
+declared rate it was measured at and its observed rate, because the declared
+rate can change during a run. A change inside a span makes that span
+`INVALID`, and one inside an episode leaves it without metrics (section 7.2).
 
 Two runs are **comparable** only when every identity field except the app
-commit matches. Where possible, base and candidate run on the same physical
-unit in the same session, interleaved.
+commit matches. Within comparable runs, spans are matched by name, and a
+span's results are compared, or pooled across repetitions, only with results
+whose declared rate matches its own within 5%. A candidate span with no
+baseline at its rate is `INVALID` and retried, like a failed guard; the run's
+other spans are still judged. Where possible, base and candidate run on the
+same physical unit in the same session, interleaved.
 
 ### 7.4 Rig rules
 
@@ -221,12 +298,15 @@ unit in the same session, interleaved.
   runs, and the phone out of its case.
 - **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
-  own; the refresh-rate guard catches that.
+  own; the refresh-rate guard catches that when Android reports the change,
+  and a rate mismatch flags it otherwise (section 4).
 - **iPhone 17 Pro** (iOS): ProMotion, adaptive up to 120 Hz. Limit Frame Rate
   off (Settings › Accessibility › Motion), because it caps the screen at
   60 Hz; Reduce Motion and Low Power Mode off. ProMotion also drops its rate
-  on its own; the refresh-rate guard catches that. **(open, M2: what
-  `Display.refreshRate` reports while ProMotion varies.)**
+  on its own; the guard catches that if `Display.refreshRate` reports it,
+  and a rate mismatch flags it if not. **(open, M2: what
+  `Display.refreshRate` reports while ProMotion varies, and on the S24 when
+  the rate is changed during a run.)**
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.5's app template sets it to true, so the sample app can reach
@@ -248,8 +328,9 @@ unit in the same session, interleaved.
    device logs can truncate long lines (Android logcat does). `butterscope
    collect` reads `adb logcat` or a saved log, reassembles the chunks,
    validates the schema and writes one JSON file per run. A missing or
-   corrupt chunk is reported, never silently dropped. **(open, M7: schema v1,
-   and which log carries the chunks off an iPhone.)**
+   corrupt chunk is reported, never silently dropped. **(open, M7: schema
+   v1. Open, M2: which log carries output off an iPhone, since M2 needs it
+   to read its own results.)**
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run
    through the **Flutter Dart** runner as Android instrumentation, so gestures
    come from inside the app process. The Appium route is not used: it embeds
@@ -272,11 +353,20 @@ Designed in M9 from M8's measurements. These principles are fixed now:
 - Each flow is repeated; a change counts only when it is larger than the
   measured noise and statistically significant (the approach of Reassure and
   criterion.rs).
-- Absolute budgets exist at two levels, warn and error.
+- Absolute budgets exist at two levels, warn and error, set per flow from
+  M8's measurements.
 - A self-check compares `main` with `main` and must pass.
+- **Rate mismatches are settled by symmetry** (section 4). Base and head
+  run interleaved on the same unit, so a screen that drops on its own is as
+  likely in either. Mismatches in most head repetitions of a span and few
+  base ones point at the change: every repetition is judged and the span
+  can `FAIL`, on missed vsyncs when the frames that rendered were smooth.
+  Otherwise the mismatched repetitions are left out and re-run, and a span
+  that cannot get enough clean repetitions is `INVALID`.
 - Unstable flows (section 6, item 7) are reported, not gated.
 
-**(open, M9: repetitions, statistic, noise thresholds, budgets.)**
+**(open, M9: repetitions, statistic, noise thresholds, budgets, and the
+thresholds for "most" and "few" rate mismatches.)**
 
 ### 9.1 When it runs
 

@@ -10,9 +10,12 @@ concurrency:
   group: ci-${{ github.ref }}
   cancel-in-progress: true
 
+# Failures are also reported as annotations: they show inline on a pull
+# request and can be read without opening the job log.
 jobs:
   analyze-and-test:
-    runs-on: ubuntu-latest
+    # Pinned, not ubuntu-latest, so the host image changes only on purpose.
+    runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
@@ -30,24 +33,89 @@ jobs:
       - name: Resolve workspace
         run: flutter pub get
 
+      # The Flutter tool can rewrite project files (for example, its
+      # analysis_options.yaml migration) or create new ones (pubspec.lock).
+      # A clean checkout must stay clean, untracked files included.
+      - name: Tools left the repository unchanged
+        run: |
+          changes=$(git status --porcelain --untracked-files=all)
+          [ -z "$changes" ] && exit 0
+          echo "$changes"
+          echo "$changes" | cut -c4- | while read -r file; do
+            if git ls-files --error-unmatch -- "$file" > /dev/null 2>&1; then
+              title="Changed by flutter pub get"
+              body=$(git diff -- "$file" | tool/ci/escape.sh)
+            else
+              # GitHub cuts an annotation at about 4 KB: show the start
+              # there and the whole file in the job log.
+              title="Created by flutter pub get"
+              echo "::group::$file"; cat "$file"; echo "::endgroup::"
+              body=$(head -c 3000 "$file" | tool/ci/escape.sh)
+            fi
+            echo "::error file=$file,title=$title::Commit this file, or ignore it if it is generated. The first 3 KB:%0A%0A$body"
+          done
+          exit 1
+
       - name: Check formatting
-        run: dart format --output=none --set-exit-if-changed .
+        run: |
+          dart format . > /dev/null
+          if ! git diff --quiet; then
+            for file in $(git diff --name-only); do
+              diff=$(git diff -- "$file" | tool/ci/escape.sh)
+              echo "::error file=$file,title=Not formatted::Run dart format.%0A$diff"
+            done
+            exit 1
+          fi
 
+      # Logs go to the runner's temp folder, outside the checkout.
       - name: Analyze
-        run: flutter analyze --fatal-infos
+        run: |
+          log="$RUNNER_TEMP/analyze.log"
+          if flutter analyze --fatal-infos > "$log" 2>&1; then
+            cat "$log"
+            exit 0
+          fi
+          cat "$log"
+          echo "::error title=flutter analyze::$(tool/ci/escape.sh < "$log")"
+          sed -nE 's/^ *(error|warning|info) • (.*) • ([^ ]+):([0-9]+):([0-9]+) • ([a-z0-9_]+)$/::error file=\3,line=\4,col=\5,title=\6::\2/p' "$log"
+          exit 1
 
+      # A failing test is annotated on the line that declares it, from the
+      # runner's JSON report; the log tail is the fallback when there is no
+      # report (for example, the package did not compile).
       - name: Host tests
         run: |
+          status=0
+          log="$RUNNER_TEMP/test.log"
+          report="$RUNNER_TEMP/test.json"
           for dir in packages/* tools/* apps/*; do
             [ -d "$dir/test" ] || { echo "No tests in $dir yet"; continue; }
-            echo "::group::$dir"
             if grep -q "sdk: flutter" "$dir/pubspec.yaml"; then
-              (cd "$dir" && flutter test)
+              runner="flutter test"
             else
-              (cd "$dir" && dart test)
+              runner="dart test"
             fi
+            rm -f "$report"
+            echo "::group::$dir"
+            # The step runs under `bash -e`; `|| result=$?` keeps a failure
+            # from ending it before the annotations are written.
+            result=0
+            (cd "$dir" && $runner --reporter expanded --file-reporter "json:$report") > "$log" 2>&1 || result=$?
+            cat "$log"
             echo "::endgroup::"
+            if [ $result -eq 0 ]; then
+              echo "::notice title=Tests in $dir::$(tail -n 1 "$log" | tool/ci/escape.sh)"
+              continue
+            fi
+            status=1
+            annotations=$(python3 tool/ci/test_annotations.py "$report" "$dir")
+            if [ -n "$annotations" ]; then
+              echo "$annotations"
+            else
+              echo "::error title=Tests failed in $dir::$(tail -n 300 "$log" | tool/ci/escape.sh)"
+            fi
           done
+          exit $status
 
   # The one check that branch protection requires. It waits for every job
   # above and passes only when all of them succeeded, so a new job (the
@@ -62,7 +130,7 @@ jobs:
     if: ${{ always() }}
     needs:
       - analyze-and-test
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - name: Every job succeeded
