@@ -34,16 +34,24 @@ jobs:
         run: flutter pub get
 
       # The Flutter tool can rewrite project files (for example, its
-      # analysis_options.yaml migration). A clean checkout must stay clean.
+      # analysis_options.yaml migration) or create new ones (pubspec.lock).
+      # A clean checkout must stay clean, untracked files included.
       - name: Tools left the repository unchanged
         run: |
-          if ! git diff --quiet; then
-            for file in $(git diff --name-only); do
-              diff=$(git diff -- "$file" | tool/ci/escape.sh)
-              echo "::error file=$file,title=Changed by flutter pub get::Commit this change.%0A$diff"
-            done
-            exit 1
-          fi
+          changes=$(git status --porcelain --untracked-files=all)
+          [ -z "$changes" ] && exit 0
+          echo "$changes"
+          echo "$changes" | cut -c4- | while read -r file; do
+            if git ls-files --error-unmatch -- "$file" > /dev/null 2>&1; then
+              title="Changed by flutter pub get"
+              body=$(git diff -- "$file" | tool/ci/escape.sh)
+            else
+              title="Created by flutter pub get"
+              body=$(head -c 60000 "$file" | tool/ci/escape.sh)
+            fi
+            echo "::error file=$file,title=$title::Commit this file, or ignore it if it is generated.%0A%0A$body"
+          done
+          exit 1
 
       - name: Check formatting
         run: |
@@ -56,20 +64,27 @@ jobs:
             exit 1
           fi
 
+      # Logs go to the runner's temp folder, outside the checkout.
       - name: Analyze
         run: |
-          if flutter analyze --fatal-infos > analyze.log 2>&1; then
-            cat analyze.log
+          log="$RUNNER_TEMP/analyze.log"
+          if flutter analyze --fatal-infos > "$log" 2>&1; then
+            cat "$log"
             exit 0
           fi
-          cat analyze.log
-          echo "::error title=flutter analyze::$(tool/ci/escape.sh < analyze.log)"
-          sed -nE 's/^ *(error|warning|info) • (.*) • ([^ ]+):([0-9]+):([0-9]+) • ([a-z0-9_]+)$/::error file=\3,line=\4,col=\5,title=\6::\2/p' analyze.log
+          cat "$log"
+          echo "::error title=flutter analyze::$(tool/ci/escape.sh < "$log")"
+          sed -nE 's/^ *(error|warning|info) • (.*) • ([^ ]+):([0-9]+):([0-9]+) • ([a-z0-9_]+)$/::error file=\3,line=\4,col=\5,title=\6::\2/p' "$log"
           exit 1
 
+      # A failing test is annotated on the line that declares it, from the
+      # runner's JSON report; the log tail is the fallback when there is no
+      # report (for example, the package did not compile).
       - name: Host tests
         run: |
           status=0
+          log="$RUNNER_TEMP/test.log"
+          report="$RUNNER_TEMP/test.json"
           for dir in packages/* tools/* apps/*; do
             [ -d "$dir/test" ] || { echo "No tests in $dir yet"; continue; }
             if grep -q "sdk: flutter" "$dir/pubspec.yaml"; then
@@ -77,15 +92,25 @@ jobs:
             else
               runner="dart test"
             fi
+            rm -f "$report"
             echo "::group::$dir"
-            if (cd "$dir" && $runner --reporter expanded) > test.log 2>&1; then
-              echo "::notice title=Tests in $dir::$(tail -n 1 test.log | tool/ci/escape.sh)"
-            else
-              status=1
-              echo "::error title=Tests failed in $dir::$(tail -n 300 test.log | tool/ci/escape.sh)"
-            fi
-            cat test.log
+            # The step runs under `bash -e`; `|| result=$?` keeps a failure
+            # from ending it before the annotations are written.
+            result=0
+            (cd "$dir" && $runner --reporter expanded --file-reporter "json:$report") > "$log" 2>&1 || result=$?
+            cat "$log"
             echo "::endgroup::"
+            if [ $result -eq 0 ]; then
+              echo "::notice title=Tests in $dir::$(tail -n 1 "$log" | tool/ci/escape.sh)"
+              continue
+            fi
+            status=1
+            annotations=$(python3 tool/ci/test_annotations.py "$report" "$dir")
+            if [ -n "$annotations" ]; then
+              echo "$annotations"
+            else
+              echo "::error title=Tests failed in $dir::$(tail -n 300 "$log" | tool/ci/escape.sh)"
+            fi
           done
           exit $status
 

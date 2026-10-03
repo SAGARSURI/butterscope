@@ -109,6 +109,20 @@ void main() {
     });
   });
 
+  test('counts each janky frame under exactly one thread', () {
+    // At 60 Hz: one frame late on each thread alone, one late on both, and
+    // one smooth frame.
+    const times = [(20000, 8000), (8000, 20000), (20000, 20000), (8000, 8000)];
+    final metrics = WindowMetrics.of(samples(times), budget);
+    expect(metrics.jankyCount, 3);
+    expect(metrics.uiJankyCount, 1);
+    expect(metrics.rasterJankyCount, 1);
+    expect(metrics.bothJankyCount, 1);
+    expect(metrics.jankyRateOn(JankThread.ui), 0.25);
+    expect(metrics.jankyRateOn(JankThread.raster), 0.25);
+    expect(metrics.jankyRateOn(JankThread.both), 0.25);
+  });
+
   test('one smooth frame', () {
     final metrics = WindowMetrics.of(samples(const [(8000, 4000)]), budget);
     expect(metrics.frameCount, 1);
