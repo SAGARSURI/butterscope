@@ -7,10 +7,6 @@ enough to read, test and change safely. A rule only reports code that the
 pull request adds or changes, and names the measured value and the
 threshold.
 
-The M1 metrics engine is within every threshold. Counted by hand with DCM's
-rules, its most complex function, `observeRefreshRate`, has a cyclomatic
-complexity of 11 against 15.
-
 ## What is checked
 
 | Rule id | DCM metric | Reported when | Severity |
@@ -39,8 +35,9 @@ it reports each added TODO, `// ignore:` or `// ignore_for_file:` comment,
 `as dynamic` cast, `@Deprecated` annotation and `// @dart=` comment.
 
 **One project choice.** Constructors are exempt from the parameter count.
-DCM's definition names functions and methods, and this project's immutable
-value classes take one named parameter per field (`WindowMetrics` has 18).
+DCM's definition names functions and methods, and an immutable value class
+takes one named parameter per field, so its constructor grows with its
+fields.
 
 ## Not checked, and why
 
@@ -53,8 +50,8 @@ value classes take one named parameter per field (`WindowMetrics` has 18).
   do not say which types or calls count (core types such as `int` and
   `List`, for example), so the counts would vary from one review to the next.
 - **Tight class cohesion and weight of a class.** Both flag immutable value
-  types such as `FrameSample` and `WindowMetrics`, which expose data by
-  design. DCM exempts widgets from both, but not value classes.
+  types, which expose data by design. DCM exempts widgets from both, but not
+  value classes.
 
 ## Changing a rule
 
