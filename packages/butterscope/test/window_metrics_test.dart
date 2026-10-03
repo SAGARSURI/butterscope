@@ -135,7 +135,7 @@ void main() {
     // every other vsync, so frames land 16.7 ms apart as on a 60 Hz screen.
     // Every frame is smooth, so the janky rate and the hitch ratio read
     // zero; only the missed vsyncs show the frames that never happened.
-    final frames = samples(List.filled(11, (2000, 1000)), gapMicros: 16667);
+    final frames = samples(List.filled(11, (2000, 1000)));
     final metrics = WindowMetrics.of(frames, FrameBudget(120));
     expect(metrics.jankyCount, 0);
     expect(metrics.hitchRatio, 0);
