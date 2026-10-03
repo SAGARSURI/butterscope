@@ -1,7 +1,7 @@
 # Butterscope design
 
 - Status: **draft for approval** (milestone M0)
-- Scope: Android first, then iOS. Desktop and web are out of scope.
+- Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
 
@@ -12,7 +12,9 @@ measures them and records the answer here.
 
 Butterscope attaches to a team's existing Flutter integration tests, records
 every frame the app renders while they run, reports performance issues per
-flow, and gates pull requests against a baseline.
+flow, and catches regressions against a baseline. A device run is too slow
+for every push, so it runs when a pull request asks for it, after merges to
+`main` and before a release (section 9.1).
 
 Three roles stay separate, as in Android Macrobenchmark, XCTest metrics,
 Lighthouse user flows and Reassure:
@@ -28,9 +30,10 @@ thermal state, GC, background work and adaptive refresh rates shift them. The
 **verdict** is deterministic: with fixed inputs, fixed definitions and a fixed
 decision rule, the same build on the same rig gets the same verdict.
 
-**Not in the PoC:** iOS, desktop, web, startup time, field telemetry,
-automated Timeline capture, and any app-specific code (for example a fake
-socket client).
+**Not in the PoC:** iOS on the device farm (the PoC runs iOS on one local
+iPhone), regression detection on `main` and the release gate (section 9.1),
+desktop, web, startup time, field telemetry, automated Timeline capture, and
+any app-specific code (for example a fake socket client).
 
 ## 2. Terms
 
@@ -192,13 +195,13 @@ detected mismatch makes the run `INVALID` with a named reason.
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
 | Refresh rate | Declared (`Display.refreshRate`) vs observed (section 4) | Must match. |
-| Animations | `WidgetsBinding.instance.disableAnimations` | Must be false. |
+| Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
 | Semantics | `PlatformDispatcher.semanticsEnabled` | **(open, M6.)** `testWidgets` turns semantics on by default (`semanticsEnabled: true`), so either observed tests pass `semanticsEnabled: false`, or semantics becomes part of the identity. |
 | Too few frames | Frame count per span | Below the span's minimum is `INVALID` (for example, a list too short to scroll). |
-| Thermal | Android `PowerManager` thermal status (Android 10+), via a small plugin | Above nominal: wait and retry. |
-| Battery saver | Android `PowerManager.isPowerSaveMode()` | Must be off. |
+| Thermal | Android `PowerManager` thermal status (Android 10+); iOS `ProcessInfo.thermalState`; both through a small plugin | Above nominal: wait and retry. |
+| Low-power mode | Android `PowerManager.isPowerSaveMode()`; iOS `ProcessInfo.isLowPowerModeEnabled` | Must be off. |
 
 ### 7.3 Identity
 
@@ -216,12 +219,18 @@ unit in the same session, interleaved.
 - Dedicated devices: not shared with manual testing, OS auto-update off.
 - Do Not Disturb on, auto-lock off, battery at 50% or more, a cooldown between
   runs, and the phone out of its case.
-- **Samsung Galaxy S24** (first device): Motion smoothness set to Adaptive,
+- **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
   own; the refresh-rate guard catches that.
-- **iOS (later):** Limit Frame Rate off, Low Power Mode off, and the
-  `CADisableMinimumFrameDurationOnPhone` Info.plist key matching what ships to
-  users.
+- **iPhone 17 Pro** (iOS): ProMotion, adaptive up to 120 Hz. Limit Frame Rate
+  off (Settings › Accessibility › Motion), because it caps the screen at
+  60 Hz; Reduce Motion and Low Power Mode off. ProMotion also drops its rate
+  on its own; the refresh-rate guard catches that. **(open, M2: what
+  `Display.refreshRate` reports while ProMotion varies.)**
+- **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
+  ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
+  Flutter 3.47.5's app template sets it to true, so the sample app can reach
+  120 Hz.
 
 ### 7.5 Build rules
 
@@ -236,10 +245,11 @@ unit in the same session, interleaved.
 ## 8. Getting results off the device
 
 1. **Locally**, the report is printed as tagged, numbered chunks, because
-   Android logcat truncates long lines. `butterscope collect` reads
-   `adb logcat` or a saved log, reassembles the chunks, validates the schema
-   and writes one JSON file per run. A missing or corrupt chunk is reported,
-   never silently dropped. **(open, M7: schema v1.)**
+   device logs can truncate long lines (Android logcat does). `butterscope
+   collect` reads `adb logcat` or a saved log, reassembles the chunks,
+   validates the schema and writes one JSON file per run. A missing or
+   corrupt chunk is reported, never silently dropped. **(open, M7: schema v1,
+   and which log carries the chunks off an iPhone.)**
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run
    through the **Flutter Dart** runner as Android instrumentation, so gestures
    come from inside the app process. The Appium route is not used: it embeds
@@ -267,6 +277,33 @@ Designed in M9 from M8's measurements. These principles are fixed now:
 - Unstable flows (section 6, item 7) are reported, not gated.
 
 **(open, M9: repetitions, statistic, noise thresholds, budgets.)**
+
+### 9.1 When it runs
+
+No device run happens on every push. Each flow is repeated with and without
+the change, with cooldowns in between: for example, 5 flows × 30 s × 5
+repetitions × 2 builds is 25 minutes of device time, before builds, installs
+and farm queueing. M8 measures the real figure.
+
+| Trigger | What runs | Blocks? | In the PoC |
+| --- | --- | --- | --- |
+| Every push to a pull request | Host checks: format, analyze, unit tests | Yes: merging, through `required` | Yes |
+| A pull request labelled `perf` | Its flows, base vs head on one device model | No: the verdict is posted on the pull request for review | Yes (M10) |
+| Every merge to `main` | All flows, head only, compared with recent `main` runs | No: a regression is reported with the merges that could have caused it | No |
+| A release candidate | All flows, against the last release | Yes: the release waits | No |
+
+- **Why not block every pull request:** time and farm capacity. AndroidX runs
+  its benchmarks after merge, not before. It finds regressions by step fitting
+  over several builds, because two runs alone are not enough. Its advice for
+  running on a pull request is to inform review, not block it.
+- **Who adds `perf`:** the author or a reviewer, for changes to a gated flow,
+  shared UI, the data layer or an SDK upgrade.
+- **Option not taken for the PoC:** a merge queue, which runs the device
+  check once per merge before `main`. GitHub offers merge queues only on
+  organization repositories (public, or private on Enterprise Cloud).
+
+**(open, M9: label name; whether a `perf` FAIL ever blocks; the step-fit
+window on `main`.)**
 
 ## 10. Packages
 
@@ -299,6 +336,11 @@ Designed in M9 from M8's measurements. These principles are fixed now:
   [kBuildBudget](https://api.flutter.dev/flutter/flutter_driver/kBuildBudget-constant.html),
   [testWidgets](https://api.flutter.dev/flutter/flutter_test/testWidgets.html),
   [UI performance](https://docs.flutter.dev/perf/ui-performance).
+- iOS: [iPhone 17 Pro specs](https://support.apple.com/en-us/125090),
+  [ProcessInfo](https://developer.apple.com/documentation/foundation/processinfo),
+  [ProMotion refresh rates](https://developer.apple.com/documentation/quartzcore/optimizing_promotion_refresh_rates_for_iphone_13_pro_and_ipad_pro).
+- CI: [Fighting regressions with benchmarks in CI (AndroidX)](https://medium.com/androiddevelopers/fighting-regressions-with-benchmarks-in-ci-6ea9a14b5c71),
+  [GitHub merge queues](https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/configuring-pull-request-merges/managing-a-merge-queue).
 - Prior art: [JankStats](https://developer.android.com/topic/performance/jankstats),
   [FrameTimingMetric](https://developer.android.com/reference/androidx/benchmark/macro/FrameTimingMetric),
   [XCTest hitches (WWDC20)](https://developer.apple.com/videos/play/wwdc2020/10077/),
