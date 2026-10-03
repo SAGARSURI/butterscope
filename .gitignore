@@ -16,3 +16,6 @@ build/
 
 # OS
 .DS_Store
+
+# scratch only
+pubspec.lock

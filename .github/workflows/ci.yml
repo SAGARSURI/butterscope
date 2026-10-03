@@ -33,6 +33,17 @@ jobs:
       - name: Resolve workspace
         run: flutter pub get
 
+      - name: Dump lockfile in chunks (scratch only)
+        run: |
+          python3 - <<'PY'
+          data = open('pubspec.lock').read()
+          size = 3000
+          for i in range(0, len(data), size):
+              chunk = data[i:i + size]
+              chunk = chunk.replace('%', '%25').replace('\r', '%0D').replace('\n', '%0A')
+              print('::notice title=lock %02d of %02d::<<%s>>' % (i // size, (len(data) - 1) // size, chunk))
+          PY
+
       # The Flutter tool can rewrite project files (for example, its
       # analysis_options.yaml migration) or create new ones (pubspec.lock).
       # A clean checkout must stay clean, untracked files included.
