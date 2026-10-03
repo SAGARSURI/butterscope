@@ -1,9 +1,10 @@
 name: CI
 
+# Every branch lives in this repo, so push runs cover pull requests too:
+# their results show on the PR's head commit.
 on:
   push:
-    branches: [main]
-  pull_request:
+  workflow_dispatch:
 
 concurrency:
   group: ci-${{ github.ref }}
