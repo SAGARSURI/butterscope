@@ -3,8 +3,9 @@ import 'package:butterscope/src/frame_budget.dart';
 import 'package:butterscope/src/frame_sample.dart';
 import 'package:butterscope/src/percentile.dart';
 
-/// A gap between vsyncs this long or longer means rendering paused.
-const int _pauseMicros = 100000;
+/// A gap this long or longer is a freeze, not a refresh interval, so it
+/// says nothing about the screen's rate.
+const int _freezeMicros = 100000;
 
 /// Gaps within this fraction of each other count as the same interval.
 const double _tolerance = 0.05;
@@ -33,7 +34,7 @@ double? observeRefreshRate(List<FrameSample> frames, FrameBudget budget) {
     final frame = ClassifiedFrame(frames[i], budget);
     if (frame.frameClass != FrameClass.smooth) continue;
     final gap = frames[i + 1].vsyncStartMicros - frames[i].vsyncStartMicros;
-    if (gap > 0 && gap < _pauseMicros) gaps.add(gap);
+    if (gap > 0 && gap < _freezeMicros) gaps.add(gap);
   }
   if (gaps.isEmpty) return null;
   gaps.sort();

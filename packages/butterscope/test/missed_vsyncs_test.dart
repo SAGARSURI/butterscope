@@ -38,6 +38,24 @@ void main() {
       expect(countMissedVsyncs(framesWithGaps([13333]), at120), 1);
     });
 
+    test("leaves out the vsyncs a frame's own UI time explains", () {
+      // A 30 ms build at 120 Hz spans four intervals; its lateness is its
+      // overrun, so the four-interval gap after it adds nothing. Two more
+      // intervals on top are counted.
+      FrameSample frame(int vsync, int build) {
+        return FrameSample(
+          vsyncStartMicros: vsync,
+          buildMicros: build,
+          rasterMicros: 1000,
+        );
+      }
+
+      final explained = [frame(0, 30000), frame(33333, 2000)];
+      expect(countMissedVsyncs(explained, at120), 0);
+      final beyond = [frame(0, 30000), frame(50000, 2000)];
+      expect(countMissedVsyncs(beyond, at120), 2);
+    });
+
     test('counts a long freeze in full', () {
       // 300 ms at 60 Hz is 18 intervals: 17 vsyncs had no frame.
       final frames = framesWithGaps([300000]);

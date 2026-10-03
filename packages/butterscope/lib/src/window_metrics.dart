@@ -103,10 +103,10 @@ final class WindowMetrics {
   /// Janky frames that were late on both threads.
   final int bothJankyCount;
 
-  /// Vsyncs that passed with no frame between the window's frames. See
-  /// [countMissedVsyncs].
+  /// Vsyncs that passed with no frame between the window's frames, beyond
+  /// what each frame's own UI time explains. See [countMissedVsyncs].
   ///
-  /// Catches what per-frame times cannot: work queued on the UI thread
+  /// Catches UI-thread work that per-frame times cannot see: work queued
   /// before a frame was requested delays the request itself, so the next
   /// frame starts on time and looks smooth, and only the missing frames
   /// show.
@@ -149,6 +149,10 @@ final class WindowMetrics {
 
   /// Janky frames as a share of all frames, from 0 to 1.
   double? get jankyRate => _share(jankyCount);
+
+  /// [missedVsyncCount] as time in milliseconds, so the same freeze reads
+  /// about the same on every screen.
+  double get missedVsyncMillis => missedVsyncCount * budget.millis;
 
   /// Milliseconds of lateness per second of rendering: the headline metric.
   ///

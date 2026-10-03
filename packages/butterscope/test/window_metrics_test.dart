@@ -111,7 +111,8 @@ void main() {
   });
 
   test('counts frames lost to UI work queued before the frame request', () {
-    // At 120 Hz, a 33 ms decode runs before the next frame is requested.
+    // At 120 Hz, a decode queued before the next frame request holds it
+    // back until the vsync at 50 ms, four intervals after the last frame.
     // Every frame starts on time and looks smooth, but three vsyncs pass
     // with no frame.
     const vsyncs = [0, 8333, 16667, 50000, 58333];
@@ -126,6 +127,7 @@ void main() {
     final metrics = WindowMetrics.of(frames, FrameBudget(120));
     expect(metrics.jankyCount, 0);
     expect(metrics.missedVsyncCount, 3);
+    expect(metrics.missedVsyncMillis, closeTo(25, 0.001));
   });
 
   test('counts each janky frame under exactly one thread', () {

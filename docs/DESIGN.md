@@ -46,7 +46,7 @@ any app-specific code (for example a fake socket client).
 | **Hitch ratio** | Total positive overrun (ms) per second of rendering in a span or episode. |
 | **Rendering time** | Frame count × `B` plus the total positive overrun. During a test frames run back to back, so it is close to wall-clock time. |
 | **Missed vsyncs** | Vsyncs that passed with no frame between consecutive frames. |
-| **Episode** | A continuous burst of frames, split automatically by idle gaps. |
+| **Episode** | A part of a run split out automatically, without the test marking it. **(open, M5: how to split.)** |
 | **Span** | A named window a test marks around a flow. Gates apply to spans. |
 | **Run** | One execution of one test file on one device. |
 | **Identity** | The fields stamped on every run that decide what it can be compared with. |
@@ -81,8 +81,9 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`, read at the start of every run and stored
-in its identity.
+`FlutterView.display.refreshRate`, read at the start of each span, because
+Android updates it when the display mode changes, and stored in the run's
+identity.
 
 Each frame gets one class. The classes are nested: every stall is severe and
 every severe frame is janky.
@@ -105,7 +106,9 @@ that keeps the UI thread busy delays the frame without appearing in
 `buildDuration`. The UI thread cannot start the next frame until this one is
 built, so UI time over `B` is a missed vsync whatever the cause. Work already
 queued when the next frame is requested delays the request itself, so that
-frame starts on time; the cost shows as missed vsyncs instead (section 5).
+frame starts on time; so does work that runs after a frame is stamped as
+built (semantics, tree finalisation, post-frame callbacks). Both show only as
+missed vsyncs (section 5).
 
 **Not used for jank:** `totalSpan` (vsync to raster finish). The UI and
 raster threads are pipelined, so `totalSpan` can exceed `B` with no dropped
@@ -121,7 +124,8 @@ reached the screen, so overrun approximates how late it was.
 
 **Observed refresh rate** = the most common gap from a smooth frame's
 `vsyncStart` to the next frame's, grouping each gap with those within ±5% of
-it and ignoring gaps of 100 ms or more as pauses. A janky frame pushes the
+it and ignoring gaps of 100 ms or more, which are freezes, not refresh
+intervals. A janky frame pushes the
 next vsync back by whole intervals, so the gap after it is left out and the
 mode is used, not the mean. Under `benchmarkLive` frames run back to back for
 the whole test, so this is the screen's rate in every span, and the guard
@@ -139,7 +143,7 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 | Metric | Definition |
 | --- | --- |
 | **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. **(open, M2: whether hitch time adds missed vsyncs.)** |
-| Missed vsyncs | Vsyncs with no frame between the span's frames. Catches UI work queued before a frame was requested, which per-frame times miss. |
+| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what each frame's own UI time explains (that part is already its overrun). Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
@@ -233,7 +237,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | --- | --- | --- |
 | Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
 | Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`) vs observed in each span (section 4) | Must match. A declared rate that is 0 or not finite is `INVALID`. |
+| Refresh rate | Declared (`Display.refreshRate`, read per span) vs observed in each span (section 4) | Must match within 5%; a span that does not is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them. A declared rate that is 0 or not finite is `INVALID`. |
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |

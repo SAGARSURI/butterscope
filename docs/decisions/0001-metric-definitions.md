@@ -30,7 +30,9 @@ really produced during a test:
   message, lands in `vsyncOverhead`, not in `buildDuration`. Work already
   queued when the next frame is requested delays the request itself
   (`Animator::RequestFrame` posts it as a UI task), so the next frame starts
-  on time and the cost shows only as vsyncs with no frame.
+  on time and the cost shows only as vsyncs with no frame. So does work that
+  runs after a frame is stamped as built and before the next request:
+  semantics, tree finalisation and post-frame callbacks.
 - **A slow raster thread also costs frames.** When the two-frame pipeline is
   full, `Animator::BeginFrame` skips the frame and tries again at the next
   vsync.
@@ -56,11 +58,16 @@ device data exists, except where marked open.
 2. **Missed vsyncs count the frames that never happened.** Because every
    vsync should produce a frame during a test, a gap of `k` intervals
    between consecutive frames' `vsyncStart` means `k − 1` vsyncs passed with
-   no frame. Each gap is rounded to whole intervals of `B`; gaps of zero or
-   less are ignored; long gaps count in full, because during a test they
-   are freezes. This catches UI work queued before a frame was requested,
-   which per-frame times miss, and frames skipped while the raster pipeline
-   was full.
+   no frame. A frame whose UI time spans `n` intervals already explains the
+   first `n` of them, and that lateness is its overrun, so the count is
+   `max(0, k − max(1, ⌈UI time ÷ B⌉))` per gap. Each gap is rounded to whole
+   intervals of `B`; gaps of zero or less are ignored; long gaps count in
+   full, because during a test they are freezes. This catches the UI work
+   that per-frame times miss, and frames skipped while the raster pipeline
+   was full; the latter may overlap with raster overrun. It is also
+   reported as time, count × `B`, so the same freeze reads alike on every
+   screen. The count assumes `B` is right: a span whose observed rate does
+   not match its declared rate is `INVALID` (decision 6).
 
 3. **Rendering time is the hitch ratio's denominator.**
 
@@ -104,7 +111,8 @@ device data exists, except where marked open.
    `vsyncStart` to the next reported frame's, in the order the frames were
    reported (not by `frameNumber`). A janky frame pushes the next vsync back
    by whole intervals, so the gap after it is left out. Ignore gaps of zero
-   or less and gaps of 100 ms or more. For each gap `g`, its group is every
+   or less and gaps of 100 ms or more, which are freezes rather than
+   refresh intervals. For each gap `g`, its group is every
    gap from `0.95 g` to `1.05 g`, both edges included. The largest group
    wins, ties going to the shorter `g`. The interval is the nearest-rank
    median of that group, and the rate is `1 000 000 ÷ interval` hertz. With
@@ -113,9 +121,14 @@ device data exists, except where marked open.
    distinct.
 
    Frames run back to back during a test, so this is the screen's rate in
-   every window, and the refresh-rate guard checks it per span; a rate that
-   drops part-way through a run is caught where it drops. Outside a test,
-   frames are drawn on demand and this follows the requests instead.
+   every window. The declared rate is read at the start of each span,
+   because Android updates it when the display mode changes, and the
+   refresh-rate guard requires the two to match within 5% per span; a rate
+   that drops part-way through a run is caught where it drops. A span that
+   fails is `INVALID` and none of its metrics are used, since a wrong `B`
+   distorts all of them (at a real rate of two thirds of the declared one or
+   less, every gap reads as a missed vsync). Outside a test, frames are
+   drawn on demand and this follows the requests instead.
 
 7. **A refresh rate must be positive and finite.** A screen can report 0
    when its rate is not known. The recorder checks the declared rate first
@@ -138,7 +151,7 @@ device data exists, except where marked open.
 
 - UI-thread jank is caught whichever way it lands: as UI time when the work
   starts after the frame was requested, as missed vsyncs when it was
-  already queued. M4's `sync_decode` plant decodes in a stream listener, and
+  already queued or ran after the frame was built. M4's `sync_decode` plant decodes in a stream listener, and
   M2 and M8 confirm both paths on both phones; iOS reports the vsync time
   from `CADisplayLink`, which is not yet verified for this.
 - Test code runs on the same UI thread. Finders, expectations and gesture
