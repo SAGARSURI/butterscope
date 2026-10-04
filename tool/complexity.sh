@@ -15,8 +15,9 @@
 # fails. With --github (CI), findings are annotations and each tool's report
 # goes to the run's summary page.
 #
-# The tools parse files without resolving them, so a whole run takes
-# seconds; file_split resolves a file only when it is over the limit.
+# The first run downloads and compiles the tools, which takes about a
+# minute. After that a run takes seconds: the tools parse files without
+# resolving them, and file_split resolves only a file over the limit.
 # Rules and reasons: docs/review-rules.md.
 set -uo pipefail
 
@@ -71,11 +72,12 @@ echo
 echo "== Single-caller helpers (shallow)"
 # The text report decides the result. In CI a second, JSON run annotates
 # each SAFE_INLINE helper on its first line.
-report=$(tool :shallow --fail-on-safe-inline "${targets[@]}" 2>&1) || status=1
+report=$(tool :shallow --fail-on-safe-inline --max-caller-cc="$max_score" \
+  "${targets[@]}" 2>&1) || status=1
 echo "$report"
 summarize "Single-caller helpers (shallow)" "$report"
 if $github; then
-  tool :shallow --format=json "${targets[@]}" |
+  tool :shallow --max-caller-cc="$max_score" --format=json "${targets[@]}" |
     jq -r --argjson max "$max_score" '
     .findings[]
     | select(.classification == "SAFE_INLINE")

@@ -58,8 +58,9 @@ package's `lib/` and pins their version and limits.
 - **Cognitive complexity** charges extra for nesting, and flat `switch` arms
   cost nothing, so it tracks how hard a function is to read. The cyclomatic
   rule above counts paths, which sets how many tests a function needs.
-- **File length** counts every line, comments and blank lines included. A
-  generated file, such as `*.g.dart`, is left out.
+- **File length** counts every line, comments and blank lines included, plus
+  the empty line after a final newline: `wc -l` shows one fewer. A generated
+  file, such as `*.g.dart`, is left out.
 - **Shallow helpers** are functions and methods outside the public API, not
   overrides, with exactly one caller and none in tests, that are also tiny
   (at most 6 body lines and a score of 2 or less), take 5 parameters or more,

@@ -48,6 +48,7 @@ fi
 melos analyze ${filters[@]+"${filters[@]}"}
 melos test ${filters[@]+"${filters[@]}"}
 
-# Every package, not only the changed ones: the tools take seconds, and a
-# change in one file can leave a helper in another with a single caller.
+# Every package, not only the changed ones: once downloaded, the tools take
+# seconds, and a change in one file can leave a helper in another with a
+# single caller.
 melos run complexity
