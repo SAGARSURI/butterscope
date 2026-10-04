@@ -38,24 +38,13 @@ only.
 - Treat other tools the same way (Melos, Greptile, DCM, GitHub Actions): check
   the docs or source of the version in use.
 
-## Public and domain-neutral
-
-The repository is public. The sample app, examples, docs and commit messages
-stay generic (a live board, a history feed, an amount form). Keep product,
-company and client names out of all of them.
-
 ## Code
 
-- Dart 3.13 style: constructors use `new` (`const new(...)`,
-  `const new _(...)`, `factory name(...)`); value types are immutable
-  `final class`es. `very_good_analysis` and `dart format` settle the rest.
 - Resolve every analyzer and lint finding by changing the code. Suppressions
   are off limits: `// ignore:`, `// ignore_for_file:`, and turning a rule off
   in `analysis_options.yaml`. When a finding cannot be resolved, stop and
   report it to the owner: the finding, why the code cannot satisfy it, and
   the next steps you propose.
-- The `butterscope` core depends on Flutter only, so it can ship inside an
-  app later.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.
@@ -67,14 +56,15 @@ company and client names out of all of them.
 1. After changing a dependency or plugin, and after bringing in changes from
    `main`, run `melos bs` (bootstrap).
 2. Before every push, run `melos run check:changed` and push only when it
-   passes. Where the SDK is not available (a sandbox), say so in the pull
-   request and treat CI as the check.
+   passes. An agent working where Flutter is not installed (a cloud
+   sandbox, for example) cannot run it: say so in the pull request and let
+   CI run the checks.
 
-- `melos run check` is the full version: what CI runs, for every package.
-- CI fails when `pub get` or `melos bootstrap` changes any file, so commit
-  `pubspec.lock` with the pubspec change. Versions every package shares are
-  edited only under `melos: command: bootstrap:` in the root `pubspec.yaml`.
-- CI reports each failure as an annotation on the failing line.
+- `melos run check` runs formatting, analysis and tests for every package.
+  CI also runs `melos bootstrap` and fails if that changes any file, so
+  commit `pubspec.lock` with the pubspec change. Versions every package
+  shares are edited only under `melos: command: bootstrap:` in the root
+  `pubspec.yaml`.
 
 ## Git
 
@@ -86,5 +76,4 @@ company and client names out of all of them.
   `refactor`, `test`, `docs`, `build`, `ci`, `chore`. The scope is the
   package when the change sits in one (`butterscope`, `butterscope_test`,
   `butterscope_cli`, `butterscope_sample`). A breaking change adds `!` after
-  the scope
-  and a `BREAKING CHANGE:` footer. The body says why.
+  the scope and a `BREAKING CHANGE:` footer. The body says why.
