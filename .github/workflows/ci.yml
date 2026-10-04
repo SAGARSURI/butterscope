@@ -109,6 +109,12 @@ jobs:
       - name: Host tests
         run: melos run test:ci --no-select
 
+      # Scores every function under lib/ (the complexity script in the root
+      # pubspec.yaml pins the tool and the limit). A function above the limit
+      # is annotated on its first line.
+      - name: Cognitive complexity
+        run: melos run complexity -- --format=github
+
   # The one check that branch protection requires. It waits for every job
   # above and passes only when all of them succeeded, so a new job (the
   # device run in M3, the judge in M9) is added to `needs` here and the

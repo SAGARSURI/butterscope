@@ -46,6 +46,18 @@ melos:
         - dart format --set-exit-if-changed .
         - analyze
         - test
+        - complexity
+
+    complexity:
+      description: >-
+        Scores the cognitive complexity of every function under lib/ and fails
+        when one is above 15.
+      # The cognitive_complexity version is pinned here only. check:changed
+      # and CI run this script and add arguments after `--`, such as
+      # `--git-diff=<ref>` or `--format=github`.
+      run: >-
+        dart run cognitive_complexity@0.2.5 --fail-threshold=15
+        packages/*/lib tools/*/lib apps/*/lib
 
     check:changed:
       description: >-

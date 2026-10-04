@@ -5,7 +5,8 @@
 # changed since the branch left origin/main, with Melos's --diff and
 # --include-dependents filters: a changed package and every package that
 # depends on it. Uncommitted edits count, staged or not; a new file counts
-# once it is staged with `git add`.
+# once it is staged with `git add`. Last, it scores the cognitive complexity
+# of the functions in the Dart files changed since the same point.
 #
 # --diff only sees files inside a package. A change to a file every package
 # shares (the root pubspec.yaml or pubspec.lock, analysis_options.yaml,
@@ -46,3 +47,7 @@ fi
 # which macOS ships.
 melos analyze ${filters[@]+"${filters[@]}"}
 melos test ${filters[@]+"${filters[@]}"}
+
+# cognitive_complexity diffs the working tree against the branch point, so
+# uncommitted edits are scored too.
+melos run complexity -- --git-diff="$base"
