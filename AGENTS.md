@@ -63,21 +63,15 @@ only.
 ## Workflow
 
 1. After changing a dependency or plugin, and after bringing in changes from
-   `main`, run `melos bs` (bootstrap).
-2. Before every push, run `melos run check:changed` and push only when it
-   passes. An agent working where Flutter is not installed (a cloud
-   sandbox, for example) cannot run it: say so in the pull request and let
-   CI run the checks.
-
-- `melos run check` runs formatting, analysis, tests and the complexity
-  tools for every package. CI also runs `melos bootstrap` and fails if that
-  changes any file, so commit `pubspec.lock` with the pubspec change.
-  Versions every package shares are edited only under
-  `melos: command: bootstrap:` in the root `pubspec.yaml`.
-- Claude Code runs `melos run complexity` before each commit it makes, and
-  blocks the commit when it fails (`.claude/settings.json`). Where Melos or
-  the pinned SDK is missing, it lets the commit through and says why the
-  tools did not run.
+   `main`, run `melos bs` (bootstrap). Commit `pubspec.lock` with the
+   pubspec change: CI fails if bootstrap changes any file. Versions every
+   package shares are edited only under `melos: command: bootstrap:` in the
+   root `pubspec.yaml`.
+2. Commit only when `melos run check` passes. It runs every check CI runs.
+   Claude Code runs it before each commit and blocks the commit when it
+   fails (`.claude/settings.json`). Where Flutter is not installed (a cloud
+   sandbox, for example), it cannot run, and the hook lets the commit
+   through: say so in the pull request, and CI runs the checks.
 
 ## Git
 

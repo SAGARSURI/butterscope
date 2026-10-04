@@ -75,9 +75,9 @@ package's `lib/` and pins their version and limits.
 
 CI annotates each failure where it starts. The run's summary page has each
 function's score and each tool's report. Locally, `melos run complexity`
-runs the same checks, and `melos run check` and `melos run check:changed`
-include it. Claude Code runs it before each commit it makes and blocks the
-commit when it fails (see [`.claude/settings.json`](../.claude/settings.json)).
+runs the same checks, and `melos run check` includes them. Claude Code runs
+`melos run check` before each commit it makes and blocks the commit when it
+fails (see [`.claude/settings.json`](../.claude/settings.json)).
 
 **Fixing a finding.** The
 [`dart-cognitive-complexity`](../.claude/skills/dart-cognitive-complexity/SKILL.md)
