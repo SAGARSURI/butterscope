@@ -40,11 +40,12 @@ only.
 
 ## Code
 
-- Resolve every analyzer and lint finding by changing the code. Suppressions
-  are off limits: `// ignore:`, `// ignore_for_file:`, and turning a rule off
-  in `analysis_options.yaml`. When a finding cannot be resolved, stop and
-  report it to the owner: the finding, why the code cannot satisfy it, and
-  the next steps you propose.
+- Resolve every analyzer, lint and complexity finding by changing the code.
+  Suppressions are off limits: `// ignore:`, `// ignore_for_file:`,
+  `// cognitive_complexity:ignore`, `// cognitive_complexity:ignore_for_file`,
+  and turning a rule off in `analysis_options.yaml`. When a finding cannot be
+  resolved, stop and report it to the owner: the finding, why the code cannot
+  satisfy it, and the next steps you propose.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.

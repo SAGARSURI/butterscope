@@ -54,20 +54,26 @@ melos bootstrap
 Day to day:
 
 ```sh
-melos run check           # what CI checks: format, analyze and test
+melos run check           # what CI checks: format, analyze, test, complexity
 melos run check:changed   # the same, for the packages this branch changed
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder
+melos run complexity      # cognitive complexity of every function in lib/
 ```
 
 `check:changed` analyzes and tests the packages changed since the branch left
 `origin/main` and every package that depends on them, using Melos's `--diff`
 and `--include-dependents` filters. Uncommitted edits count, staged or not; a
-new file counts once it is staged with `git add`. A change to
-a file every package shares, such as the root `pubspec.yaml` or
-`analysis_options.yaml`, checks every package instead. CI always checks every
-package.
+new file counts once it is staged with `git add`. A change to a file every
+package shares, such as the root `pubspec.yaml` or `analysis_options.yaml`,
+checks every package instead. It then scores the cognitive complexity of the
+functions in the changed Dart files. CI always checks everything.
+
+`melos run complexity` runs the
+[`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
+package, pinned in that script, and fails when a function scores above 15.
+See [`docs/review-rules.md`](docs/review-rules.md).
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the

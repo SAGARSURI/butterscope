@@ -31,13 +31,35 @@ threshold.
 **Scope.** Size and complexity rules apply to code under `lib/`. Test files
 are left out: a test file's `main` holds all of its groups, so it is long by
 design. The technical-debt rule applies to every Dart file, tests included:
-it reports each added TODO, `// ignore:` or `// ignore_for_file:` comment,
+it reports each added TODO, `// ignore:`, `// ignore_for_file:` or
+`// cognitive_complexity:ignore` comment (file-wide form included),
 `as dynamic` cast, `@Deprecated` annotation and `// @dart=` comment.
 
 **One project choice.** Constructors are exempt from the parameter count.
 DCM's definition names functions and methods, and an immutable value class
 takes one named parameter per field, so its constructor grows with its
 fields.
+
+## Cognitive complexity, computed in CI
+
+The rules above are judged by Greptile reading the diff. Cognitive complexity
+is computed instead, by the
+[`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
+package, which scores each function from the Dart syntax tree as described in
+[SonarSource's whitepaper](https://www.sonarsource.com/docs/CognitiveComplexity.pdf).
+
+- **Limit:** 15 per function, the whitepaper's and the tool's default. A
+  function above it fails CI, annotated on its first line. The run's summary
+  page lists every function's score.
+- **Locally:** `melos run complexity` scores every function under `lib/`;
+  `melos run check:changed` scores the functions in the files a branch
+  changed.
+- **Alongside cyclomatic complexity:** the cyclomatic rule counts paths, which
+  sets how many tests a function needs. Cognitive complexity charges extra for
+  nesting and flat `switch` arms cost nothing, so it tracks how hard a
+  function is to read.
+- **No suppressions:** a function above the limit is split, not marked with
+  the tool's `// cognitive_complexity:ignore` comments.
 
 ## Not checked, and why
 
@@ -57,4 +79,5 @@ fields.
 
 Change the rule in `.greptile/config.json` and its row here in the same pull
 request. Greptile applies changes to `.greptile/` from the next pull request
-it reviews.
+it reviews. The cognitive complexity limit and the tool's version live in the
+`complexity` script in the root `pubspec.yaml`.
