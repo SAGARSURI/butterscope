@@ -38,8 +38,8 @@ melos:
   scripts:
     check:
       description: >-
-        The host checks CI runs: formats the whole repository, then analyzes
-        and tests every package.
+        The host checks CI runs: formats the whole repository, analyzes and
+        tests every package, then runs the complexity tools.
       steps:
         # From the root, so Dart files outside the packages are formatted
         # too; dart format skips hidden folders such as .fvm and .dart_tool.
@@ -50,14 +50,12 @@ melos:
 
     complexity:
       description: >-
-        Scores the cognitive complexity of every function under lib/ and fails
-        when one is above 15.
-      # The cognitive_complexity version is pinned here only. check:changed
-      # and CI run this script and add arguments after `--`, such as
-      # `--git-diff=<ref>` or `--format=github`.
-      run: >-
-        dart run cognitive_complexity@0.2.5 --fail-threshold=15
-        packages/*/lib tools/*/lib apps/*/lib
+        Runs the cognitive_complexity tools over every package's lib/: fails
+        on a function above 15, a file over 400 lines, or a single-caller
+        helper that can be inlined, and prints a split plan for a long file.
+      # The script pins the tools' version and the limits. CI adds
+      # `-- --github` for annotations and a run summary.
+      run: tool/complexity.sh
 
     check:changed:
       description: >-
