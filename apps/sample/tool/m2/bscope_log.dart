@@ -26,21 +26,37 @@ class LoggedWindow {
   int intField(String key) => int.parse(fields[key] ?? '0');
 }
 
-/// What a log held.
-class BscopeLog {
-  new(this.windows, this.problems);
+/// One run of the probe test, from its `run` line to its `done` line.
+class BscopeRun {
+  /// The `key=value` fields of the run line.
+  final Map<String, String> fields = {};
 
   /// The windows, in the order their headers were written.
-  final List<LoggedWindow> windows;
+  final List<LoggedWindow> windows = [];
 
-  /// Missing, repeated or unreadable lines, as messages for people.
+  /// Missing or unreadable lines and entries, as messages for people.
+  final List<String> problems = [];
+}
+
+/// What a log held.
+class BscopeLog {
+  new(this.runs, this.problems);
+
+  /// The runs, in the order they appear in the log.
+  final List<BscopeRun> runs;
+
+  /// Lines that belong to no run, as messages for people.
   final List<String> problems;
 }
 
 /// Reads every `BSCOPE` line in [text], a raw logcat dump or a
 /// `flutter drive` transcript, whatever comes before the tag on each line.
+///
+/// A log can hold several runs. A new run starts at each `run` line, and
+/// wherever a line number comes back with different content, which means
+/// the numbering started again. A line repeated word for word is kept once.
 BscopeLog readBscopeLog(String text) {
-  final lines = <int, List<String>>{};
+  final runs = <Map<int, List<String>>>[];
   final problems = <String>[];
   for (final raw in text.split('\n')) {
     final at = raw.indexOf('$bscopeTag ');
@@ -49,73 +65,105 @@ BscopeLog readBscopeLog(String text) {
     final seq = words.length > 2 ? int.tryParse(words[1]) : null;
     if (seq == null) {
       problems.add('Unreadable line: ${raw.trim()}');
-    } else {
-      lines.putIfAbsent(seq, () => words.sublist(2));
+      continue;
     }
+    final body = words.sublist(2);
+    if (runs.isEmpty || _startsRun(runs.last, seq, body)) runs.add({});
+    runs.last.putIfAbsent(seq, () => body);
   }
-  problems.addAll(_missing(lines));
+  return BscopeLog([for (final lines in runs) _readRun(lines)], problems);
+}
 
+bool _startsRun(Map<int, List<String>> run, int seq, List<String> body) {
+  if (body.first == 'run' && run.values.any((b) => b.first == 'run')) {
+    return true;
+  }
+  final seen = run[seq];
+  return seen != null && seen.join(' ') != body.join(' ');
+}
+
+BscopeRun _readRun(Map<int, List<String>> lines) {
+  final run = BscopeRun();
+  run.problems.addAll(_missing(lines));
   final windows = <String, LoggedWindow>{};
   final sorted = lines.keys.toList()..sort();
   for (final seq in sorted) {
     final words = lines[seq]!;
-    final problem = _apply(words, windows);
-    if (problem != null) problems.add('Line $seq: $problem');
+    if (words.first == 'run') _readFields(words.skip(1), run.fields);
+    for (final problem in _apply(words, windows)) {
+      run.problems.add('Line $seq: $problem');
+    }
   }
-  return BscopeLog(windows.values.toList(), problems);
+  run.windows.addAll(windows.values);
+  return run;
 }
 
 Iterable<String> _missing(Map<int, List<String>> lines) sync* {
   final done = lines.values.where((words) => words.first == 'done');
-  if (done.isEmpty) {
+  final count = done.isEmpty ? null : int.tryParse(done.first.last);
+  if (count == null) {
     yield 'No "done" line: the log may be cut short.';
     return;
   }
-  final count = int.parse(done.first[1]);
   for (var seq = 1; seq <= count; seq++) {
     if (!lines.containsKey(seq)) yield 'Line $seq is missing.';
   }
 }
 
-String? _apply(List<String> words, Map<String, LoggedWindow> windows) {
+void _readFields(Iterable<String> words, Map<String, String> fields) {
+  for (final field in words) {
+    if (field.split('=') case [final key, final value]) fields[key] = value;
+  }
+}
+
+/// Applies one line to [windows], and returns its problems.
+List<String> _apply(List<String> words, Map<String, LoggedWindow> windows) {
   final kind = words.first;
-  if (kind == 'run' || kind == 'done' || kind == 'metrics') return null;
-  if (words.length < 2) return 'too short';
+  if (kind == 'run' || kind == 'done' || kind == 'metrics') return const [];
+  if (words.length < 2) return const ['too short'];
   final name = words[1];
   if (kind == 'window') {
-    final window = windows[name] = LoggedWindow(name);
-    for (final field in words.skip(2)) {
-      if (field.split('=') case [final key, final value]) {
-        window.fields[key] = value;
-      }
-    }
-    return null;
+    _readFields(words.skip(2), (windows[name] = LoggedWindow(name)).fields);
+    return const [];
   }
   final window = windows[name];
-  if (window == null) return 'no header for window "$name"';
-  for (final entry in words.skip(2)) {
-    final numbers = entry.split(':').map(num.parse).toList();
-    switch (kind) {
-      case 'rates':
-        window.rateReads.add(
-          RefreshRateRead(
-            hertz: numbers[0].toDouble(),
-            afterSamples: numbers[1].toInt(),
-          ),
-        );
-      case 'frames':
-        window.samples.add(
-          FrameSample(
-            frameNumber: numbers[0].toInt(),
-            vsyncStartMicros: numbers[1].toInt(),
-            buildMicros: numbers[2].toInt(),
-            rasterMicros: numbers[3].toInt(),
-            vsyncOverheadMicros: numbers[4].toInt(),
-          ),
-        );
-      default:
-        return 'unknown kind "$kind"';
-    }
-  }
-  return null;
+  if (window == null) return ['no header for window "$name"'];
+  final read = switch (kind) {
+    'rates' => _readRate,
+    'frames' => _readFrame,
+    _ => null,
+  };
+  if (read == null) return ['unknown kind "$kind"'];
+  return [
+    for (final entry in words.skip(2))
+      if (!read(entry, window)) 'unreadable $kind entry "$entry"',
+  ];
+}
+
+/// Adds a rate read written as `hertz:afterSamples`; false if malformed.
+bool _readRate(String entry, LoggedWindow window) {
+  final parts = entry.split(':');
+  if (parts.length != 2) return false;
+  final hertz = double.tryParse(parts[0]);
+  final after = int.tryParse(parts[1]);
+  if (hertz == null || after == null) return false;
+  window.rateReads.add(RefreshRateRead(hertz: hertz, afterSamples: after));
+  return true;
+}
+
+/// Adds a sample written as `frameNumber:vsyncStart:build:raster:overhead`;
+/// false if malformed.
+bool _readFrame(String entry, LoggedWindow window) {
+  final numbers = entry.split(':').map(int.tryParse).toList();
+  if (numbers.length != 5 || numbers.contains(null)) return false;
+  window.samples.add(
+    FrameSample(
+      frameNumber: numbers[0]!,
+      vsyncStartMicros: numbers[1]!,
+      buildMicros: numbers[2]!,
+      rasterMicros: numbers[3]!,
+      vsyncOverheadMicros: numbers[4]!,
+    ),
+  );
+  return true;
 }

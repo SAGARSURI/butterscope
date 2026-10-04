@@ -22,12 +22,5 @@ void main() {
     return;
   }
   final log = readBscopeLog(File(path).readAsStringSync());
-  for (final window in log.windows) {
-    stdout.writeln(summariseWindow(window));
-  }
-  if (log.problems.isEmpty) {
-    stdout.writeln('Every line is present.');
-  } else {
-    log.problems.forEach(stdout.writeln);
-  }
+  stdout.write(summariseLog(log));
 }
