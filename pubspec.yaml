@@ -17,7 +17,7 @@ dev_dependencies:
   # undead 0.1.1, the latest release, stopped compiling when analytica 0.1.2
   # added a class named like one of undead's (ElementReferenceExtractor).
   # undead at this commit (main on 2026-10-03) uses analytica's. Move to the
-  # next release once it is published.
+  # next release once it is published; Dependabot cannot make that switch.
   undead:
     git:
       url: https://github.com/kevmoo/analytica.dart.git

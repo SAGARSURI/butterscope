@@ -65,12 +65,16 @@ key=$(cat pubspec.lock .fvmrc | shasum -a 256 | cut -c1-16)
 bin_dir=.dart_tool/analytica/$key
 
 # Prints the folder of a package, from the package_config.json pub writes
-# (one key per line).
+# (one key per line). Its rootUri is a file URI, so characters such as
+# spaces arrive percent-encoded and are decoded here.
 package_root() {
-  awk -v name="\"$1\"," '
+  local uri
+  uri=$(awk -v name="\"$1\"," '
     $1 == "\"name\":" && $2 == name { found = 1; next }
     found && $1 == "\"rootUri\":" { gsub(/[",]/, "", $2); print $2; exit }
-  ' .dart_tool/package_config.json | sed 's|^file://||'
+  ' .dart_tool/package_config.json)
+  uri=${uri#file://}
+  printf '%b' "${uri//%/\\x}"
 }
 
 # Runs <package>[:<executable>] with the arguments that follow, compiling it

@@ -136,4 +136,5 @@ request. Greptile applies changes to `.greptile/` from the next pull request
 it reviews. The computed checks' limits live in `tool/analytica.sh`; change
 them there and in the table above. The tools' versions live in the root
 `pubspec.yaml`, and Dependabot opens a pull request for each new release, so
-its CI run shows what the new version reports.
+its CI run shows what the new version reports. undead is the exception while
+it is pinned to a git commit: moving it back to a release is done by hand.

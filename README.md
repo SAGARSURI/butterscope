@@ -73,7 +73,9 @@ The last three checks run tools from
 [analytica.dart](https://github.com/kevmoo/analytica.dart):
 `cognitive_complexity`, `dedupe` and `undead`. They are dev dependencies of
 the root `pubspec.yaml`, which pins their versions, and `pubspec.lock` pins
-everything they depend on; Dependabot proposes their new releases.
+everything they depend on. Dependabot proposes new releases of
+`cognitive_complexity` and `dedupe`; `undead` is pinned to a commit until a
+release fixes it, and moving it back to a release is done by hand.
 [`tool/analytica.sh`](tool/analytica.sh) runs them and sets their limits.
 Each has an agent skill in `.claude/skills`. See
 [`docs/review-rules.md`](docs/review-rules.md) for what fails each check.

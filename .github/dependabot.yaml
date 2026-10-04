@@ -24,7 +24,9 @@ updates:
   # and the root pubspec.yaml and pubspec.lock pin.
   # A new release can report code the old one passed, so each tool gets its
   # own pull request, titled "build: ...", and its CI run shows what the new
-  # version reports before it is merged.
+  # version reports before it is merged. undead is pinned to a git commit
+  # until a release fixes it (see pubspec.yaml), and Dependabot cannot move
+  # a git dependency to a pub.dev release: that switch is made by hand.
   - package-ecosystem: "pub"
     directory: "/"
     schedule:
