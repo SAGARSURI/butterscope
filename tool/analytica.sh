@@ -32,10 +32,16 @@ set -uo pipefail
 
 # Change the versions and the limits here only, and their rows in
 # docs/review-rules.md. When a version changes, copy the tool's skill into
-# .claude/skills from the same release.
+# .claude/skills from the same release or commit.
 cognitive_complexity_version=0.2.5
 dedupe_version=0.1.0
-undead_version=0.1.1
+# undead 0.1.1, the latest release, no longer compiles: analytica 0.1.2, which
+# its dependency range allows, added a class with the same name as one of
+# undead's. Its source at this commit (the analytica.dart main branch on
+# 2026-10-03) uses analytica's class instead. Move back to a release once one
+# with the fix is published.
+undead_version="{git: {url: 'https://github.com/kevmoo/analytica.dart.git',\
+ path: packages/undead, ref: 6e927f0035ebdc44d1d7f60e2bd6d6a19d36d64a}}"
 max_score=15       # cognitive complexity per function; the tool's default
 max_file_lines=400 # lines per file; the dart-cognitive-complexity skill's
 
@@ -58,7 +64,8 @@ esac
 targets=(packages/*/lib tools/*/lib apps/*/lib)
 packages=(packages/* tools/* apps/*)
 
-# Runs `dart run <package>[:<executable>]@<version>`. When Melos runs this
+# Runs `dart run <package>[:<executable>]@<descriptor>`, where the descriptor
+# is a version or, as in a pubspec, a git source. When Melos runs this
 # script, `dart` is the pinned SDK: Melos puts the SDK it was given
 # (.fvm/flutter_sdk locally) first on PATH.
 run_tool() {
