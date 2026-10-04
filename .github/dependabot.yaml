@@ -1,9 +1,10 @@
-# Keeps the GitHub Actions used in .github/workflows up to date.
+# Keeps the GitHub Actions used in .github/workflows, and the code-health
+# tools in the root pubspec.yaml, up to date.
 #
-# Dependabot reads this file from the default branch only, so it starts
-# working once this lands on main.
+# Dependabot reads this file from the default branch only, so a change here
+# takes effect once it lands on main.
 #
-# Pub dependencies are bumped by hand for now: a new very_good_analysis
+# Other pub dependencies are bumped by hand for now: a new very_good_analysis
 # release can add lint rules that fail CI, so we take those on purpose.
 version: 2
 updates:
@@ -18,3 +19,21 @@ updates:
           - "*"
     commit-message:
       prefix: "ci"
+
+  # cognitive_complexity, dedupe and undead, which tool/analytica.sh runs
+  # and the root pubspec.yaml and pubspec.lock pin.
+  # A new release can report code the old one passed, so each tool gets its
+  # own pull request, titled "build: ...", and its CI run shows what the new
+  # version reports before it is merged. undead is pinned to a git commit
+  # until a release fixes it (see pubspec.yaml), and Dependabot cannot move
+  # a git dependency to a pub.dev release: that switch is made by hand.
+  - package-ecosystem: "pub"
+    directory: "/"
+    schedule:
+      interval: "weekly"
+    allow:
+      - dependency-name: "cognitive_complexity"
+      - dependency-name: "dedupe"
+      - dependency-name: "undead"
+    commit-message:
+      prefix: "build"

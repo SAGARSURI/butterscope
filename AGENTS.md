@@ -16,7 +16,8 @@ only.
 - **Starting work:** the current milestone's "Done when" list on
   [GitHub](https://github.com/SAGARSURI/butterscope/milestones) is the scope.
 - **Writing code under `lib/`:** [`docs/review-rules.md`](docs/review-rules.md)
-  lists the size and complexity limits Greptile reviews against.
+  lists the size and complexity limits: those Greptile reviews against and
+  those CI computes.
 - **Setup and commands:** the Toolchain section of [`README.md`](README.md).
 
 ## How work moves
@@ -40,11 +41,23 @@ only.
 
 ## Code
 
-- Resolve every analyzer and lint finding by changing the code. Suppressions
-  are off limits: `// ignore:`, `// ignore_for_file:`, and turning a rule off
+- Resolve every finding from the analyzer, the lints and the code-health
+  tools by changing the code. Suppressions are off limits: `// ignore:`,
+  `// ignore_for_file:`, `// cognitive_complexity:ignore`,
+  `// undead:ignore` (and their `_for_file` forms), and turning a rule off
   in `analysis_options.yaml`. When a finding cannot be resolved, stop and
   report it to the owner: the finding, why the code cannot satisfy it, and
   the next steps you propose.
+- For a complexity, duplication or dead-code finding, follow the tool's
+  skill in [`.claude/skills`](.claude/skills) (`dart-cognitive-complexity`,
+  `dart-dedupe`, `dart-undead`), with three differences. Only the limits in
+  `docs/review-rules.md` fail a pull request; the skills' other targets are
+  advice. Run the tools with `melos run complexity`, `duplication` or
+  `dead-code`, which run the versions the root `pubspec.yaml` pins with this
+  project's limits; the skills' `dart run <tool>@<version>` commands fetch
+  other versions. Fix a finding in code your task changes straight away;
+  the skills' triage reports and confirmation steps are for code you were
+  not asked to change.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.
@@ -54,17 +67,16 @@ only.
 ## Workflow
 
 1. After changing a dependency or plugin, and after bringing in changes from
-   `main`, run `melos bs` (bootstrap).
-2. Before every push, run `melos run check:changed` and push only when it
-   passes. An agent working where Flutter is not installed (a cloud
-   sandbox, for example) cannot run it: say so in the pull request and let
-   CI run the checks.
-
-- `melos run check` runs formatting, analysis and tests for every package.
-  CI also runs `melos bootstrap` and fails if that changes any file, so
-  commit `pubspec.lock` with the pubspec change. Versions every package
-  shares are edited only under `melos: command: bootstrap:` in the root
-  `pubspec.yaml`.
+   `main`, run `melos bs` (bootstrap). Commit `pubspec.lock` with the
+   pubspec change: CI fails if bootstrap changes any file. Versions every
+   package shares are edited only under `melos: command: bootstrap:` in the
+   root `pubspec.yaml`.
+2. Commit only when `melos run check` passes. It runs the checks CI runs
+   after bootstrap. Claude Code runs it before each commit and blocks the
+   commit when it fails (`.claude/settings.json`). Where Flutter is not
+   installed (a cloud sandbox, for example), it cannot run, and the hook
+   lets the commit through: say so in the pull request, and CI runs the
+   checks.
 
 ## Git
 

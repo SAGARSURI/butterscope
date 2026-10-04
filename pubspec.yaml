@@ -5,9 +5,24 @@ environment:
   sdk: ^3.13.0
 
 dev_dependencies:
+  # The code-health tools that tool/analytica.sh runs, from
+  # https://github.com/kevmoo/analytica.dart. Exact versions here, and
+  # pubspec.lock pins everything they depend on, so their findings change
+  # only when this file or the lock does. Dependabot proposes new releases.
+  cognitive_complexity: 0.2.5
+  dedupe: 0.1.0
   # Pins Melos for everyone and for CI: a globally activated Melos hands over
   # to this version.
   melos: ^8.9.0
+  # undead 0.1.1, the latest release, stopped compiling when analytica 0.1.2
+  # added a class named like one of undead's (ElementReferenceExtractor).
+  # undead at this commit (main on 2026-10-03) uses analytica's. Move to the
+  # next release once it is published; Dependabot cannot make that switch.
+  undead:
+    git:
+      url: https://github.com/kevmoo/analytica.dart.git
+      path: packages/undead
+      ref: 6e927f0035ebdc44d1d7f60e2bd6d6a19d36d64a
   # The shared analysis_options.yaml at this root includes it.
   very_good_analysis: ^11.0.0
 
@@ -38,21 +53,29 @@ melos:
   scripts:
     check:
       description: >-
-        The host checks CI runs: formats the whole repository, then analyzes
-        and tests every package.
-      steps:
-        # From the root, so Dart files outside the packages are formatted
-        # too; dart format skips hidden folders such as .fvm and .dart_tool.
-        - dart format --set-exit-if-changed .
-        - analyze
-        - test
+        The checks CI runs after bootstrap, over the whole repository:
+        formatting, analysis, tests, complexity, duplication and dead code.
+        Claude Code runs it before each commit. See tool/check.sh.
+      run: tool/check.sh
 
-    check:changed:
+    complexity:
       description: >-
-        A quicker `check`: analyzes and tests only the packages this branch
-        changed and the packages that depend on them (--diff with
-        --include-dependents). See tool/check_changed.sh.
-      run: tool/check_changed.sh
+        Fails on a function above 15, a file over 400 lines, or a
+        single-caller helper that can be inlined, and prints a split plan for
+        a long file (cognitive_complexity). See tool/analytica.sh.
+      run: tool/analytica.sh complexity
+
+    duplication:
+      description: >-
+        Fails on any block of code that appears more than once under lib/
+        (dedupe). See tool/analytica.sh.
+      run: tool/analytica.sh duplication
+
+    dead-code:
+      description: >-
+        Fails on any declaration that nothing reaches, package by package
+        (undead). See tool/analytica.sh.
+      run: tool/analytica.sh dead-code
 
     test:ci:
       description: >-

@@ -11,6 +11,9 @@ build/
 # FVM: the SDK symlink and cache; .fvmrc is committed
 .fvm/
 
+# Claude Code: personal settings; .claude/settings.json is shared
+.claude/settings.local.json
+
 # Butterscope run output (collected reports, local baselines)
 .butterscope/
 

@@ -54,20 +54,31 @@ melos bootstrap
 Day to day:
 
 ```sh
-melos run check           # what CI checks: format, analyze and test
-melos run check:changed   # the same, for the packages this branch changed
+melos run check           # CI's checks after bootstrap; run before pushing
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder
+melos run complexity      # complex functions, long files, shallow helpers
+melos run duplication     # code that appears twice under lib/
+melos run dead-code       # declarations nothing uses
 ```
 
-`check:changed` analyzes and tests the packages changed since the branch left
-`origin/main` and every package that depends on them, using Melos's `--diff`
-and `--include-dependents` filters. Uncommitted edits count, staged or not; a
-new file counts once it is staged with `git add`. A change to
-a file every package shares, such as the root `pubspec.yaml` or
-`analysis_options.yaml`, checks every package instead. CI always checks every
-package.
+`melos run check` formats the repository (fixing what it finds), analyzes
+it, runs every package's tests and then the complexity, duplication and
+dead-code checks. Every check runs even when an earlier one fails, and the
+last line names the ones that failed. Claude Code runs it before each commit
+it makes, and skips it when only Markdown changed.
+
+The last three checks run tools from
+[analytica.dart](https://github.com/kevmoo/analytica.dart):
+`cognitive_complexity`, `dedupe` and `undead`. They are dev dependencies of
+the root `pubspec.yaml`, which pins their versions, and `pubspec.lock` pins
+everything they depend on. Dependabot proposes new releases of
+`cognitive_complexity` and `dedupe`; `undead` is pinned to a commit until a
+release fixes it, and moving it back to a release is done by hand.
+[`tool/analytica.sh`](tool/analytica.sh) runs them and sets their limits.
+Each has an agent skill in `.claude/skills`. See
+[`docs/review-rules.md`](docs/review-rules.md) for what fails each check.
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the
