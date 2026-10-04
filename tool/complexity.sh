@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # `melos run complexity`: the cognitive_complexity tools, over the lib/
-# folder of every package. CI, `melos run check`, `melos run check:changed`
-# and the Claude Code hook before each commit all run this, so they agree.
+# folder of every package. CI and `melos run check`, which Claude Code runs
+# before each commit, both run this, so they agree.
 #
 #   1. cognitive_complexity: fails when a function scores above 15, or a file
 #      is longer than 400 lines.

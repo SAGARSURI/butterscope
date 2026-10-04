@@ -38,15 +38,10 @@ melos:
   scripts:
     check:
       description: >-
-        The host checks CI runs: formats the whole repository, analyzes and
-        tests every package, then runs the complexity tools.
-      steps:
-        # From the root, so Dart files outside the packages are formatted
-        # too; dart format skips hidden folders such as .fvm and .dart_tool.
-        - dart format --set-exit-if-changed .
-        - analyze
-        - test
-        - complexity
+        Every check CI runs, over the whole repository: formatting, analysis,
+        tests and the complexity tools. Claude Code runs it before each
+        commit. See tool/check.sh.
+      run: tool/check.sh
 
     complexity:
       description: >-
@@ -56,13 +51,6 @@ melos:
       # The script pins the tools' version and the limits. CI adds
       # `-- --github` for annotations and a run summary.
       run: tool/complexity.sh
-
-    check:changed:
-      description: >-
-        A quicker `check`: analyzes and tests only the packages this branch
-        changed and the packages that depend on them (--diff with
-        --include-dependents). See tool/check_changed.sh.
-      run: tool/check_changed.sh
 
     test:ci:
       description: >-

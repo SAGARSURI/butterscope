@@ -54,29 +54,25 @@ melos bootstrap
 Day to day:
 
 ```sh
-melos run check           # what CI checks: format, analyze, test, complexity
-melos run check:changed   # the same, for the packages this branch changed
+melos run check           # every check CI runs; run it before you push
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder
 melos run complexity      # the complexity tools over every lib/ folder
 ```
 
-`check:changed` analyzes and tests the packages changed since the branch left
-`origin/main` and every package that depends on them, using Melos's `--diff`
-and `--include-dependents` filters. Uncommitted edits count, staged or not; a
-new file counts once it is staged with `git add`. A change to a file every
-package shares, such as the root `pubspec.yaml` or `analysis_options.yaml`,
-checks every package instead. It then runs the complexity tools over every
-package. CI always checks everything.
+`melos run check` formats the repository (fixing what it finds), analyzes
+it, runs every package's tests and then the complexity tools. Every check
+runs even when an earlier one fails, and the last line names the ones that
+failed. Claude Code runs it before each commit it makes, and skips it when
+only Markdown changed.
 
 `melos run complexity` runs the tools in the
 [`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
 package, pinned in [`tool/complexity.sh`](tool/complexity.sh). It fails on a
 function that scores above 15, a file over 400 lines, or a helper with one
 caller that should be inlined, and prints a plan for splitting a long file.
-Claude Code runs it before each commit it makes. See
-[`docs/review-rules.md`](docs/review-rules.md).
+See [`docs/review-rules.md`](docs/review-rules.md).
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the
