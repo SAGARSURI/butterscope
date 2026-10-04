@@ -13,6 +13,10 @@ dependencies:
     sdk: flutter
 
 dev_dependencies:
+  butterscope:
+    path: ../../packages/butterscope
+  flutter_driver:
+    sdk: flutter
   flutter_test:
     sdk: flutter
   integration_test:
