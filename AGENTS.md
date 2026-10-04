@@ -85,5 +85,6 @@ company and client names out of all of them.
   `<type>(<scope>): <imperative summary>`. Types: `feat`, `fix`, `perf`,
   `refactor`, `test`, `docs`, `build`, `ci`, `chore`. The scope is the
   package when the change sits in one (`butterscope`, `butterscope_test`,
-  `butterscope_cli`, `butterscope_sample`). A breaking change adds `!` after the scope
+  `butterscope_cli`, `butterscope_sample`). A breaking change adds `!` after
+  the scope
   and a `BREAKING CHANGE:` footer. The body says why.
