@@ -78,11 +78,18 @@ BscopeLog readBscopeLog(String text) {
 
 bool _startsRun(Map<int, List<String>> run, int seq, List<String> body) {
   final seen = run[seq];
+  final isRun = body.first == 'run';
   // The same line twice is one line; a different line under the same
-  // number means the numbering started again. Every run line carries a
-  // unique id, so two runs' run lines never match.
-  if (seen != null) return seen.join(' ') != body.join(' ');
-  return body.first == 'run' && run.values.any((b) => b.first == 'run');
+  // number means the numbering started again. Run lines carry a unique id,
+  // so two runs' run lines never match, except in logs written before the
+  // id existed: there an identical run line after this run's done line is
+  // the next run.
+  if (seen != null && seen.join(' ') == body.join(' ')) {
+    final hasId = body.any((word) => word.startsWith('id='));
+    return isRun && !hasId && run.values.any((b) => b.first == 'done');
+  }
+  if (seen != null) return true;
+  return isRun && run.values.any((b) => b.first == 'run');
 }
 
 BscopeRun _readRun(Map<int, List<String>> lines) {

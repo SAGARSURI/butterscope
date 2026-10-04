@@ -138,6 +138,21 @@ void main() {
       expect(log.runs.last.problems, isEmpty);
     });
 
+    test('splits id-less runs with the same settings at their done line', () {
+      // Logs written before run lines had an id.
+      List<String> idless(int count) => [
+        for (final line in logOf(count)) line.replaceFirst('id=1 ', ''),
+      ];
+      final log = readBscopeLog([...idless(3), ...idless(5)].join('\n'));
+
+      expect(log.runs, hasLength(2));
+      expect(log.runs.first.fields['policy'], 'benchmarkLive');
+      expect(log.runs.last.fields['policy'], 'benchmarkLive');
+      expect(log.runs.first.windows.single.samples, hasLength(3));
+      expect(log.runs.last.windows.single.samples, hasLength(5));
+      expect(log.runs.last.problems, isEmpty);
+    });
+
     test('splits runs where the numbering restarts', () {
       // The second run's run line was dropped, so only its numbers show it.
       final second = logOf(5)..removeAt(0);
