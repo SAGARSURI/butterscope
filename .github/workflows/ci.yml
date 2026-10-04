@@ -31,14 +31,9 @@ jobs:
           channel: stable
           cache: true
 
-      # Resolve before any Melos command: a global Melos reads the pinned
-      # version from pubspec.lock and crashes when the lock lacks it. This
-      # way a stale lock is reported by the next check instead.
-      - name: Resolve workspace
-        run: flutter pub get
-
-      # Any Melos 8 works here: it hands over to the version pinned in the
-      # root pubspec.yaml and pubspec.lock.
+      # Any Melos 8 works here: it hands over to the version pinned in
+      # pubspec.lock. A lock with no melos entry makes that hand-over crash
+      # (in cli_launcher), so commit pubspec.lock whenever melos changes.
       - name: Install Melos
         run: |
           dart pub global activate melos 8.9.0
@@ -52,10 +47,11 @@ jobs:
       - name: Bootstrap workspace
         run: melos bootstrap
 
-      # Resolution and bootstrap can rewrite project files (pubspec.lock,
-      # shared versions in a package's pubspec.yaml, the Flutter tool's
-      # analysis_options.yaml migration) or create new ones. A clean
-      # checkout must stay clean, untracked files included.
+      # Bootstrap resolves the workspace with pub get, so it can rewrite
+      # project files (pubspec.lock, shared versions in a package's
+      # pubspec.yaml, the Flutter tool's analysis_options.yaml migration) or
+      # create new ones. A clean checkout must stay clean, untracked files
+      # included.
       - name: Tools left the repository unchanged
         run: |
           changes=$(git status --porcelain --untracked-files=all)
@@ -65,11 +61,11 @@ jobs:
             # GitHub cuts an annotation at about 4 KB: show the start there
             # and all of it in the job log.
             if git ls-files --error-unmatch -- "$file" > /dev/null 2>&1; then
-              title="Changed by pub get or melos bootstrap"
+              title="Changed by melos bootstrap"
               echo "::group::$file (diff)"; git diff -- "$file"; echo "::endgroup::"
               body=$(git diff -- "$file" | head -c 3000 | tool/ci/escape.sh)
             else
-              title="Created by pub get or melos bootstrap"
+              title="Created by melos bootstrap"
               echo "::group::$file"; cat "$file"; echo "::endgroup::"
               body=$(head -c 3000 "$file" | tool/ci/escape.sh)
             fi
