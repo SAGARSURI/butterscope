@@ -6,7 +6,8 @@ import 'package:flutter/widgets.dart';
 /// and an anti-aliased clip that saves a layer. The child changes every
 /// frame, so every layer is drawn again each frame.
 ///
-/// The depth is provisional. **(open, M2: tuned on both phones.)**
+/// The depth drops frames on the Galaxy S24 but not on the iPhone 17 Pro.
+/// **(open, M4: tuned per platform.)**
 class SlowRasterPlant extends StatelessWidget {
   const new({required this.child, this.depth = 40, super.key});
 
@@ -33,8 +34,8 @@ class SlowRasterPlant extends StatelessWidget {
 /// [layers] full-screen backdrop blurs, one over the other, over everything
 /// painted before them.
 ///
-/// The layer count and blur radius are provisional. **(open, M2: tuned on
-/// both phones.)**
+/// The layer count and blur radius drop frames on the Galaxy S24 but not on
+/// the iPhone 17 Pro. **(open, M4: tuned per platform.)**
 class BackdropBlurPlant extends StatelessWidget {
   const new({this.layers = 6, this.sigma = 40, super.key});
 
@@ -58,13 +59,13 @@ class BackdropBlurPlant extends StatelessWidget {
 /// every pixel, redrawn as [turns] moves.
 ///
 /// The raster thread records a single draw; the cost is GPU execution,
-/// which `FrameTiming` does not include, though on the Galaxy S24 it showed
-/// as raster time because the raster thread waits on the GPU. Draws nothing
+/// which `FrameTiming` does not include, though on both phones it showed as
+/// raster time because the raster thread waits on the GPU. Draws nothing
 /// until the shader has loaded, and throws if it fails to load, so a run
 /// cannot measure a clean screen by mistake.
 ///
-/// The iteration count is provisional. **(open, M2: tuned on both
-/// phones.)**
+/// The iteration count suits the Galaxy S24 and is far too heavy for the
+/// iPhone 17 Pro. **(open, M4: tuned per platform.)**
 class GpuHeavyPlant extends StatefulWidget {
   const new({
     required this.turns,

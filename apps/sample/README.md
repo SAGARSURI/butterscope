@@ -30,8 +30,11 @@ fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
 | `backdrop_blur` | 6 full-screen backdrop blurs | Raster time |
 | `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU work, which showed as raster time on the S24 because the raster thread waits on the GPU |
 
-The costs are provisional, tuned so each plant visibly drops frames on the
-Galaxy S24 in profile mode. **(open, M2: tuned on both phones.)**
+The costs are tuned so each plant visibly drops frames on the Galaxy S24
+in profile mode. On the iPhone 17 Pro, `slow_raster` and `backdrop_blur`
+drop none and `gpu_heavy` drops about 3 frames in 4
+([M2 measurements](../../docs/measurements/m2.md)). **(open, M4: tuned per
+platform.)**
 
 ## Platform folders
 
