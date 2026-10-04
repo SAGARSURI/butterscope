@@ -118,29 +118,26 @@ jobs:
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         run: melos run test:ci --no-select
 
-      # tool/analytica.sh runs each tool with `dart run <package>@<version>`,
-      # which compiles the package before its first run, about a minute each,
-      # and keeps the build under DART_DATA_HOME. Pub resolves the tools'
-      # dependencies again on every run and rebuilds when one has a new
-      # release, so the cache takes a fresh copy once a day.
-      - name: Set up the tool cache
-        id: tools
-        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
-        run: |
-          echo "DART_DATA_HOME=$RUNNER_TEMP/dart-data" >> "$GITHUB_ENV"
-          echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
-
+      # `dart run <tool>` compiles each tool into .dart_tool/pub/bin the first
+      # time, and the cache keeps those snapshots while pubspec.lock (which
+      # pins the tools) and .fvmrc (the SDK) stay the same. dart run also
+      # recompiles a snapshot older than .dart_tool/package_config.json,
+      # which bootstrap has just rewritten, so restored snapshots are touched.
       - name: Cache the tools
+        id: tools-cache
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         uses: actions/cache@v6
         with:
-          path: ${{ runner.temp }}/dart-data/install/app-bundles
-          key: analytica-tools-${{ steps.tools.outputs.day }}
-          restore-keys: analytica-tools-
+          path: .dart_tool/pub/bin
+          key: analytica-tools-${{ hashFiles('pubspec.lock', '.fvmrc') }}
 
-      # tool/analytica.sh pins the tools and the limits. Each finding is
-      # annotated where it starts, and each tool's report is on the run's
-      # summary page.
+      - name: Use the cached tools
+        if: ${{ !cancelled() && steps.tools-cache.outputs.cache-hit == 'true' }}
+        run: find .dart_tool/pub/bin -name '*.snapshot' -exec touch {} +
+
+      # The root pubspec.yaml pins the tools, and tool/analytica.sh sets
+      # their limits. Each finding is annotated where it starts, and each
+      # tool's report is on the run's summary page.
       - name: Complexity
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         run: melos run complexity -- --github

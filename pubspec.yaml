@@ -5,9 +5,24 @@ environment:
   sdk: ^3.13.0
 
 dev_dependencies:
+  # The code-health tools that tool/analytica.sh runs, from
+  # https://github.com/kevmoo/analytica.dart. Exact versions here, and
+  # pubspec.lock pins everything they depend on, so their findings change
+  # only when this file or the lock does. Dependabot proposes new releases.
+  cognitive_complexity: 0.2.5
+  dedupe: 0.1.0
   # Pins Melos for everyone and for CI: a globally activated Melos hands over
   # to this version.
   melos: ^8.9.0
+  # undead 0.1.1, the latest release, stopped compiling when analytica 0.1.2
+  # added a class named like one of undead's (ElementReferenceExtractor).
+  # undead at this commit (main on 2026-10-03) uses analytica's. Move to the
+  # next release once it is published.
+  undead:
+    git:
+      url: https://github.com/kevmoo/analytica.dart.git
+      path: packages/undead
+      ref: 6e927f0035ebdc44d1d7f60e2bd6d6a19d36d64a
   # The shared analysis_options.yaml at this root includes it.
   very_good_analysis: ^11.0.0
 
