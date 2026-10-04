@@ -68,6 +68,8 @@ only.
 
 ## Git
 
+- The repository is public: keep product, company and client names out of
+  code, docs and commit messages.
 - Branches: `m<N>/<topic>` for milestone work; `ci/`, `docs/`, `chore/` for
   the rest. Pull requests target `main`, each small enough to review in one
   sitting.
