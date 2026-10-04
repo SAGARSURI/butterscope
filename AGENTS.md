@@ -41,19 +41,22 @@ only.
 
 ## Code
 
-- Resolve every analyzer, lint and complexity finding by changing the code.
-  Suppressions are off limits: `// ignore:`, `// ignore_for_file:`,
-  `// cognitive_complexity:ignore`, `// cognitive_complexity:ignore_for_file`,
-  and turning a rule off in `analysis_options.yaml`. When a finding cannot be
-  resolved, stop and report it to the owner: the finding, why the code cannot
-  satisfy it, and the next steps you propose.
-- For a complexity finding, follow the
-  [`dart-cognitive-complexity`](.claude/skills/dart-cognitive-complexity/SKILL.md)
-  skill, with three differences. Only the limits in `docs/review-rules.md`
-  fail a pull request; the skill's other targets are advice. Run the checks
-  with `melos run complexity`, which pins the tools' version. Fix a finding
-  in code your task changes straight away; the skill's triage report and
-  confirmation step are for code you were not asked to change.
+- Resolve every finding from the analyzer, the lints and the code-health
+  tools by changing the code. Suppressions are off limits: `// ignore:`,
+  `// ignore_for_file:`, `// cognitive_complexity:ignore`,
+  `// undead:ignore` (and their `_for_file` forms), and turning a rule off
+  in `analysis_options.yaml`. When a finding cannot be resolved, stop and
+  report it to the owner: the finding, why the code cannot satisfy it, and
+  the next steps you propose.
+- For a complexity, duplication or dead-code finding, follow the tool's
+  skill in [`.claude/skills`](.claude/skills) (`dart-cognitive-complexity`,
+  `dart-dedupe`, `dart-undead`), with three differences. Only the limits in
+  `docs/review-rules.md` fail a pull request; the skills' other targets are
+  advice. Run the tools with `melos run complexity`, `duplication` or
+  `dead-code`, which pin their versions, not with the skills' `dart run`
+  commands. Fix a finding in code your task changes straight away; the
+  skills' triage reports and confirmation steps are for code you were not
+  asked to change.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.

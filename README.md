@@ -58,21 +58,23 @@ melos run check           # CI's checks after bootstrap; run before pushing
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder
-melos run complexity      # the complexity tools over every lib/ folder
+melos run complexity      # complex functions, long files, shallow helpers
+melos run duplication     # code that appears twice under lib/
+melos run dead-code       # declarations nothing uses
 ```
 
 `melos run check` formats the repository (fixing what it finds), analyzes
-it, runs every package's tests and then the complexity tools. Every check
-runs even when an earlier one fails, and the last line names the ones that
-failed. Claude Code runs it before each commit it makes, and skips it when
-only Markdown changed.
+it, runs every package's tests and then the complexity, duplication and
+dead-code checks. Every check runs even when an earlier one fails, and the
+last line names the ones that failed. Claude Code runs it before each commit
+it makes, and skips it when only Markdown changed.
 
-`melos run complexity` runs the tools in the
-[`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
-package, pinned in [`tool/complexity.sh`](tool/complexity.sh). It fails on a
-function that scores above 15, a file over 400 lines, or a helper with one
-caller that should be inlined, and prints a plan for splitting a long file.
-See [`docs/review-rules.md`](docs/review-rules.md).
+The last three checks run tools from
+[analytica.dart](https://github.com/kevmoo/analytica.dart):
+`cognitive_complexity`, `dedupe` and `undead`, pinned in
+[`tool/analytica.sh`](tool/analytica.sh). Each has an agent skill in
+`.claude/skills`. See [`docs/review-rules.md`](docs/review-rules.md) for
+what fails each check.
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the

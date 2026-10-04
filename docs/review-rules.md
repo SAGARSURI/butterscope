@@ -31,9 +31,10 @@ threshold.
 **Scope.** Size and complexity rules apply to code under `lib/`. Test files
 are left out: a test file's `main` holds all of its groups, so it is long by
 design. The technical-debt rule applies to every Dart file, tests included:
-it reports each added TODO, `// ignore:`, `// ignore_for_file:` or
-`// cognitive_complexity:ignore` comment (file-wide form included),
-`as dynamic` cast, `@Deprecated` annotation and `// @dart=` comment.
+it reports each added TODO, `// ignore:`, `// ignore_for_file:`,
+`// cognitive_complexity:ignore` or `// undead:ignore` comment (file-wide
+forms included), `as dynamic` cast, `@Deprecated` annotation and
+`// @dart=` comment.
 
 **One project choice.** Constructors are exempt from the parameter count.
 DCM's definition names functions and methods, and an immutable value class
@@ -43,10 +44,13 @@ fields.
 ## Computed in CI
 
 The rules above are judged by Greptile reading the diff. These are computed
-instead, from the Dart syntax tree, by the tools in the
-[`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
-package. [`tool/complexity.sh`](../tool/complexity.sh) runs them over every
-package's `lib/` and pins their version and limits.
+instead, from the Dart syntax tree, by tools from
+[analytica.dart](https://github.com/kevmoo/analytica.dart):
+[`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity),
+[`dedupe`](https://pub.dev/packages/dedupe) and
+[`undead`](https://pub.dev/packages/undead).
+[`tool/analytica.sh`](../tool/analytica.sh) runs them and pins their
+versions and limits.
 
 | Check | Tool | Fails when | Limit's source |
 | --- | --- | --- | --- |
@@ -54,6 +58,8 @@ package's `lib/` and pins their version and limits.
 | File length | `cognitive_complexity --max-file-lines` | a file has more than 400 lines | the `dart-cognitive-complexity` skill |
 | Shallow helpers | `shallow --fail-on-safe-inline` | a helper is `SAFE_INLINE` (below) | the cognitive complexity limit |
 | Split plan | `file_split` | never; it prints a plan for each file over 400 lines | |
+| Duplicated code | `dedupe --fail-threshold=0` | a block appears more than once under `lib/` | the tool's minimum block: 40 tokens and 4 lines |
+| Dead code | `undead --fail-on-undead` | a declaration has no use outside tests | any finding |
 
 - **Cognitive complexity** charges extra for nesting, and flat `switch` arms
   cost nothing, so it tracks how hard a function is to read. The cyclomatic
@@ -72,23 +78,41 @@ package's `lib/` and pins their version and limits.
 - **A split plan** groups a long file's declarations by how they depend on
   each other. For each group it suggests a file name, the imports it needs
   and the private names that would have to become public.
+- **Duplicated code** compares the token sequences of every `lib/` folder
+  together, so a copy in another package counts. Comments are ignored and
+  string and number literals count as equal, so a copy with different
+  messages or constants still matches; renamed variables do not. Near-copies
+  with a few lines added or removed match too. Tests are not scanned.
+- **Dead code** follows references from each package's roots. A library's
+  roots are what its files outside `lib/src/` export, plus its tests and the
+  other workspace packages that use it. A package with `bin/` or
+  `lib/main.dart` is an app, and its roots are those entry points. A
+  declaration nothing reaches is dead, and so is one only tests reach.
 
 CI annotates each failure where it starts. The run's summary page has each
-function's score and each tool's report. Locally, `melos run complexity`
-runs the same checks, and `melos run check` includes them. Claude Code runs
-`melos run check` before each commit it makes and blocks the commit when it
-fails (see [`.claude/settings.json`](../.claude/settings.json)).
+function's score and each tool's report. Locally, `melos run complexity`,
+`melos run duplication` and `melos run dead-code` run the same checks, and
+`melos run check` includes them. Claude Code runs `melos run check` before
+each commit it makes and blocks the commit when it fails (see
+[`.claude/settings.json`](../.claude/settings.json)).
 
-**Fixing a finding.** The
+**Fixing a finding.** Each tool has an agent skill in
+[`.claude/skills`](../.claude/skills):
 [`dart-cognitive-complexity`](../.claude/skills/dart-cognitive-complexity/SKILL.md)
-agent skill has the refactoring patterns. To extract part of a function, the
-package's `data_flow` tool lists the inputs, mutations and outputs of a line
-range, and the score the function would have after the extraction:
+has the refactoring patterns,
+[`dart-dedupe`](../.claude/skills/dart-dedupe/SKILL.md) how to extract a
+shared helper, and [`dart-undead`](../.claude/skills/dart-undead/SKILL.md) how
+to delete dead code safely. To extract part of a function, the
+`cognitive_complexity` package's `data_flow` tool lists the inputs, mutations
+and outputs of a line range, and the score the function would have after
+the extraction:
 `dart run cognitive_complexity:data_flow@0.2.5 <file>:<start>-<end>`. It needs
 a line range, so it does not run in CI.
 
 **No suppressions.** A finding is fixed in the code, not marked with the
-`// cognitive_complexity:ignore` comments that all of these tools honour.
+`// cognitive_complexity:ignore` or `// undead:ignore` comments (or their
+`_for_file` forms) that the tools honour. When a finding cannot be fixed,
+for example duplication that must stay for type safety, the owner decides.
 
 ## Not checked, and why
 
@@ -108,5 +132,5 @@ a line range, so it does not run in CI.
 
 Change the rule in `.greptile/config.json` and its row here in the same pull
 request. Greptile applies changes to `.greptile/` from the next pull request
-it reviews. The computed checks' limits and the tools' version live in
-`tool/complexity.sh`; change them there and in the table above.
+it reviews. The computed checks' limits and the tools' versions live in
+`tool/analytica.sh`; change them there and in the table above.
