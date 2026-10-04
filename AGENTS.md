@@ -49,6 +49,11 @@ company and client names out of all of them.
 - Dart 3.13 style: constructors use `new` (`const new(...)`,
   `const new _(...)`, `factory name(...)`); value types are immutable
   `final class`es. `very_good_analysis` and `dart format` settle the rest.
+- Resolve every analyzer and lint finding by changing the code. Suppressions
+  are off limits: `// ignore:`, `// ignore_for_file:`, and turning a rule off
+  in `analysis_options.yaml`. When a finding cannot be resolved, stop and
+  report it to the owner: the finding, why the code cannot satisfy it, and
+  the next steps you propose.
 - The `butterscope` core depends on Flutter only, so it can ship inside an
   app later.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
@@ -57,20 +62,28 @@ company and client names out of all of them.
 - Docs use plain English and short sentences. Prose wraps at 80 columns;
   tables and links may run longer.
 
-## Checks
+## Workflow
 
-- `melos run check` runs what CI runs: format, analyze with `--fatal-infos`,
-  test. `melos run check:changed` is the quicker loop.
+1. After changing a dependency or plugin, and after bringing in changes from
+   `main`, run `melos bs` (bootstrap).
+2. Before every push, run `melos run check:changed` and push only when it
+   passes. Where the SDK is not available (a sandbox), say so in the pull
+   request and treat CI as the check.
+
+- `melos run check` is the full version: what CI runs, for every package.
 - CI fails when `pub get` or `melos bootstrap` changes any file, so commit
   `pubspec.lock` with the pubspec change. Versions every package shares are
   edited only under `melos: command: bootstrap:` in the root `pubspec.yaml`.
-- CI reports each failure as an annotation on the failing line. Where Flutter
-  cannot run (a sandbox without the SDK), push the branch and read them.
+- CI reports each failure as an annotation on the failing line.
 
 ## Git
 
 - Branches: `m<N>/<topic>` for milestone work; `ci/`, `docs/`, `chore/` for
   the rest. Pull requests target `main`, each small enough to review in one
   sitting.
-- Commit subject: `<area>: <imperative summary>`, where the area is `M<N>`,
-  `ci`, `docs`, `test`, `chore` or `fix`. The body says why.
+- Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
+  `<type>(<scope>): <imperative summary>`. Types: `feat`, `fix`, `perf`,
+  `refactor`, `test`, `docs`, `build`, `ci`, `chore`. The scope is the
+  package when the change sits in one (`butterscope`, `butterscope_test`,
+  `butterscope_cli`, `sample`). A breaking change adds `!` after the scope
+  and a `BREAKING CHANGE:` footer. The body says why.
