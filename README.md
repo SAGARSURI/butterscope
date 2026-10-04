@@ -71,10 +71,12 @@ it makes, and skips it when only Markdown changed.
 
 The last three checks run tools from
 [analytica.dart](https://github.com/kevmoo/analytica.dart):
-`cognitive_complexity`, `dedupe` and `undead`, pinned in
-[`tool/analytica.sh`](tool/analytica.sh). Each has an agent skill in
-`.claude/skills`. See [`docs/review-rules.md`](docs/review-rules.md) for
-what fails each check.
+`cognitive_complexity`, `dedupe` and `undead`. They are dev dependencies of
+the root `pubspec.yaml`, which pins their versions, and `pubspec.lock` pins
+everything they depend on; Dependabot proposes their new releases.
+[`tool/analytica.sh`](tool/analytica.sh) runs them and sets their limits.
+Each has an agent skill in `.claude/skills`. See
+[`docs/review-rules.md`](docs/review-rules.md) for what fails each check.
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the

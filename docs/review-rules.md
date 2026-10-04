@@ -49,8 +49,9 @@ instead, from the Dart syntax tree, by tools from
 [`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity),
 [`dedupe`](https://pub.dev/packages/dedupe) and
 [`undead`](https://pub.dev/packages/undead).
-[`tool/analytica.sh`](../tool/analytica.sh) runs them and pins their
-versions and limits.
+They are dev dependencies of the root `pubspec.yaml`, which pins their
+versions; `pubspec.lock` pins everything they depend on.
+[`tool/analytica.sh`](../tool/analytica.sh) runs them and sets their limits.
 
 | Check | Tool | Fails when | Limit's source |
 | --- | --- | --- | --- |
@@ -106,8 +107,8 @@ to delete dead code safely. To extract part of a function, the
 `cognitive_complexity` package's `data_flow` tool lists the inputs, mutations
 and outputs of a line range, and the score the function would have after
 the extraction:
-`dart run cognitive_complexity:data_flow@0.2.5 <file>:<start>-<end>`. It needs
-a line range, so it does not run in CI.
+`dart run cognitive_complexity:data_flow <file>:<start>-<end>`. It needs a line
+range, so it does not run in CI.
 
 **No suppressions.** A finding is fixed in the code, not marked with the
 `// cognitive_complexity:ignore` or `// undead:ignore` comments (or their
@@ -132,5 +133,7 @@ for example duplication that must stay for type safety, the owner decides.
 
 Change the rule in `.greptile/config.json` and its row here in the same pull
 request. Greptile applies changes to `.greptile/` from the next pull request
-it reviews. The computed checks' limits and the tools' versions live in
-`tool/analytica.sh`; change them there and in the table above.
+it reviews. The computed checks' limits live in `tool/analytica.sh`; change
+them there and in the table above. The tools' versions live in the root
+`pubspec.yaml`, and Dependabot opens a pull request for each new release, so
+its CI run shows what the new version reports.

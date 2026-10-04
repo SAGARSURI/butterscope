@@ -6,9 +6,9 @@ An agent skill for reducing cognitive complexity in Dart, by Kevin Moore.
 tag `cognitive_complexity-v0.2.5`, without its `evals/` folder. `LICENSE` is
 that repository's licence.
 
-The skill goes with the cognitive_complexity version that
-`tool/analytica.sh` pins. When the version there changes, copy these files
-again from the matching tag.
+The skill goes with the cognitive_complexity version that the root
+`pubspec.yaml` pins. When the version there changes, copy these files again
+from the matching tag.
 
 Where the skill and this project differ, `AGENTS.md` says which one to
 follow.

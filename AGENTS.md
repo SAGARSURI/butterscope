@@ -53,10 +53,11 @@ only.
   `dart-dedupe`, `dart-undead`), with three differences. Only the limits in
   `docs/review-rules.md` fail a pull request; the skills' other targets are
   advice. Run the tools with `melos run complexity`, `duplication` or
-  `dead-code`, which pin their versions, not with the skills' `dart run`
-  commands. Fix a finding in code your task changes straight away; the
-  skills' triage reports and confirmation steps are for code you were not
-  asked to change.
+  `dead-code`, which run the versions the root `pubspec.yaml` pins with this
+  project's limits; the skills' `dart run <tool>@<version>` commands fetch
+  other versions. Fix a finding in code your task changes straight away;
+  the skills' triage reports and confirmation steps are for code you were
+  not asked to change.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.
