@@ -49,8 +49,10 @@ Future<(RecordedWindow, int)> record(Duration length) async {
   final wall = Stopwatch()..start();
   recorder.start();
   await Future<void>.delayed(length);
-  final recorded = await recorder.stop();
-  return (recorded, wall.elapsedMicroseconds);
+  // The window ends when stop is called, not after the flush.
+  final stopping = recorder.stop();
+  wall.stop();
+  return (await stopping, wall.elapsedMicroseconds);
 }
 
 String describe(WindowMetrics metrics) {

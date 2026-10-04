@@ -14,6 +14,18 @@ String summariseWindow(LoggedWindow window) {
   ];
   out.writeln(run.isEmpty ? '' : ' (${run.join(', ')})');
 
+  for (final (key, count) in [
+    ('rates', window.rateReads.length),
+    ('samples', window.samples.length),
+  ]) {
+    final logged = window.intField(key);
+    if (count != logged) {
+      out.writeln(
+        'WARNING: $count of $logged $key read; the numbers below are wrong.',
+      );
+    }
+  }
+
   final reads = window.rateReads;
   if (reads.isEmpty || !FrameBudget.isValidRefreshRate(reads.first.hertz)) {
     out.writeln('No usable declared refresh rate; nothing to measure.');

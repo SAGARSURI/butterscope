@@ -93,27 +93,29 @@ String? _apply(List<String> words, Map<String, LoggedWindow> windows) {
   }
   final window = windows[name];
   if (window == null) return 'no header for window "$name"';
-  final numbers = words.skip(2).map(num.parse).toList();
-  switch (kind) {
-    case 'rate':
-      window.rateReads.add(
-        RefreshRateRead(
-          hertz: numbers[0].toDouble(),
-          afterSamples: numbers[1].toInt(),
-        ),
-      );
-    case 'frame':
-      window.samples.add(
-        FrameSample(
-          frameNumber: numbers[0].toInt(),
-          vsyncStartMicros: numbers[1].toInt(),
-          buildMicros: numbers[2].toInt(),
-          rasterMicros: numbers[3].toInt(),
-          vsyncOverheadMicros: numbers[4].toInt(),
-        ),
-      );
-    default:
-      return 'unknown kind "$kind"';
+  for (final entry in words.skip(2)) {
+    final numbers = entry.split(':').map(num.parse).toList();
+    switch (kind) {
+      case 'rates':
+        window.rateReads.add(
+          RefreshRateRead(
+            hertz: numbers[0].toDouble(),
+            afterSamples: numbers[1].toInt(),
+          ),
+        );
+      case 'frames':
+        window.samples.add(
+          FrameSample(
+            frameNumber: numbers[0].toInt(),
+            vsyncStartMicros: numbers[1].toInt(),
+            buildMicros: numbers[2].toInt(),
+            rasterMicros: numbers[3].toInt(),
+            vsyncOverheadMicros: numbers[4].toInt(),
+          ),
+        );
+      default:
+        return 'unknown kind "$kind"';
+    }
   }
   return null;
 }

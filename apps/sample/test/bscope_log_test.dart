@@ -11,17 +11,20 @@ List<String> logOf(int count, {Set<int> skip = const {}}) {
     for (var n = 11; n <= 10 + count; n++)
       if (!skip.contains(n)) n,
   ];
+  final frames = [
+    for (final n in numbers) '$n:${n * 8333}:2000:3000:${100 + n}',
+  ];
   final bodies = [
     'run policy=benchmarkLive plant=none semantics=off mode=profile',
     [
       'window animated plant=none semantics=off mode=profile',
       'wallMicros=1000000 start=10 end=${10 + count} flushTimedOut=false',
-      'flushMicros=900 callbackMicros=50 samples=${numbers.length}',
+      'flushMicros=900 callbackMicros=50 rates=2',
+      'samples=${numbers.length}',
     ].join(' '),
-    'rate animated 120.0 0',
-    for (final n in numbers)
-      'frame animated $n ${n * 8333} 2000 3000 ${100 + n}',
-    'rate animated 120.0 ${numbers.length}',
+    'rates animated 120.0:0 120.0:${numbers.length}',
+    for (var i = 0; i < frames.length; i += 20)
+      'frames animated ${frames.skip(i).take(20).join(' ')}',
     'metrics animated frames=${numbers.length}',
   ];
   return [
@@ -72,10 +75,10 @@ void main() {
     });
 
     test('reports a missing line', () {
-      final lines = logOf(3)..removeAt(4);
+      final lines = logOf(3)..removeAt(3);
       final log = readBscopeLog(lines.join('\n'));
 
-      expect(log.problems, ['Line 5 is missing.']);
+      expect(log.problems, ['Line 4 is missing.']);
     });
 
     test('reports a log with no done line', () {
@@ -116,6 +119,13 @@ void main() {
     test('counts frame-number gaps and the numbers skipped', () {
       final summary = summariseWindow(logged(10, skip: {13, 16, 17}));
       expect(summary, contains('2 gaps, 3 numbers skipped'));
+    });
+
+    test('warns when fewer samples were read than were written', () {
+      // 25 frames take two frame lines; drop the second.
+      final lines = logOf(25)..removeAt(4);
+      final window = readBscopeLog(lines.join('\n')).windows.single;
+      expect(summariseWindow(window), contains('20 of 25 samples read'));
     });
 
     test('gives the recorder cost per second of window', () {
