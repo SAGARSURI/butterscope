@@ -117,6 +117,14 @@ void main() {
       expect(log.runs.last.problems, isEmpty);
     });
 
+    test('keeps one run when its run line is repeated', () {
+      final lines = logOf(3);
+      final log = readBscopeLog([lines[0], ...lines].join('\n'));
+
+      expect(log.runs, hasLength(1));
+      expect(log.runs.single.problems, isEmpty);
+    });
+
     test('splits runs where the numbering restarts', () {
       // The second run's run line was dropped, so only its numbers show it.
       final second = logOf(5)..removeAt(0);
@@ -209,6 +217,33 @@ void main() {
       expect(summary, contains('Slice 1 s observed'));
       expect(summary, isNot(contains('Janky rate')));
       expect(summary, isNot(contains('Hitch ratio')));
+    });
+
+    test('gives no metrics when a later rate read is not usable', () {
+      final summary = summariseWindow(logged(3, rates: ['120.0:0', '0.0:2']));
+      expect(summary, contains('No usable declared refresh rate'));
+      expect(summary, isNot(contains('Janky rate')));
+    });
+
+    test('still summarises the other windows of a run', () {
+      final bad = logOf(3, rates: ['120.0:0', '0.0:2']);
+      final good = logOf(3)
+          .map((line) => line.replaceAll(' animated ', ' still '))
+          .toList();
+      // One run: the bad window's lines, then the good one's, renumbered.
+      final bodies = [
+        ...bad.take(bad.length - 1),
+        ...good.skip(1).take(good.length - 2),
+      ].map((line) => line.split(' ').skip(2).join(' ')).toList();
+      final lines = [
+        for (var i = 0; i < bodies.length; i++) 'BSCOPE ${i + 1} ${bodies[i]}',
+        'BSCOPE ${bodies.length + 1} done ${bodies.length + 1}',
+      ];
+
+      final summary = summariseLog(readBscopeLog(lines.join('\n')));
+      expect(summary, contains('No usable declared refresh rate'));
+      expect(summary, contains('== still'));
+      expect(summary, contains('Janky rate'));
     });
 
     test('keeps a rate change within 5% valid', () {

@@ -52,9 +52,11 @@ class BscopeLog {
 /// Reads every `BSCOPE` line in [text], a raw logcat dump or a
 /// `flutter drive` transcript, whatever comes before the tag on each line.
 ///
-/// A log can hold several runs. A new run starts at each `run` line, and
-/// wherever a line number comes back with different content, which means
-/// the numbering started again. A line repeated word for word is kept once.
+/// A log can hold several runs. A new run starts at a `run` line once the
+/// current run has one, and wherever a line number comes back with
+/// different content, which means the numbering started again. A line
+/// repeated word for word is kept once, except a run line after the
+/// current run's `done` line.
 BscopeLog readBscopeLog(String text) {
   final runs = <Map<int, List<String>>>[];
   final problems = <String>[];
@@ -75,11 +77,16 @@ BscopeLog readBscopeLog(String text) {
 }
 
 bool _startsRun(Map<int, List<String>> run, int seq, List<String> body) {
-  if (body.first == 'run' && run.values.any((b) => b.first == 'run')) {
-    return true;
-  }
   final seen = run[seq];
-  return seen != null && seen.join(' ') != body.join(' ');
+  final isRun = body.first == 'run';
+  if (seen != null && seen.join(' ') == body.join(' ')) {
+    // A line repeated word for word is the same line, unless it is a run
+    // line after this run ended: two runs with the same settings print the
+    // same run line.
+    return isRun && run.values.any((b) => b.first == 'done');
+  }
+  if (seen != null) return true;
+  return isRun && run.values.any((b) => b.first == 'run');
 }
 
 BscopeRun _readRun(Map<int, List<String>> lines) {

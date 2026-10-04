@@ -40,7 +40,8 @@ String summariseWindow(LoggedWindow window) {
   _writeWarnings(out, window);
 
   final reads = window.rateReads;
-  if (reads.isEmpty || !FrameBudget.isValidRefreshRate(reads.first.hertz)) {
+  final usable = reads.every((r) => FrameBudget.isValidRefreshRate(r.hertz));
+  if (reads.isEmpty || !usable) {
     out.writeln('No usable declared refresh rate; nothing to measure.');
     return out.toString();
   }
