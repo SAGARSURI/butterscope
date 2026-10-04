@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# `melos run check`: every check CI runs, over the whole repository. Claude
-# Code runs it before each commit (see .claude/settings.json).
+# `melos run check`: the checks CI runs after bootstrap, over the whole
+# repository. Claude Code runs it before each commit (see
+# .claude/settings.json).
 #
 # Every check runs even when an earlier one fails, so one run reports every
 # finding. Formatting rewrites the files it would change and still fails, so

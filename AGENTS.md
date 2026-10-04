@@ -67,11 +67,12 @@ only.
    pubspec change: CI fails if bootstrap changes any file. Versions every
    package shares are edited only under `melos: command: bootstrap:` in the
    root `pubspec.yaml`.
-2. Commit only when `melos run check` passes. It runs every check CI runs.
-   Claude Code runs it before each commit and blocks the commit when it
-   fails (`.claude/settings.json`). Where Flutter is not installed (a cloud
-   sandbox, for example), it cannot run, and the hook lets the commit
-   through: say so in the pull request, and CI runs the checks.
+2. Commit only when `melos run check` passes. It runs the checks CI runs
+   after bootstrap. Claude Code runs it before each commit and blocks the
+   commit when it fails (`.claude/settings.json`). Where Flutter is not
+   installed (a cloud sandbox, for example), it cannot run, and the hook
+   lets the commit through: say so in the pull request, and CI runs the
+   checks.
 
 ## Git
 

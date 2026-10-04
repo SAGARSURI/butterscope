@@ -1,10 +1,10 @@
 #!/usr/bin/env bash
 # Claude Code runs this before each `git commit` it makes (see
-# .claude/settings.json). It runs `melos run check`, every check CI runs,
-# and when one fails it blocks the commit with the report as the reason, so
-# the agent fixes the code before the commit exists. The checks read the
-# working tree: what the commit is about to record, plus any edits left
-# unstaged.
+# .claude/settings.json). It runs `melos run check`, the checks CI runs
+# after bootstrap, and when one fails it blocks the commit with the report
+# as the reason, so the agent fixes the code before the commit exists. The
+# checks read the working tree: what the commit is about to record, plus
+# any edits left unstaged.
 set -uo pipefail
 
 # The settings' `if` rule already picks commit commands. This check repeats

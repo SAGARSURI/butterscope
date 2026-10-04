@@ -54,7 +54,7 @@ melos bootstrap
 Day to day:
 
 ```sh
-melos run check           # every check CI runs; run it before you push
+melos run check           # CI's checks after bootstrap; run before pushing
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder

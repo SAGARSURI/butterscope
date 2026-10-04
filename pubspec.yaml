@@ -38,9 +38,9 @@ melos:
   scripts:
     check:
       description: >-
-        Every check CI runs, over the whole repository: formatting, analysis,
-        tests and the complexity tools. Claude Code runs it before each
-        commit. See tool/check.sh.
+        The checks CI runs after bootstrap, over the whole repository:
+        formatting, analysis, tests and the complexity tools. Claude Code
+        runs it before each commit. See tool/check.sh.
       run: tool/check.sh
 
     complexity:
