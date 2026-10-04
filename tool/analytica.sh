@@ -27,10 +27,10 @@
 #
 # The tools are dev dependencies of the workspace root: the root
 # pubspec.yaml pins their versions and pubspec.lock everything they depend
-# on. `dart run` compiles each tool the first time, about half a minute, and
-# again only after `melos bootstrap` changes the packages. After that a check
-# takes seconds, apart from undead, which resolves each package. Rules and
-# reasons: docs/review-rules.md.
+# on. Each runs as a native executable, compiled from those packages the
+# first time it is needed after pubspec.lock or .fvmrc changes, about half a
+# minute each. After that a check takes seconds, apart from undead, which
+# resolves each package. Rules and reasons: docs/review-rules.md.
 set -uo pipefail
 
 # Change the limits here only, and their rows in docs/review-rules.md. The
@@ -58,9 +58,45 @@ esac
 targets=(packages/*/lib tools/*/lib apps/*/lib)
 packages=(packages/* tools/* apps/*)
 
-# `dart run <package>[:<executable>]` runs a tool the root pubspec.yaml pins.
-# When Melos runs this script, `dart` is the pinned SDK: Melos puts the SDK
-# it was given (.fvm/flutter_sdk locally) first on PATH.
+# The compiled tools live in .dart_tool/analytica/<key>, one folder per
+# pubspec.lock and .fvmrc; CI caches it. Compiled ahead of time, undead runs
+# several times faster than under `dart run`, which compiles just in time.
+key=$(cat pubspec.lock .fvmrc | shasum -a 256 | cut -c1-16)
+bin_dir=.dart_tool/analytica/$key
+
+# Prints the folder of a package, from the package_config.json pub writes
+# (one key per line).
+package_root() {
+  awk -v name="\"$1\"," '
+    $1 == "\"name\":" && $2 == name { found = 1; next }
+    found && $1 == "\"rootUri\":" { gsub(/[",]/, "", $2); print $2; exit }
+  ' .dart_tool/package_config.json | sed 's|^file://||'
+}
+
+# Runs <package>[:<executable>] with the arguments that follow, compiling it
+# first when this pubspec.lock has no build of it yet. When Melos runs this
+# script, `dart` is the pinned SDK: Melos puts the SDK it was given
+# (.fvm/flutter_sdk locally) first on PATH.
+tool() {
+  local package=${1%%:*} executable=${1#*:} root out
+  shift
+  out=$bin_dir/$package-$executable
+  if [ ! -x "$out" ]; then
+    root=$(package_root "$package")
+    if [ ! -f "$root/bin/$executable.dart" ]; then
+      echo "No $package:$executable; run melos bootstrap." >&2
+      return 1
+    fi
+    echo "Compiling $package:$executable for this pubspec.lock..." >&2
+    # Builds for older locks are no longer needed.
+    find .dart_tool/analytica -mindepth 1 -maxdepth 1 ! -name "$key" \
+      -exec rm -rf {} + 2> /dev/null
+    mkdir -p "$bin_dir"
+    dart compile exe --packages=.dart_tool/package_config.json \
+      -o "$out" "$root/bin/$executable.dart" > /dev/null || return 1
+  fi
+  "$out" "$@"
+}
 
 # Appends a titled report to the run's summary page.
 summarize() {
@@ -75,7 +111,7 @@ complexity() {
   $github && format=github
 
   echo "== Cognitive complexity and file length (cognitive_complexity)"
-  dart run cognitive_complexity --fail-threshold="$max_score" \
+  tool cognitive_complexity --fail-threshold="$max_score" \
     --max-file-lines="$max_file_lines" --format="$format" "${targets[@]}" ||
     status=1
 
@@ -83,12 +119,12 @@ complexity() {
   echo "== Single-caller helpers (shallow)"
   # The text report decides the result. In CI a second, JSON run annotates
   # each SAFE_INLINE helper on its first line.
-  report=$(dart run cognitive_complexity:shallow --fail-on-safe-inline \
+  report=$(tool cognitive_complexity:shallow --fail-on-safe-inline \
     --max-caller-cc="$max_score" "${targets[@]}" 2>&1) || status=1
   echo "$report"
   summarize "Single-caller helpers (shallow)" "$report"
   if $github; then
-    dart run cognitive_complexity:shallow --max-caller-cc="$max_score" \
+    tool cognitive_complexity:shallow --max-caller-cc="$max_score" \
       --format=json "${targets[@]}" | jq -r --argjson max "$max_score" '
       .findings[]
       | select(.classification == "SAFE_INLINE")
@@ -101,7 +137,7 @@ complexity() {
 
   echo
   echo "== Split plan for files over $max_file_lines lines (file_split)"
-  plan=$(dart run cognitive_complexity:file_split \
+  plan=$(tool cognitive_complexity:file_split \
     --target-lines="$max_file_lines" "${targets[@]}" 2>&1) || status=1
   echo "$plan"
   summarize "Split plan for files over $max_file_lines lines (file_split)" \
@@ -115,7 +151,7 @@ duplication() {
   local format=text
   $github && format=github
   echo "== Duplicated code (dedupe)"
-  if dart run dedupe --fail-threshold=0 --format="$format" "${targets[@]}"; then
+  if tool dedupe --fail-threshold=0 --format="$format" "${targets[@]}"; then
     return 0
   fi
   $github && echo "::error title=Duplicated code::A block of code under" \
@@ -133,7 +169,7 @@ dead_code() {
     fi
     echo "== Dead code in $dir, as $mode (undead)"
     : > "$json"
-    if report=$(dart run undead --mode="$mode" \
+    if report=$(tool undead --mode="$mode" \
       --fail-on-undead --json-output="$json" "$dir" 2>&1); then
       echo "$report"
       continue

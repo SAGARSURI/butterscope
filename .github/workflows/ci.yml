@@ -118,22 +118,16 @@ jobs:
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         run: melos run test:ci --no-select
 
-      # `dart run <tool>` compiles each tool into .dart_tool/pub/bin the first
-      # time, and the cache keeps those snapshots while pubspec.lock (which
-      # pins the tools) and .fvmrc (the SDK) stay the same. dart run also
-      # recompiles a snapshot older than .dart_tool/package_config.json,
-      # which bootstrap has just rewritten, so restored snapshots are touched.
+      # tool/analytica.sh compiles each tool into .dart_tool/analytica the
+      # first time it is needed, about half a minute each. The build only
+      # changes with pubspec.lock (which pins the tools) and .fvmrc (the
+      # SDK), so the cache keeps it until one of them does.
       - name: Cache the tools
-        id: tools-cache
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         uses: actions/cache@v6
         with:
-          path: .dart_tool/pub/bin
-          key: analytica-tools-${{ hashFiles('pubspec.lock', '.fvmrc') }}
-
-      - name: Use the cached tools
-        if: ${{ !cancelled() && steps.tools-cache.outputs.cache-hit == 'true' }}
-        run: find .dart_tool/pub/bin -name '*.snapshot' -exec touch {} +
+          path: .dart_tool/analytica
+          key: analytica-exe-${{ hashFiles('pubspec.lock', '.fvmrc') }}
 
       # The root pubspec.yaml pins the tools, and tool/analytica.sh sets
       # their limits. Each finding is annotated where it starts, and each
