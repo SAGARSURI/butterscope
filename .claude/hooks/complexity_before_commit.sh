@@ -17,15 +17,25 @@ esac
 
 cd "${CLAUDE_PROJECT_DIR:-$(dirname "$0")/../..}" || exit 1
 
-if ! command -v melos > /dev/null; then
-  # No Melos, as in a cloud sandbox without Flutter: the tools cannot run.
-  # Tell the agent and let the commit through; AGENTS.md has it say so in
-  # the pull request, and CI runs the tools.
+# Without Melos or the SDK it runs the tools on, as in a cloud sandbox with
+# no Flutter, the tools cannot run. Tell the agent why and let the commit
+# through; AGENTS.md has it say so in the pull request, and CI runs them.
+skip() {
   echo '{"hookSpecificOutput": {"hookEventName": "PreToolUse",' \
     '"additionalContext": "The complexity tools did not run before this' \
-    'commit: melos is not on PATH. Say so in the pull request; CI runs' \
-    'them."}}'
+    "commit: $1. Say so in the pull request; CI runs them.\"}}"
   exit 0
+}
+
+command -v melos > /dev/null || skip "melos is not on PATH"
+
+# Melos takes its SDK from MELOS_SDK_PATH, else from sdkPath in the root
+# pubspec.yaml (.fvm/flutter_sdk); "auto" means the dart on PATH.
+sdk=${MELOS_SDK_PATH:-.fvm/flutter_sdk}
+if [ "$sdk" = auto ]; then
+  command -v dart > /dev/null || skip "dart is not on PATH"
+elif [ ! -x "$sdk/bin/dart" ]; then
+  skip "there is no Dart SDK at $sdk (run fvm use)"
 fi
 
 if report=$(melos run complexity 2>&1); then

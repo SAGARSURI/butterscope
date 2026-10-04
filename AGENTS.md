@@ -75,8 +75,9 @@ only.
   Versions every package shares are edited only under
   `melos: command: bootstrap:` in the root `pubspec.yaml`.
 - Claude Code runs `melos run complexity` before each commit it makes, and
-  blocks the commit when it fails (`.claude/settings.json`). Where Melos is
-  not installed, it lets the commit through and says the tools did not run.
+  blocks the commit when it fails (`.claude/settings.json`). Where Melos or
+  the pinned SDK is missing, it lets the commit through and says why the
+  tools did not run.
 
 ## Git
 
