@@ -19,7 +19,7 @@ check() {
   local name=$1
   shift
   echo "== $name"
-  "$@" || failed="$failed $name"
+  "$@" || failed="${failed:+$failed, }$name"
   echo
 }
 
@@ -29,11 +29,13 @@ check Formatting dart format --set-exit-if-changed .
 # One pass over the whole workspace, as in CI.
 check Analysis flutter analyze --fatal-infos
 check Tests melos test
-check Complexity tool/complexity.sh
+check Complexity tool/analytica.sh complexity
+check Duplication tool/analytica.sh duplication
+check "Dead code" tool/analytica.sh dead-code
 
 if [ -z "$failed" ]; then
   echo "Every check passed."
   exit 0
 fi
-echo "Failed:$failed."
+echo "Failed: $failed."
 exit 1

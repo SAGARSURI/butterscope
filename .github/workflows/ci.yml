@@ -118,31 +118,40 @@ jobs:
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         run: melos run test:ci --no-select
 
-      # `dart run <package>@<version>` compiles the tools before their first
-      # run, about a minute, and keeps the build under DART_DATA_HOME. Pub
-      # resolves their dependencies again on every run and rebuilds when one
-      # has a new release, so the cache takes a fresh copy once a day.
-      - name: Note the date
-        id: date
+      # tool/analytica.sh runs each tool with `dart run <package>@<version>`,
+      # which compiles the package before its first run, about a minute each,
+      # and keeps the build under DART_DATA_HOME. Pub resolves the tools'
+      # dependencies again on every run and rebuilds when one has a new
+      # release, so the cache takes a fresh copy once a day.
+      - name: Set up the tool cache
+        id: tools
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
-        run: echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+        run: |
+          echo "DART_DATA_HOME=$RUNNER_TEMP/dart-data" >> "$GITHUB_ENV"
+          echo "day=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
-      - name: Cache the complexity tools
+      - name: Cache the tools
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
         uses: actions/cache@v6
         with:
           path: ${{ runner.temp }}/dart-data/install/app-bundles
-          key: complexity-tools-${{ steps.date.outputs.day }}
-          restore-keys: complexity-tools-
+          key: analytica-tools-${{ steps.tools.outputs.day }}
+          restore-keys: analytica-tools-
 
-      # tool/complexity.sh, which pins the tools and the limits. A function
-      # above the limit, a file over it, and a helper to inline are annotated
-      # where they start; each tool's report is on the run's summary page.
-      - name: Complexity tools
+      # tool/analytica.sh pins the tools and the limits. Each finding is
+      # annotated where it starts, and each tool's report is on the run's
+      # summary page.
+      - name: Complexity
         if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
-        env:
-          DART_DATA_HOME: ${{ runner.temp }}/dart-data
         run: melos run complexity -- --github
+
+      - name: Duplication
+        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
+        run: melos run duplication -- --github
+
+      - name: Dead code
+        if: ${{ !cancelled() && steps.bootstrap.outcome == 'success' }}
+        run: melos run dead-code -- --github
 
   # The one check that branch protection requires. It waits for every job
   # above and passes only when all of them succeeded, so a new job (the

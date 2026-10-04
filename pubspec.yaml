@@ -39,18 +39,28 @@ melos:
     check:
       description: >-
         The checks CI runs after bootstrap, over the whole repository:
-        formatting, analysis, tests and the complexity tools. Claude Code
-        runs it before each commit. See tool/check.sh.
+        formatting, analysis, tests, complexity, duplication and dead code.
+        Claude Code runs it before each commit. See tool/check.sh.
       run: tool/check.sh
 
     complexity:
       description: >-
-        Runs the cognitive_complexity tools over every package's lib/: fails
-        on a function above 15, a file over 400 lines, or a single-caller
-        helper that can be inlined, and prints a split plan for a long file.
-      # The script pins the tools' version and the limits. CI adds
-      # `-- --github` for annotations and a run summary.
-      run: tool/complexity.sh
+        Fails on a function above 15, a file over 400 lines, or a
+        single-caller helper that can be inlined, and prints a split plan for
+        a long file (cognitive_complexity). See tool/analytica.sh.
+      run: tool/analytica.sh complexity
+
+    duplication:
+      description: >-
+        Fails on any block of code that appears more than once under lib/
+        (dedupe). See tool/analytica.sh.
+      run: tool/analytica.sh duplication
+
+    dead-code:
+      description: >-
+        Fails on any declaration that nothing reaches, package by package
+        (undead). See tool/analytica.sh.
+      run: tool/analytica.sh dead-code
 
     test:ci:
       description: >-
