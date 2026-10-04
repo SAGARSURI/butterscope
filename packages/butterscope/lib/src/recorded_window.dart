@@ -50,8 +50,8 @@ final class RecordedWindow {
   final List<RefreshRateRead> refreshRateReads;
 
   /// Whether the wait for the window's last timings ended by timeout rather
-  /// than by a timing from after the window. If it did, frames at the end
-  /// of the window may be missing.
+  /// than by a timing numbered at or past the window's last frame. If it
+  /// did, frames at the end of the window may be missing.
   final bool flushTimedOut;
 
   /// How long the wait for the window's last timings took after the window

@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'dart:ui' show FrameTiming;
 
 import 'package:butterscope/src/frame_sample.dart';
@@ -44,6 +45,7 @@ final class FrameRecorder {
 
   var _recording = false;
   var _startFrame = 0;
+  var _lastReportedFrame = 0;
   int? _endFrame;
   var _samples = <FrameSample>[];
   var _rateReads = <RefreshRateRead>[];
@@ -51,43 +53,58 @@ final class FrameRecorder {
 
   /// Starts a window at the frame begun most recently.
   ///
-  /// Throws a [StateError] if a window is already open.
+  /// Throws a [StateError] if a window is already open. If reading the
+  /// source throws, the error is passed on and no window is opened.
   void start() {
     if (_recording) throw StateError('The recorder is already recording.');
+    // Read first, so a source that throws leaves the recorder idle.
+    final startFrame = _source.currentFrameNumber;
+    final startRate = _source.declaredRefreshRate;
     _recording = true;
-    _startFrame = _source.currentFrameNumber;
+    _startFrame = startFrame;
+    _lastReportedFrame = startFrame;
     _endFrame = null;
     _samples = [];
-    _rateReads = [];
+    _rateReads = [RefreshRateRead(hertz: startRate, afterSamples: 0)];
     _flushed = Completer<bool>();
     _callbackStopwatch
       ..stop()
       ..reset();
-    _readRefreshRate();
     _source.addTimingsCallback(_onTimings);
   }
 
   /// Ends the window at the frame begun most recently, waits for its last
   /// timings, and returns what was recorded.
   ///
-  /// The wait ends when a timing from after the window arrives, which means
-  /// every frame in it has been reported, or when the flush timeout passes.
+  /// The raster thread reports timings in frame order
+  /// (`Shell::OnFrameRasterized` appends each to one list), so every frame
+  /// in the window has been reported once a timing numbered at or past its
+  /// last frame arrives. The wait ends then, at once if that timing came
+  /// before the stop or the window is empty, or when the flush timeout
+  /// passes.
   ///
   /// Throws a [StateError] if no window is open, or it is already stopping.
+  /// If reading the source throws, the error is passed on and the recorder
+  /// is left idle, ready to start again.
   Future<RecordedWindow> stop() async {
     if (!_recording || _endFrame != null) {
       throw StateError('The recorder is not recording.');
     }
-    final end = _endFrame = _source.currentFrameNumber;
-    _readRefreshRate();
-
     final flushClock = Stopwatch()..start();
-    final timedOut = await _flushed.future.timeout(
-      _flushTimeout,
-      onTimeout: () => true,
-    );
-    _source.removeTimingsCallback(_onTimings);
-    _recording = false;
+    final int end;
+    final bool timedOut;
+    try {
+      end = _endFrame = _source.currentFrameNumber;
+      _readRefreshRate();
+      if (_lastReportedFrame >= end) _completeFlush();
+      timedOut = await _flushed.future.timeout(
+        _flushTimeout,
+        onTimeout: () => true,
+      );
+    } finally {
+      _source.removeTimingsCallback(_onTimings);
+      _recording = false;
+    }
 
     return RecordedWindow(
       startFrameNumber: _startFrame,
@@ -105,16 +122,19 @@ final class FrameRecorder {
     final end = _endFrame;
     for (final timing in timings) {
       final frameNumber = timing.frameNumber;
+      _lastReportedFrame = math.max(_lastReportedFrame, frameNumber);
+      if (end != null && frameNumber >= end) _completeFlush();
       if (frameNumber <= _startFrame) continue;
-      if (end != null && frameNumber > end) {
-        if (!_flushed.isCompleted) _flushed.complete(false);
-        continue;
-      }
+      if (end != null && frameNumber > end) continue;
       _samples.add(FrameSample.fromTiming(timing));
     }
     // Batches during the wait after stop are past the window's end read.
     if (end == null) _readRefreshRate();
     _callbackStopwatch.stop();
+  }
+
+  void _completeFlush() {
+    if (!_flushed.isCompleted) _flushed.complete(false);
   }
 
   void _readRefreshRate() {

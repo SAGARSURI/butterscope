@@ -8,8 +8,18 @@ class FakeFrameSource implements FrameSource {
   @override
   int currentFrameNumber = 10;
 
+  /// When set, reading the refresh rate throws it.
+  Error? rateError;
+
+  double _declaredRefreshRate = 120;
+
   @override
-  double declaredRefreshRate = 120;
+  double get declaredRefreshRate {
+    if (rateError case final error?) throw error;
+    return _declaredRefreshRate;
+  }
+
+  set declaredRefreshRate(double hertz) => _declaredRefreshRate = hertz;
 
   TimingsCallback? callback;
 
@@ -214,31 +224,64 @@ void main() {
   });
 
   group('FrameRecorder flush', () {
+    // Unless a test sets a short timeout, it is an hour, so a test whose
+    // flush waited for it would time out instead.
+
     test('ends when a frame from after the window arrives', () async {
-      // The timeout is an hour, so the test would time out if this waited.
       final frames = recorder()..start();
       source.currentFrameNumber = 12;
       final window = frames.stop();
       source
-        ..report([11, 12])
+        ..report([11])
         ..report([13]);
+
+      final recorded = await window;
+      expect(recorded.flushTimedOut, isFalse);
+      expect(frameNumbersOf(recorded), [11]);
+    });
+
+    test("ends on the last frame's own timing", () async {
+      final frames = recorder()..start();
+      source.currentFrameNumber = 12;
+      final window = frames.stop();
+      source.report([11, 12]);
 
       final recorded = await window;
       expect(recorded.flushTimedOut, isFalse);
       expect(frameNumbersOf(recorded), [11, 12]);
     });
 
-    test('keeps waiting while only window frames arrive', () async {
+    test('ends at once when the last frame came before the stop', () async {
+      final frames = recorder()..start();
+      source
+        ..report([11, 12])
+        ..currentFrameNumber = 12;
+
+      final recorded = await frames.stop();
+      expect(recorded.flushTimedOut, isFalse);
+      expect(frameNumbersOf(recorded), [11, 12]);
+    });
+
+    test('ends at once for an empty window', () async {
+      final frames = recorder()..start();
+
+      final recorded = await frames.stop();
+      expect(recorded.flushTimedOut, isFalse);
+      expect(recorded.samples, isEmpty);
+    });
+
+    test('keeps waiting while the last frame is missing', () async {
       final frames = FrameRecorder(source, profileFlushTimeout: short)..start();
       source.currentFrameNumber = 12;
       final window = frames.stop();
-      source.report([11, 12]);
+      source.report([11]);
 
       expect((await window).flushTimedOut, isTrue);
     });
 
-    test('ends by timeout when no later frame arrives', () async {
+    test('ends by timeout when no frame arrives', () async {
       final frames = FrameRecorder(source, profileFlushTimeout: short)..start();
+      source.currentFrameNumber = 11;
       final recorded = await frames.stop();
 
       expect(recorded.flushTimedOut, isTrue);
@@ -252,6 +295,7 @@ void main() {
         releaseFlushTimeout: short,
         releaseMode: true,
       )..start();
+      source.currentFrameNumber = 11;
 
       expect((await frames.stop()).flushTimedOut, isTrue);
     });
@@ -263,6 +307,7 @@ void main() {
         profileFlushTimeout: short,
         releaseFlushTimeout: never,
       )..start();
+      source.currentFrameNumber = 11;
 
       expect((await frames.stop()).flushTimedOut, isTrue);
     });
@@ -312,8 +357,27 @@ void main() {
       final frames = recorder()..start();
       final window = frames.stop();
       await expectLater(frames.stop, throwsStateError);
-      source.report([11]);
       await window;
+    });
+
+    test('stays idle when the source fails at the start', () {
+      source.rateError = UnsupportedError('no display');
+      final frames = recorder();
+      expect(frames.start, throwsUnsupportedError);
+      expect(source.callback, isNull);
+
+      source.rateError = null;
+      expect(frames.start, returnsNormally);
+    });
+
+    test('stops listening when the source fails at the stop', () async {
+      final frames = recorder()..start();
+      source.rateError = UnsupportedError('no display');
+      await expectLater(frames.stop, throwsUnsupportedError);
+      expect(source.callback, isNull);
+
+      source.rateError = null;
+      expect(frames.start, returnsNormally);
     });
   });
 
