@@ -16,7 +16,8 @@ only.
 - **Starting work:** the current milestone's "Done when" list on
   [GitHub](https://github.com/SAGARSURI/butterscope/milestones) is the scope.
 - **Writing code under `lib/`:** [`docs/review-rules.md`](docs/review-rules.md)
-  lists the size and complexity limits Greptile reviews against.
+  lists the size and complexity limits: those Greptile reviews against and
+  those CI computes.
 - **Setup and commands:** the Toolchain section of [`README.md`](README.md).
 
 ## How work moves
@@ -46,6 +47,13 @@ only.
   and turning a rule off in `analysis_options.yaml`. When a finding cannot be
   resolved, stop and report it to the owner: the finding, why the code cannot
   satisfy it, and the next steps you propose.
+- For a complexity finding, follow the
+  [`dart-cognitive-complexity`](.claude/skills/dart-cognitive-complexity/SKILL.md)
+  skill, with three differences. Only the limits in `docs/review-rules.md`
+  fail a pull request; the skill's other targets are advice. Run the checks
+  with `melos run complexity`, which pins the tools' version. Fix a finding
+  in code your task changes straight away; the skill's triage report and
+  confirmation step are for code you were not asked to change.
 - Each test pins one behaviour and fails when that behaviour breaks. Derive
   expected numbers by hand from the decision record, and show the arithmetic
   in a comment when it is not obvious.
@@ -61,11 +69,14 @@ only.
    sandbox, for example) cannot run it: say so in the pull request and let
    CI run the checks.
 
-- `melos run check` runs formatting, analysis and tests for every package.
-  CI also runs `melos bootstrap` and fails if that changes any file, so
-  commit `pubspec.lock` with the pubspec change. Versions every package
-  shares are edited only under `melos: command: bootstrap:` in the root
-  `pubspec.yaml`.
+- `melos run check` runs formatting, analysis, tests and the complexity
+  tools for every package. CI also runs `melos bootstrap` and fails if that
+  changes any file, so commit `pubspec.lock` with the pubspec change.
+  Versions every package shares are edited only under
+  `melos: command: bootstrap:` in the root `pubspec.yaml`.
+- Claude Code runs `melos run complexity` before each commit it makes, and
+  blocks the commit when it fails (`.claude/settings.json`). Where Melos is
+  not installed, it lets the commit through and says the tools did not run.
 
 ## Git
 

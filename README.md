@@ -59,7 +59,7 @@ melos run check:changed   # the same, for the packages this branch changed
 melos analyze             # every package, infos included
 melos format              # every package; `dart format .` covers the repo
 melos test                # every package with a test folder
-melos run complexity      # cognitive complexity of every function in lib/
+melos run complexity      # the complexity tools over every lib/ folder
 ```
 
 `check:changed` analyzes and tests the packages changed since the branch left
@@ -67,13 +67,16 @@ melos run complexity      # cognitive complexity of every function in lib/
 and `--include-dependents` filters. Uncommitted edits count, staged or not; a
 new file counts once it is staged with `git add`. A change to a file every
 package shares, such as the root `pubspec.yaml` or `analysis_options.yaml`,
-checks every package instead. It then scores the cognitive complexity of the
-functions in the changed Dart files. CI always checks everything.
+checks every package instead. It then runs the complexity tools over every
+package. CI always checks everything.
 
-`melos run complexity` runs the
+`melos run complexity` runs the tools in the
 [`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity)
-package, pinned in that script, and fails when a function scores above 15.
-See [`docs/review-rules.md`](docs/review-rules.md).
+package, pinned in [`tool/complexity.sh`](tool/complexity.sh). It fails on a
+function that scores above 15, a file over 400 lines, or a helper with one
+caller that should be inlined, and prints a plan for splitting a long file.
+Claude Code runs it before each commit it makes. See
+[`docs/review-rules.md`](docs/review-rules.md).
 
 - Melos runs on the SDK at `.fvm/flutter_sdk`, so every command uses the
   pinned Flutter. The global Melos hands over to the version pinned in the
