@@ -28,7 +28,7 @@ fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
 | `postframe_decode` | The same work in a post-frame callback, every frame | Missed vsyncs |
 | `slow_raster` | 40 layers of opacity and save-layer clips | Raster time |
 | `backdrop_blur` | 6 full-screen backdrop blurs | Raster time |
-| `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU, outside raster time |
+| `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU work, which showed as raster time on the S24 because the raster thread waits on the GPU |
 
 The costs are provisional, tuned so each plant visibly drops frames on the
 Galaxy S24 in profile mode. **(open, M2: tuned on both phones.)**

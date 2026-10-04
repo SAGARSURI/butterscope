@@ -55,6 +55,15 @@ class _CalibrationScreenState extends State<CalibrationScreen>
   }
 
   @override
+  void didUpdateWidget(CalibrationScreen oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.phase == widget.phase) return;
+    oldWidget.phase.removeListener(_followPhase);
+    widget.phase.addListener(_followPhase);
+    _followPhase();
+  }
+
+  @override
   void dispose() {
     widget.phase.removeListener(_followPhase);
     _turns.dispose();

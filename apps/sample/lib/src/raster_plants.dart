@@ -58,31 +58,49 @@ class BackdropBlurPlant extends StatelessWidget {
 /// every pixel, redrawn as [turns] moves.
 ///
 /// The raster thread records a single draw; the cost is GPU execution,
-/// which `FrameTiming` does not include. Draws nothing until the shader
-/// has loaded.
+/// which `FrameTiming` does not include, though on the Galaxy S24 it showed
+/// as raster time because the raster thread waits on the GPU. Draws nothing
+/// until the shader has loaded, and throws if it fails to load, so a run
+/// cannot measure a clean screen by mistake.
 ///
 /// The iteration count is provisional. **(open, M2: tuned on both
 /// phones.)**
 class GpuHeavyPlant extends StatefulWidget {
-  const new({required this.turns, this.iterations = 500, super.key});
+  const new({
+    required this.turns,
+    this.iterations = 500,
+    this.loadProgram = _loadShader,
+    super.key,
+  });
 
   final Animation<double> turns;
   final int iterations;
+
+  /// Loads the shader; a test can pass one that fails.
+  final Future<FragmentProgram> Function() loadProgram;
+
+  static Future<FragmentProgram> _loadShader() {
+    return FragmentProgram.fromAsset('shaders/gpu_heavy.frag');
+  }
 
   @override
   State<GpuHeavyPlant> createState() => _GpuHeavyPlantState();
 }
 
 class _GpuHeavyPlantState extends State<GpuHeavyPlant> {
-  late final Future<FragmentProgram> _program = FragmentProgram.fromAsset(
-    'shaders/gpu_heavy.frag',
-  );
+  late final Future<FragmentProgram> _program = widget.loadProgram();
 
   @override
   Widget build(BuildContext context) {
     return FutureBuilder<FragmentProgram>(
       future: _program,
       builder: (context, snapshot) {
+        if (snapshot.error case final error?) {
+          Error.throwWithStackTrace(
+            error,
+            snapshot.stackTrace ?? StackTrace.empty,
+          );
+        }
         final program = snapshot.data;
         if (program == null) return const SizedBox.expand();
         return CustomPaint(

@@ -23,6 +23,25 @@ Future<void> showScreen(
   );
 }
 
+/// A phase notifier that counts its listeners, starting animated.
+class CountingPhase extends ValueNotifier<CalibrationPhase> {
+  new() : super(CalibrationPhase.animated);
+
+  int listeners = 0;
+
+  @override
+  void addListener(VoidCallback listener) {
+    listeners++;
+    super.addListener(listener);
+  }
+
+  @override
+  void removeListener(VoidCallback listener) {
+    listeners--;
+    super.removeListener(listener);
+  }
+}
+
 Matrix4 boxTransform(WidgetTester tester) {
   final transforms = tester.widgetList<Transform>(
     find.ancestor(
@@ -62,6 +81,33 @@ void main() {
 
       expect(boxTransform(tester), before);
       expect(tester.binding.hasScheduledFrame, isFalse);
+    });
+
+    testWidgets('follows a new phase notifier', (tester) async {
+      final first = CountingPhase();
+      final second = CountingPhase()..value = CalibrationPhase.still;
+      addTearDown(first.dispose);
+      addTearDown(second.dispose);
+      await showScreen(tester, phase: first, workRuns: workRuns);
+      // The screen and its ValueListenableBuilder both listen.
+      final listening = first.listeners;
+      await showScreen(tester, phase: second, workRuns: workRuns);
+      expect(first.listeners, 0);
+      expect(second.listeners, listening);
+      // The animation stops while the new notifier is applied; the frame it
+      // had already asked for is the last.
+      await tester.pump();
+      expect(tester.binding.hasScheduledFrame, isFalse);
+
+      first.value = CalibrationPhase.still;
+      second.value = CalibrationPhase.animated;
+      await tester.pump();
+      final before = boxTransform(tester);
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(boxTransform(tester), isNot(before));
+
+      await tester.pumpWidget(const SizedBox());
+      expect(second.listeners, 0);
     });
 
     testWidgets('a tap toggles the phase', (tester) async {
@@ -161,5 +207,22 @@ void main() {
         expect(finder, findsNothing);
       }
     });
+  });
+
+  testWidgets('GpuHeavyPlant throws when its shader fails to load', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      Directionality(
+        textDirection: TextDirection.ltr,
+        child: GpuHeavyPlant(
+          turns: const AlwaysStoppedAnimation(0),
+          loadProgram: () => Future.error(UnsupportedError('no shader')),
+        ),
+      ),
+    );
+    await tester.pump();
+
+    expect(tester.takeException(), isUnsupportedError);
   });
 }
