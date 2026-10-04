@@ -5,8 +5,11 @@ Moore. `SKILL.md` is copied unchanged from
 [kevmoo/analytica.dart](https://github.com/kevmoo/analytica.dart/tree/dedupe-v0.1.0/skills/dart-dedupe),
 tag `dedupe-v0.1.0`. `LICENSE` is that package's licence.
 
-The skill goes with the dedupe version that `tool/analytica.sh` pins. When
-the version there changes, copy `SKILL.md` again from the matching tag.
+The skill's commands use `dart run dedupe`, which works only where dedupe is
+a dependency, and it is not one here; run `melos run duplication` instead,
+as `AGENTS.md` says. The skill goes with the dedupe version that
+`tool/analytica.sh` pins. When the version there changes, copy `SKILL.md`
+again from the matching tag.
 
 Where the skill and this project differ, `AGENTS.md` says which one to
 follow.
