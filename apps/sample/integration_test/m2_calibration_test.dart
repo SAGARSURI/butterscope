@@ -86,6 +86,8 @@ void main() {
     tester,
   ) async {
     writer.line('run', [
+      // Unique per run, so a reader never mistakes two runs for one.
+      'id=${DateTime.now().microsecondsSinceEpoch}',
       'policy=${binding.framePolicy.name}',
       for (final MapEntry(:key, :value) in run.entries) '$key=$value',
     ]);

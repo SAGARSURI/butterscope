@@ -13,6 +13,7 @@ List<String> logOf(
   List<String>? rates,
   int wallMicros = 1000000,
   bool flushTimedOut = false,
+  int id = 1,
 }) {
   final numbers = [
     for (var n = 11; n <= 10 + count; n++)
@@ -23,7 +24,7 @@ List<String> logOf(
   ];
   final reads = rates ?? ['120.0:0', '120.0:${numbers.length}'];
   final bodies = [
-    'run policy=benchmarkLive plant=none semantics=off mode=profile',
+    'run id=$id policy=benchmarkLive plant=none semantics=off mode=profile',
     [
       'window animated plant=none semantics=off mode=profile',
       'wallMicros=$wallMicros start=10 end=${10 + count}',
@@ -109,7 +110,7 @@ void main() {
     });
 
     test('splits a log holding two runs', () {
-      final log = readBscopeLog([...logOf(3), ...logOf(5)].join('\n'));
+      final log = readBscopeLog([...logOf(3), ...logOf(5, id: 2)].join('\n'));
 
       expect(log.runs, hasLength(2));
       expect(log.runs.first.windows.single.samples, hasLength(3));
@@ -123,6 +124,18 @@ void main() {
 
       expect(log.runs, hasLength(1));
       expect(log.runs.single.problems, isEmpty);
+    });
+
+    test('splits two runs with the same settings when a done is lost', () {
+      final first = logOf(3)..removeLast();
+      final log = readBscopeLog([...first, ...logOf(5, id: 2)].join('\n'));
+
+      expect(log.runs, hasLength(2));
+      expect(log.runs.first.fields['id'], '1');
+      expect(log.runs.last.fields['id'], '2');
+      expect(log.runs.first.windows.single.samples, hasLength(3));
+      expect(log.runs.last.windows.single.samples, hasLength(5));
+      expect(log.runs.last.problems, isEmpty);
     });
 
     test('splits runs where the numbering restarts', () {
