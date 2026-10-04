@@ -68,8 +68,9 @@ only.
 
 ## Git
 
-- The repository is public: keep product, company and client names out of
-  code, docs and commit messages.
+- The repository is public: keep the names of apps, companies and clients
+  that use Butterscope out of code, docs and commit messages. Butterscope's
+  own name and the tools and devices it works with are fine.
 - Branches: `m<N>/<topic>` for milestone work; `ci/`, `docs/`, `chore/` for
   the rest. Pull requests target `main`, each small enough to review in one
   sitting.
