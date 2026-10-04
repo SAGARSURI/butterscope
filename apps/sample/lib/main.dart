@@ -1,18 +1,31 @@
+import 'package:butterscope_sample/src/calibration_screen.dart';
+import 'package:butterscope_sample/src/plant.dart';
 import 'package:flutter/material.dart';
 
 void main() {
-  runApp(const SampleApp());
+  runApp(SampleApp(plant: Plant.fromEnvironment()));
 }
 
-/// Placeholder until the calibration screen (M2) and sample screens (M4).
+/// The sample app. M2 shows the calibration screen; M4 adds the sample
+/// screens.
 class SampleApp extends StatelessWidget {
-  /// Creates the sample app.
-  const new({super.key});
+  /// Creates the sample app with [plant] switched on, starting in [phase]'s
+  /// value, or animated when [phase] is null.
+  new({
+    this.plant = Plant.none,
+    ValueNotifier<CalibrationPhase>? phase,
+    super.key,
+  }) : phase = phase ?? ValueNotifier(CalibrationPhase.animated);
+
+  final Plant plant;
+
+  /// Which phase the calibration screen shows. A test sets it.
+  final ValueNotifier<CalibrationPhase> phase;
 
   @override
   Widget build(BuildContext context) {
-    return const MaterialApp(
-      home: Scaffold(body: Center(child: Text('Butterscope sample'))),
+    return MaterialApp(
+      home: CalibrationScreen(plant: plant, phase: phase),
     );
   }
 }
