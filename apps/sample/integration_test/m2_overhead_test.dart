@@ -15,9 +15,9 @@
 // window's first frames.
 
 import 'package:butterscope/butterscope.dart';
-import 'package:butterscope_sample/main.dart';
 import 'package:butterscope_sample/src/calibration_screen.dart';
-import 'package:flutter/foundation.dart';
+import 'package:butterscope_sample/src/plant.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -63,7 +63,11 @@ void main() {
   testWidgets('M2 overhead windows', semanticsEnabled: false, (tester) async {
     final phase = ValueNotifier(CalibrationPhase.animated);
     addTearDown(phase.dispose);
-    await tester.pumpWidget(SampleApp(phase: phase));
+    await tester.pumpWidget(
+      MaterialApp(
+        home: CalibrationScreen(plant: Plant.none, phase: phase),
+      ),
+    );
     await Future<void>.delayed(settle);
 
     await traceWindow('animated');

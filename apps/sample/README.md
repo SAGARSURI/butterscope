@@ -9,17 +9,33 @@ team writes functional tests.
 - M4 adds the six sample screens, their integration tests and the planted
   regressions.
 
+## Sample screens
+
+The app is a catalogue: 5,000 items generated from a fixed seed, so every
+run sees the same data. It makes no network calls; any real HTTP request
+throws.
+
+| Screen | What it does |
+| --- | --- |
+| Feed | Scrolling list of item cards; tapping one opens Detail |
+| Search | Filters the items by title or tag as you type |
+| Detail | One item: a large picture under a frosted title panel, its facts and related items |
+
+M4's other three screens and the plants for every screen are still to
+come.
+
 ## Calibration screen and plants
 
 The calibration screen has two phases: an animated phase, where a box
 turns and slides without pause, and a still phase, where nothing on screen
 changes. A test sets the phase; tapping the screen toggles it by hand.
 
-A plant is switched on at build time, one at a time, and runs only in the
-animated phase:
+The calibration screen has its own route. A plant is switched on at build
+time, one at a time, and runs only in the animated phase:
 
 ```sh
-fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
+fvm flutter run --profile --route=/calibration \
+  --dart-define=BUTTERSCOPE_PLANT=<name>
 ```
 
 | Name | What it does | Where it should show |
