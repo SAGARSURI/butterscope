@@ -146,8 +146,8 @@ What the runs showed:
    raster plants gain at most one vsync, the iPhone `gpu_heavy` goes from
    4,093 to 4,123 ms, and the S24's 60 Hz switch counts once
    (1,155 ms, against 1,747 ms for a plain sum). The same work now reads
-   alike on both phones. **(Pending the owner's choice; the alternative
-   keeps decision 0001's overrun-only hitch time.)**
+   alike on both phones. The owner chose this over keeping decision
+   0001's overrun-only hitch time.
 
 8. **GPU-bound work is caught as raster time on these phones.** Decision
    0001's open item for M2 is closed. Other GPUs may behave differently;
