@@ -90,7 +90,10 @@ What the runs showed:
   iPhone `gpu_heavy`, 190 of 223 such frames lost it one frame later.
 - **Overheads are small.** The recorder's callback cost about 240 to
   380 µs per second in profile and 75 to 200 in release, about 2 to 3 µs
-  per frame. In clean runs the median `vsyncOverhead` was about 0.8 ms on
+  per frame. With the recorder on, p99 build and raster time from a
+  timeline trace moved by at most 0.13 ms against runs with it off, and
+  in both directions, within the noise between runs. In clean runs the
+  median `vsyncOverhead` was about 0.8 ms on
   the S24 and 0.18 ms on the iPhone, with p99 at most 2.0 ms (0.24 `B`).
   Semantics added under one missed vsync per window on either phone.
 - **Two S24 windows had raster time near `B` without missing a vsync.**
