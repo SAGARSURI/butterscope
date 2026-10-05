@@ -4,6 +4,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Starts the app as a user would and waits for the first screen.
 Future<void> launchApp(WidgetTester tester) async {
+  // On a device the binding leaves typing to the real keyboard, which
+  // `enterText` cannot reach, so route text input through the test's.
+  tester.testTextInput.register();
   app.main();
   await tester.pumpAndSettle();
 }
