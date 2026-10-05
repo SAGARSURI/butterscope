@@ -2,7 +2,7 @@
 // on a phone and prints every frame as BSCOPE lines for
 // tool/m2/summarise.dart.
 //
-// fvm flutter drive --profile --no-dds \
+// fvm flutter drive --profile --no-dds --keep-app-running \
 //   --driver=test_driver/integration_test.dart \
 //   --target=integration_test/m2_calibration_test.dart \
 //   --dart-define=BUTTERSCOPE_PLANT=<name> \

@@ -9,8 +9,10 @@ typedef PlantedWork = void Function(BuildContext context);
 /// Runs [work] on every event of a periodic stream while [active], as a
 /// socket listener decoding each message would.
 ///
-/// The work starts after a frame was requested, so it should show as UI
-/// time: the next frame waits for it (decision record 0001).
+/// The work starts after a frame was requested. On Android it shows as UI
+/// time, because the next frame waits for it (decision record 0001). On
+/// iOS the vsync callback waits for it too, so it shows as missed vsyncs
+/// (decision record 0002).
 class ListenerWorkPlant extends StatefulWidget {
   const new({
     required this.active,

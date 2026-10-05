@@ -87,14 +87,16 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`. Flutter's Android embedding updates it
-when Android reports a display change, so the recorder reads it at the
-start and end of each span and each time a batch of timings arrives, about
-10 times a second in profile and twice in release. Each read is placed in
-the frame sequence after the last frame reported before it. A span's `B`
-comes from the read at its start, and an episode's from the last read before
-its first frame. Each span and episode records its declared and observed
-rate, so one run can hold different rates (section 7.3).
+`FlutterView.display.refreshRate`. In Flutter 3.47.5 Dart receives it only
+at startup, and on Android after a configuration change, so it is the rate
+at launch ([0002](decisions/0002-m2-recorder-findings.md)). The recorder
+still reads it at the start and end of each span and each time a batch of
+timings arrives, about 10 times a second in profile and twice in release.
+Each read is placed in the frame sequence after the last frame reported
+before it. A span's `B` comes from the read at its start, and an episode's
+from the last read before its first frame. Each span and episode records
+its declared and observed rate, so one run can hold different rates
+(section 7.3).
 
 Each frame gets one class. The classes are nested: every stall is severe and
 every severe frame is janky.
@@ -354,9 +356,9 @@ same physical unit in the same session, interleaved.
    validates the schema and writes one JSON file per run. A missing or
    corrupt chunk is reported, never silently dropped. Logcat drops lines
    without warning when they come fast (about 400 of 1,300 one-frame lines
-   in M2), so chunks must stay few and dense. On an iPhone, profile output
-   reaches the `flutter drive` transcript, and release output is read with
-   `idevicesyslog` from libimobiledevice
+   in an M2 run), so chunks must stay few and dense. On an iPhone, profile
+   output reaches the `flutter drive` transcript, and release output is
+   read with `idevicesyslog` from libimobiledevice
    ([0002](decisions/0002-m2-recorder-findings.md)). **(open, M7: schema
    v1.)**
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run

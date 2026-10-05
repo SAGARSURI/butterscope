@@ -21,7 +21,8 @@ enum Plant {
   /// A full-screen backdrop blur over the animation.
   backdropBlur('backdrop_blur'),
 
-  /// Large blurred shadows, to load the GPU rather than the raster thread.
+  /// A full-screen fragment shader, to load the GPU rather than the raster
+  /// thread.
   gpuHeavy('gpu_heavy');
 
   new(this.defineName);
