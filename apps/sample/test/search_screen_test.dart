@@ -27,6 +27,30 @@ void main() {
     expect(find.byKey(const Key('item-tile-2')), findsOneWidget);
   });
 
+  testWidgets('finds items by tag, ignoring case', (tester) async {
+    await tester.pumpWidget(inApp(SearchScreen(catalogue: smallCatalogue)));
+
+    await tester.enterText(find.byKey(const Key('search-field')), 'OUTDOOR');
+    await tester.pump();
+
+    // Items 0, 2 and 3 are tagged "outdoor"; no title contains the word.
+    expect(find.text('3 results'), findsOneWidget);
+  });
+
+  testWidgets('clearing the field clears the results', (tester) async {
+    await tester.pumpWidget(inApp(SearchScreen(catalogue: smallCatalogue)));
+    final field = find.byKey(const Key('search-field'));
+    await tester.enterText(field, 'lantern');
+    await tester.pump();
+
+    await tester.enterText(field, '   ');
+    await tester.pump();
+
+    expect(find.byType(ItemTile), findsNothing);
+    expect(find.byKey(const Key('search-count')), findsOneWidget);
+    expect(find.textContaining('results'), findsNothing);
+  });
+
   testWidgets('tapping a result opens its detail page', (tester) async {
     await tester.pumpWidget(inApp(SearchScreen(catalogue: smallCatalogue)));
     await tester.enterText(find.byKey(const Key('search-field')), 'gift');
