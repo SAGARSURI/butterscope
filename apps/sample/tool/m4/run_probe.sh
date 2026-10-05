@@ -108,6 +108,9 @@ for build in "$@"; do
     BSCOPE_LOG=$log fvm flutter test tool/m2/summarise.dart \
       >"$out/$name.txt" 2>&1
     summary=$?
+    # summarise.dart is a main, not a test, so flutter test ends a summary
+    # that worked with "No tests ran" and exit code 79.
+    [ "$summary" -eq 79 ] && summary=0
     lines=$(compact "$out/$name.txt")
     echo "$lines" | grep -v '^MIN '
     # A run counts only when the test passed and every window is whole:
