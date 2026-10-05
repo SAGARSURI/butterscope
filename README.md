@@ -8,8 +8,8 @@ It is a passive observer. Your tests drive the app as they already do; one
 line in the test file attaches Butterscope. It scripts no interactions and
 needs no app-specific code.
 
-> Status: proof of concept, milestone **M0** (repository and design record).
-> Nothing here is usable yet.
+> Status: proof of concept. M1 (metrics engine) and M2 (frame recorder) are
+> done; M3 is next. Nothing gates a build yet.
 
 ## How it decides
 

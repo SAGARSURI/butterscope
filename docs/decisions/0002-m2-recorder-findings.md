@@ -1,6 +1,6 @@
 # 0002: Recorder and metric findings from M2
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-04
 - Milestone: M2
 

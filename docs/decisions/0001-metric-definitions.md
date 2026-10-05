@@ -1,6 +1,7 @@
 # 0001: Metric definitions frozen in M1
 
-- Status: proposed
+- Status: accepted; decisions 2, 3 and 6 amended by
+  [0002](0002-m2-recorder-findings.md)
 - Date: 2026-10-03
 - Milestone: M1
 
@@ -22,8 +23,9 @@ really produced during a test:
   `handleDrawFrame`, `pump`). Every vsync should produce a frame, including
   while nothing changes on screen. The policy's own documentation describes
   scheduling that follows real frame requests instead, and missed vsyncs,
-  the observed rate and rendering time all rest on this. **(open, M2:
-  confirmed on both phones, including a window where nothing changes.)**
+  the observed rate and rendering time all rest on this. Confirmed on
+  both phones in M2, including a window where nothing changes (0002,
+  decision 3).
 - **UI-thread work outside the frame shows up in two places.** The engine
   records a frame's vsync time when the signal arrives and posts the frame
   to the UI thread (`engine/src/flutter/shell/common/vsync_waiter.cc`);
@@ -67,10 +69,10 @@ device data exists, except where marked open.
    intervals of `B`; gaps of zero or less are ignored; long gaps count in
    full, because during a test they are freezes. This catches the UI work
    that per-frame times miss, and frames skipped while the raster pipeline
-   was full; the latter may overlap with raster overrun. **(open, M2: how
-   much, measured with a slow-raster plant on both phones.)** It is also
-   reported as time, count × `B`, so the same freeze reads alike on every
-   screen. The count assumes `B` is right; decision 6 says how a wrong one
+   was full; the latter may overlap with raster overrun. M2 found they
+   overlap fully, and 0002 decision 6 removes raster loss from the count.
+   It is also reported as time, count × `B`, so the same freeze reads
+   alike on every screen. The count assumes `B` is right; decision 6 says how a wrong one
    is caught.
 
 3. **Rendering time is the hitch ratio's denominator.**
@@ -89,9 +91,8 @@ device data exists, except where marked open.
    absolute budgets are set per flow from M8's data. As defined, the hitch
    ratio cannot see frames that never rendered: an app that misses every
    other vsync with smooth frames in between reads zero, and only the
-   missed vsyncs show it. **(open, M2: whether the hitch time also adds
-   missed vsyncs. M2 measures both on the phones before the hitch ratio is
-   frozen.)**
+   missed vsyncs show it. 0002 decision 7 adds missed vsyncs to the hitch
+   time and so to rendering time.
 
 4. **Percentiles use nearest rank.** `p` is a whole number from 1 to 100.
    Sort the values ascending and take rank `⌈p × n ÷ 100⌉`, counting from 1,
@@ -134,22 +135,24 @@ device data exists, except where marked open.
    are treated differently:
 
    - **The declared rate is the budget, and a change in it is a guard.**
-     Android updates it when the display mode changes, so the recorder
-     reads it at the start and end of each span and each time a batch of
-     timings arrives, about once a second. Each read is placed in the frame
-     sequence after the last frame reported before it. A span's `B` comes
-     from the read at its start, an episode's from the last read before its
-     first frame. If a later read inside it differs by more than 5%, a span
-     is `INVALID` and none of its metrics are used; an episode, which is
-     not gated, reports the reason instead of metrics.
+     In Flutter 3.47.5 Dart receives it only at startup and, on Android,
+     after a configuration change (0002), so a mid-run change never reaches
+     the guard. The recorder reads it at the start and end of each span
+     and each time a batch of timings arrives, every 100 ms in profile and
+     every second in release (0002, decision 2). Each read is placed in
+     the frame sequence after the last frame reported before it. A span's
+     `B` comes from the read at its start, an episode's from the last read
+     before its first frame. If a later read inside it differs by more than
+     5%, a span is `INVALID` and none of its metrics are used; an episode,
+     which is not gated, reports the reason instead of metrics.
    - **The observed rate is a flag, never a guard on its own.** One mode
      over a whole span hides a drop in part of it, so the frames are also
      cut into consecutive one-second slices by `vsyncStart`, the last one
      shorter; each gap belongs to the slice of the frame it follows. A slice
      with at least 10 qualifying gaps whose observed rate differs from the
      declared one by more than 5% is a **rate mismatch**, reported with
-     its slice and rate. **(open, M2: slice length and minimum, set from
-     the vsync jitter of clean runs on both phones.)**
+     its slice and rate. M2 kept the one-second slice and the minimum of
+     10 gaps (0002, decision 4).
 
    A mismatch cannot void a span by itself, because from frame timings
    alone a screen at half its declared rate looks the same as an app that
@@ -182,9 +185,9 @@ device data exists, except where marked open.
 
 8. **Raster time is the raster thread's time up to handing the frame to the
    GPU.** GPU-bound work may show up only indirectly, as raster time on a
-   later frame or as missed vsyncs. **(open, M2: a GPU-heavy plant on the
-   calibration screen shows whether it is caught on both phones; M8 checks
-   M4's `gpu_blur` in real flows.)**
+   later frame or as missed vsyncs. M2 caught a GPU-heavy plant as raster
+   time on both phones (0002, decision 8). **(open, M8: M4's `gpu_blur` in
+   real flows.)**
 
 9. **Units.** Times are kept in microseconds, as `FrameTiming` reports them.
    The budget is fractional (16 666.67 µs at 60 Hz). Results are reported in
