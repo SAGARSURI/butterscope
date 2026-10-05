@@ -2,13 +2,14 @@
 // phases with the frame recorder on or off, so p99 frame times from the VM
 // timeline can be compared between the two (decision record 0002).
 //
-// BSCOPE_ARM=on fvm flutter drive --profile --no-dds --keep-app-running \
+// fvm flutter drive --profile --no-dds --keep-app-running \
 //   --driver=test_driver/overhead_driver.dart \
 //   --target=integration_test/m2_overhead_test.dart \
 //   --dart-define=BUTTERSCOPE_RECORDER=on
 //
-// The same command with `on` replaced by `off` in both places runs the arm
-// without the recorder.
+// The same command with `off` runs the arm without the recorder. The test
+// reports its arm with the traces, so the driver labels them from the build
+// itself.
 
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_sample/main.dart';
@@ -66,5 +67,6 @@ void main() {
     phase.value = CalibrationPhase.still;
     await Future<void>.delayed(phaseChange);
     await traceWindow('still');
+    binding.reportData!['arm'] = recording ? 'on' : 'off';
   });
 }

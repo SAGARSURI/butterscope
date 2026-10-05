@@ -1,7 +1,7 @@
 // Host side of integration_test/m2_overhead_test.dart: summarises each
 // traced window's frame build and raster times, prints them, and saves them
-// to build/bscope_overhead/<arm>-<time>.json. BSCOPE_ARM names the arm, `on`
-// or `off`, to match the test's BUTTERSCOPE_RECORDER.
+// to build/bscope_overhead/<arm>-<time>.json. The arm, `on` or `off`, is the
+// one the test was built with, which it reports under `arm`.
 
 import 'dart:convert';
 import 'dart:io';
@@ -25,15 +25,17 @@ Map<String, Object> summarise(Map<String, dynamic> trace) {
 Future<void> main() {
   return integrationDriver(
     responseDataCallback: (data) async {
-      final arm = Platform.environment['BSCOPE_ARM'] ?? 'unknown';
+      final traces = {...?data};
+      final arm = traces.remove('arm') as String? ?? 'unknown';
       final windows = {
-        for (final MapEntry(:key, :value) in (data ?? const {}).entries)
+        for (final MapEntry(:key, :value) in traces.entries)
           key: summarise(value as Map<String, dynamic>),
       };
       for (final MapEntry(:key, :value) in windows.entries) {
         stdout.writeln('BSCOPE overhead arm=$arm window=$key $value');
       }
-      final time = DateTime.now().toUtc().toIso8601String();
+      // Microseconds, not an ISO date: Windows forbids colons in file names.
+      final time = DateTime.now().microsecondsSinceEpoch;
       final file = File('build/bscope_overhead/$arm-$time.json');
       await file.parent.create(recursive: true);
       await file.writeAsString(jsonEncode({'arm': arm, ...windows}));
