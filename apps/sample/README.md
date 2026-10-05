@@ -26,6 +26,21 @@ throws.
 
 The plants for these screens come later in M4.
 
+### Tests
+
+Each screen has widget tests under `test/`, which CI runs, and integration
+tests under `integration_test/`, one file per screen, written the way an
+app team writes functional tests. `integration_test/app_test.dart` runs all
+six. This runs them on a phone in profile mode, once with no plant and once
+with each plant, and prints a pass or fail line per run:
+
+```sh
+tool/m4/run_tests.sh <device-id>
+```
+
+Name plants after the device to run only those; `clean` is the build with
+no plant. Logs go to `build/m4_tests/<device-id>/`.
+
 The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
 landscapes painted from fixed seeds by
 [`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again
