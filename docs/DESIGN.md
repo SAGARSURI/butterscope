@@ -43,9 +43,10 @@ any app-specific code (for example a fake socket client).
 | **UI time** | `FrameTiming.vsyncOverhead + buildDuration`: the wait for the UI thread after the vsync, plus building the frame. Work outside the frame, such as a stream listener or a timer, shows up in the wait. |
 | **Raster time** | `FrameTiming.rasterDuration`: raster thread work for one frame, up to handing it to the GPU. |
 | **Overrun** | `max(UI, raster) − B`. Positive means the frame was late. |
-| **Hitch ratio** | Total positive overrun (ms) per second of rendering in a span or episode. |
-| **Rendering time** | Frame count × `B` plus the total positive overrun. During a test frames run back to back, so it is close to wall-clock time. |
-| **Missed vsyncs** | Vsyncs that passed with no frame between consecutive frames. |
+| **Hitch time** | Total positive overrun plus missed vsyncs × `B`: how late the frames were, plus the frames that never came. |
+| **Hitch ratio** | Hitch time (ms) per second of rendering in a span or episode. |
+| **Rendering time** | Frame count × `B` plus the hitch time. During a test frames run back to back, so it is close to wall-clock time. |
+| **Missed vsyncs** | Vsyncs that passed with no frame between consecutive frames, beyond those a late frame explains. |
 | **Episode** | A part of a run split out automatically, without the test marking it. **(open, M5: how to split.)** |
 | **Span** | A named window a test marks around a flow. Gates apply to spans. |
 | **Run** | One execution of one test file on one device. |
@@ -66,24 +67,30 @@ any app-specific code (for example a fake socket client).
    16 ms in `flutter_test`; neither follows the real refresh rate, so on a
    120 Hz screen a 12 ms frame drops a frame but is not counted. Butterscope
    recomputes everything from raw durations.
-4. **The engine may batch `FrameTiming` reports about once a second.** The
-   recorder discards stale timings before a window and waits after it until
-   every frame has been reported. **(open, M2: exact flush rules.)**
-5. **Window boundaries are matched to frames** by one of two existing APIs
-   **(open, M2: which one holds)**:
-   - `PlatformDispatcher.frameData.frameNumber` against
-     `FrameTiming.frameNumber` (the docs do not say they match), or
-   - `SchedulerBinding.currentSystemFrameTimeStamp` against
-     `FrameTiming.timestampInMicroseconds(FramePhase.vsyncStart)`.
+4. **The engine batches `FrameTiming` reports**, every 100 ms in debug and
+   profile builds and every second in release, or at 100 frames. The
+   recorder discards stale timings before a window. After it, the recorder
+   waits until a timing numbered at or past the window's last frame
+   arrives, for at most 500 ms in profile and debug and 2 s in release,
+   and records a timeout in the window. On both phones no flush timed out;
+   the slowest took 355 ms, in release
+   ([0002](decisions/0002-m2-recorder-findings.md)).
+5. **Window boundaries are frame numbers.** A window starts and ends at
+   `PlatformDispatcher.frameData.frameNumber` and keeps the timings whose
+   `FrameTiming.frameNumber` falls after its start, up to its end. On both
+   phones this lost no frame at the edges, and a frame skipped while the
+   raster pipeline was full leaves a gap in the numbers
+   ([0002](decisions/0002-m2-recorder-findings.md)).
 6. **Timelines are for people, not gates.** A failing flow is diagnosed by
    re-running it locally with DevTools or `traceAction`.
 
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`. Android updates it when the display mode
-changes, so the recorder reads it at the start and end of each span and each
-time a batch of timings arrives, about once a second. Each read is placed in
+`FlutterView.display.refreshRate`. Flutter's Android embedding updates it
+when Android reports a display change, so the recorder reads it at the
+start and end of each span and each time a batch of timings arrives, about
+10 times a second in profile and twice in release. Each read is placed in
 the frame sequence after the last frame reported before it. A span's `B`
 comes from the read at its start, and an episode's from the last read before
 its first frame. Each span and episode records its declared and observed
@@ -112,17 +119,22 @@ built, so UI time over `B` is a missed vsync whatever the cause. Work already
 queued when the next frame is requested delays the request itself, so that
 frame starts on time; so does work that runs after a frame is stamped as
 built (semantics, tree finalisation, post-frame callbacks). Both show only as
-missed vsyncs (section 5).
+missed vsyncs (section 5). On iOS the vsync callback itself runs on the UI
+thread, so a busy UI thread delays it, and work between frames shows as
+missed vsyncs rather than UI time
+([0002](decisions/0002-m2-recorder-findings.md)).
 
 **Not used for jank:** `totalSpan` (vsync to raster finish). The UI and
 raster threads are pipelined, so `totalSpan` can exceed `B` with no dropped
 frame. It is kept as a latency diagnostic.
 
 **Raster time stops at the GPU.** GPU execution is not in `rasterDuration`,
-so GPU-bound work may show up only indirectly, as raster time on a later
-frame or as missed vsyncs when the raster pipeline is full. **(open, M2: a
-GPU-heavy plant on the calibration screen shows whether it is caught; M8
-checks M4's `gpu_blur` in real flows.)**
+so GPU-bound work may show up only indirectly. On both phones the raster
+thread waited on the GPU, so a GPU-heavy plant showed as raster time and
+skipped frames ([0002](decisions/0002-m2-recorder-findings.md)). M8 checks
+M4's `gpu_blur` in real flows. Raster time can also include waiting on the
+display: two S24 windows had raster time near `B` with every frame drawn.
+**(open, M8: how often, and whether such frames should count.)**
 
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
@@ -136,9 +148,10 @@ the gap after it is left out and the mode is used, not the mean. Under
 screen's rate throughout, unless the app misses vsyncs. It is also taken in
 one-second slices, because one mode over a whole span hides a drop in part
 of it. A slice with at least 10 qualifying gaps whose rate differs from the
-declared one by more than 5% is a **rate mismatch**. **(open, M2: slice
-length and minimum, set from the vsync jitter of clean runs.)** (Outside a
-test Flutter draws on demand, and the gaps follow the requests instead.)
+declared one by more than 5% is a **rate mismatch**. Clean slices on both
+phones varied by 0.2% ([0002](decisions/0002-m2-recorder-findings.md)).
+(Outside a test Flutter draws on demand, and the gaps follow the requests
+instead.)
 
 **A rate mismatch is a flag, never `INVALID` on its own.** From frame
 timings alone, a screen at half its declared rate looks the same as an app
@@ -146,7 +159,8 @@ that misses every other vsync. Voiding the span would let a severe,
 repeatable regression pass, so it is judged with its declared `B`, and its
 missing frames count as **missed vsyncs**, a gate metric, which can `FAIL`.
 They are the only signal when every frame that renders stays within `B`:
-those frames are smooth, so the janky rate and the hitch ratio read zero.
+those frames are smooth, so the janky rate reads zero, and the hitch ratio
+sees them only through the missed vsyncs it adds.
 The comparison decides the cause (section 9). Only a change in the declared
 rate itself makes a span `INVALID` (section 7.2). See
 [0001](decisions/0001-metric-definitions.md).
@@ -160,8 +174,8 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 
 | Metric | Definition |
 | --- | --- |
-| **Hitch ratio** (headline) | Σ positive overrun (ms) ÷ rendering time (s). Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. It cannot see frames that never rendered: an app that misses every other vsync with smooth frames in between reads zero. **(open, M2: whether hitch time adds missed vsyncs.)** |
-| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what each frame's own UI time explains (that part is already its overrun). Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only gate metric that sees dropped frames between smooth ones. |
+| **Hitch ratio** (headline) | Hitch time (ms) ÷ rendering time (s), where hitch time is Σ positive overrun + missed vsyncs × `B`. Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. The missed vsyncs let it see frames that never rendered, such as work between frames ([0002](decisions/0002-m2-recorder-findings.md)). |
+| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what a late frame explains: the frame's own UI or raster time, or the raster time of the frame before it, since the raster pipeline holds two frames. That part is already overrun. Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only metric besides the hitch ratio that sees dropped frames between smooth ones. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |
@@ -200,9 +214,10 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    binding draws every frame at vsync and requests the next one as soon as
    each finishes, so frames run back to back for the whole test and every
    missed vsync is visible. This is read from the source; the policy's own
-   documentation describes scheduling that follows real frame requests.
-   **(open, M2: confirmed on both phones, including a window where nothing
-   changes on screen.)** Flutter's docs warn that changing the policy can
+   documentation describes scheduling that follows real frame requests. M2
+   confirmed it on both phones, including a window where nothing changes
+   on screen ([0002](decisions/0002-m2-recorder-findings.md)). Flutter's
+   docs warn that changing the policy can
    change test behaviour, so M5 records which ordinary tests run unchanged.
    A run whose frames are not vsync-driven is `INVALID` (section 7).
 3. **Episodes** split the run automatically. An optional navigator observer
@@ -298,15 +313,17 @@ same physical unit in the same session, interleaved.
   runs, and the phone out of its case.
 - **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
-  own; the refresh-rate guard catches that when Android reports the change,
-  and a rate mismatch flags it otherwise (section 4).
+  own. When the S24 was forced to 60 Hz mid-run, `Display.refreshRate`
+  kept reporting 120 Hz, so only a rate mismatch flags such a drop
+  (section 4, [0002](decisions/0002-m2-recorder-findings.md)). Stay awake
+  (Developer options) on, so the screen never locks during a run.
 - **iPhone 17 Pro** (iOS): ProMotion, adaptive up to 120 Hz. Limit Frame Rate
   off (Settings › Accessibility › Motion), because it caps the screen at
-  60 Hz; Reduce Motion and Low Power Mode off. ProMotion also drops its rate
-  on its own; the guard catches that if `Display.refreshRate` reports it,
-  and a rate mismatch flags it if not. **(open, M2: what
-  `Display.refreshRate` reports while ProMotion varies, and on the S24 when
-  the rate is changed during a run.)**
+  60 Hz; Reduce Motion and Low Power Mode off. Under `benchmarkLive`
+  ProMotion held 120 Hz, even while nothing changed on screen. With Limit
+  Frame Rate on, `Display.refreshRate` still reported 120 Hz while the
+  screen ran at 60 Hz, so only a rate mismatch flags a capped or slower
+  screen ([0002](decisions/0002-m2-recorder-findings.md)).
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.5's app template sets it to true, so the sample app can reach
@@ -314,7 +331,14 @@ same physical unit in the same session, interleaved.
 
 ### 7.5 Build rules
 
-- Locally: `flutter drive --profile --no-dds` on a physical device.
+- Locally: `flutter drive --profile --no-dds --keep-app-running` on a
+  physical device. Without `--keep-app-running`, `flutter drive` uninstalls
+  the app when it stops
+  (`packages/flutter_tools/lib/src/drive/drive_service.dart`, `stop()`); on
+  an iPhone signed by a personal developer account, the phone then asks to
+  trust the developer again before every run. `flutter drive` does not
+  drive release builds, so release runs are launched directly. Xcode stays
+  closed during iOS runs, or the launch goes through it and stalls.
 - Same Flutter SDK and flavour as the release build; only the data layer is
   faked.
 - Third-party SDKs (analytics, crash reporting, APM) stay initialised: their
@@ -328,9 +352,13 @@ same physical unit in the same session, interleaved.
    device logs can truncate long lines (Android logcat does). `butterscope
    collect` reads `adb logcat` or a saved log, reassembles the chunks,
    validates the schema and writes one JSON file per run. A missing or
-   corrupt chunk is reported, never silently dropped. **(open, M7: schema
-   v1. Open, M2: which log carries output off an iPhone, since M2 needs it
-   to read its own results.)**
+   corrupt chunk is reported, never silently dropped. Logcat drops lines
+   without warning when they come fast (about 400 of 1,300 one-frame lines
+   in M2), so chunks must stay few and dense. On an iPhone, profile output
+   reaches the `flutter drive` transcript, and release output is read with
+   `idevicesyslog` from libimobiledevice
+   ([0002](decisions/0002-m2-recorder-findings.md)). **(open, M7: schema
+   v1.)**
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run
    through the **Flutter Dart** runner as Android instrumentation, so gestures
    come from inside the app process. The Appium route is not used: it embeds

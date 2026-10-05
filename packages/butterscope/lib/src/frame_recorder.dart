@@ -25,8 +25,9 @@ final class FrameRecorder {
   /// `shell/common/shell.cc`) reports a batch every 100 ms in debug and
   /// profile builds and every 1000 ms in release, or at 100 frames. The wait
   /// gives up after [profileFlushTimeout] (also used in debug) or
-  /// [releaseFlushTimeout], chosen by [releaseMode]. The defaults are
-  /// provisional. **(open, M2: set from device runs.)**
+  /// [releaseFlushTimeout], chosen by [releaseMode]. The defaults were set
+  /// in M2 (`docs/decisions/0002-m2-recorder-findings.md`): no flush on
+  /// either phone took longer than 355 ms.
   ///
   /// [callbackStopwatch] measures the recorder's own cost; a test can pass a
   /// fake one.

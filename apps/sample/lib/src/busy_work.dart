@@ -2,8 +2,8 @@ import 'package:flutter/widgets.dart';
 
 /// How much longer than one frame budget the planted UI work takes.
 ///
-/// Provisional: tuned so the plant visibly janks in the performance overlay.
-/// **(open, M2: tuned on both phones.)**
+/// Tuned so the plant visibly janks on both phones in M2. **(open, M4: tuned
+/// per platform.)**
 const double plantedWorkBudgets = 1.5;
 
 /// Keeps the UI thread busy for [plantedWorkBudgets] frame budgets of the
