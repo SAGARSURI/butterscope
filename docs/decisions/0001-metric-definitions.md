@@ -60,22 +60,32 @@ device data exists, except where marked open.
    between the UI and raster threads, and does not apply here. A negative
    wait counts as none.
 
-2. **Missed vsyncs count the frames that never happened.** Because every
-   vsync should produce a frame during a test, a gap of `k` intervals
-   between consecutive frames' `vsyncStart` means `k − 1` vsyncs passed with
-   no frame. A frame whose UI time spans `n` intervals already explains the
-   first `n` of them, and that lateness is its overrun, so the count is
-   `max(0, k − max(1, ⌈UI time ÷ B⌉))` per gap. Each gap is rounded to whole
-   intervals of `B`; gaps of zero or less are ignored; long gaps count in
-   full, because during a test they are freezes. This catches the UI work
-   that per-frame times miss, and frames skipped while the raster pipeline
-   was full; the latter may overlap with raster overrun. M2 found they
-   overlap fully, and 0002 decision 6 removes raster loss from the count.
-   It is also reported as time, count × `B`, so the same freeze reads
-   alike on every screen. The count assumes `B` is right; decision 6 says how a wrong one
-   is caught.
+2. **Missed vsyncs count the frames that never happened.**
+
+   > Amended by [0002](0002-m2-recorder-findings.md), decision 6: raster
+   > time explains gaps too, so the count per gap is `max(0, k − n)` with
+   > `n` as defined there. The formula below is the M1 version.
+
+   Because every vsync should produce a frame during a test, a gap of `k`
+   intervals between consecutive frames' `vsyncStart` means `k − 1` vsyncs
+   passed with no frame. A frame whose UI time spans `n` intervals already
+   explains the first `n` of them, and that lateness is its overrun, so the
+   count is `max(0, k − max(1, ⌈UI time ÷ B⌉))` per gap. Each gap is rounded
+   to whole intervals of `B`; gaps of zero or less are ignored; long gaps
+   count in full, because during a test they are freezes. This catches the UI
+   work that per-frame times miss, and frames skipped while the raster
+   pipeline was full; the latter may overlap with raster overrun. M2 found
+   they overlap fully, and 0002 decision 6 removes raster loss from the count.
+   It is also reported as time, count × `B`, so the same freeze reads alike on
+   every screen. The count assumes `B` is right; decision 6 says how a wrong
+   one is caught.
 
 3. **Rendering time is the hitch ratio's denominator.**
+
+   > Amended by [0002](0002-m2-recorder-findings.md), decision 7: hitch
+   > time is `Σ positive overrun + missed vsyncs × B`, rendering time is
+   > `frame count × B + hitch time`, and the hitch ratio is hitch time (ms)
+   > ÷ rendering time (s). The formulas below are the M1 version.
 
    `rendering time = frame count × B + Σ positive overrun`
 
