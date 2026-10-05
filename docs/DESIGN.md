@@ -320,10 +320,10 @@ same physical unit in the same session, interleaved.
 - **iPhone 17 Pro** (iOS): ProMotion, adaptive up to 120 Hz. Limit Frame Rate
   off (Settings › Accessibility › Motion), because it caps the screen at
   60 Hz; Reduce Motion and Low Power Mode off. Under `benchmarkLive`
-  ProMotion held 120 Hz, even while nothing changed on screen. If it drops
-  its rate, the guard catches that if `Display.refreshRate` reports it,
-  and a rate mismatch flags it if not. **(Pending: whether
-  `Display.refreshRate` follows Limit Frame Rate switched on mid-run.)**
+  ProMotion held 120 Hz, even while nothing changed on screen. With Limit
+  Frame Rate on, `Display.refreshRate` still reported 120 Hz while the
+  screen ran at 60 Hz, so only a rate mismatch flags a capped or slower
+  screen ([0002](decisions/0002-m2-recorder-findings.md)).
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.5's app template sets it to true, so the sample app can reach

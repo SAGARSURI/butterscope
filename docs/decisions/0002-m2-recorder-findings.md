@@ -7,11 +7,12 @@
 ## Context
 
 M2 ran the frame recorder on the sample app's calibration screen on both
-phones: 35 valid runs on the Galaxy S24 and 31 on the iPhone 17 Pro. Each
+phones: 35 valid runs on the Galaxy S24 and 33 on the iPhone 17 Pro. Each
 run recorded a window where a box animates and one where nothing changes
 on screen. Planted work showed where each kind of jank lands, and on the
-S24 the display was forced from 120 Hz to 60 Hz during a window. The data
-is in [`docs/measurements/m2.md`](../measurements/m2.md).
+S24 the display was forced from 120 Hz to 60 Hz during a window. The
+iPhone ran twice with its screen capped at 60 Hz. The data is in
+[`docs/measurements/m2.md`](../measurements/m2.md).
 
 M2 had to settle what `docs/DESIGN.md` and decision record
 [0001](0001-metric-definitions.md) left open for it: the flush rules, how
@@ -41,15 +42,20 @@ What the runs showed:
   119.8 to 120.2 Hz on both phones, a jitter of 0.2% against the 5%
   tolerance. The S24's forced change was flagged in the first full slice
   after it.
-- **The S24 did not report its rate change.** `Display.refreshRate` read
+- **Neither phone reported its rate.** `Display.refreshRate` read
   120 Hz in all 92 reads of the two rate-change windows while the screen
   ran at 60 Hz. Flutter's Android embedding updates the rate from
   `Display.getRefreshRate()` when Android reports a display change
   (`shell/platform/android/io/flutter/view/VsyncWaiter.java`,
   `onDisplayChanged`); for this change Android reported none, or still
-  reported 120 Hz. The iPhone read 120 Hz throughout, but its rate never
-  changed. **(Pending: the iPhone test with Limit Frame Rate switched on
-  during a run.)**
+  reported 120 Hz. On the iPhone, with Limit Frame Rate switched on
+  before launch, all 180 reads of two runs said 120 Hz while every
+  one-second slice ran at exactly 60 Hz. Each window then looked like
+  `postframe_decode`: half the frames, 299 missed vsyncs, 0% janky. Only
+  the observed rate told the two apart. Flutter's iOS embedding reports
+  the screen's maximum rate rather than its current one (inferred from
+  `FlutterDisplayLinkManager.displayRefreshRate`, used in
+  `vsync_waiter_ios.mm`).
 - **GPU work showed as raster time on both phones.** The `gpu_heavy`
   shader raised p99 raster time to 1.55 `B` on the S24 and 8.9 `B` on the
   iPhone, with skipped frames, so the raster thread waited on the GPU.
@@ -113,10 +119,11 @@ What the runs showed:
    minimum is met unless nearly every frame is janky.
 
 5. **The declared-rate guard stays, and the rate mismatch carries the
-   detection.** On the S24, `Display.refreshRate` did not follow a real
-   change, so the guard never fired, and only the per-slice observed rate
-   showed the drop. The guard still catches devices that do report a
-   change. **(Pending: the iPhone result.)**
+   detection.** On neither phone did `Display.refreshRate` follow the
+   screen: not the S24 forced to 60 Hz mid-run, nor the iPhone capped at
+   60 Hz from launch. The guard never fired, and only the per-slice
+   observed rate showed the drop. The guard stays because it is cheap and
+   still catches a device that reports a change.
 
 6. **Missed vsyncs are explained by raster time too.** Decision 0001's
    count per gap of `k` intervals after frame `i` becomes
@@ -180,8 +187,10 @@ What the runs showed:
 - A screen that drops its rate without reporting it raises the hitch
   ratio with the missed vsyncs, as it already raised them. Decision
   0001's comparison by symmetry still settles the cause.
-- On the S24, the declared-rate guard alone would never void a span; the
-  rate mismatch is what catches a change there.
+- On both phones, the declared-rate guard alone would never void a span;
+  the rate mismatch is what catches a slower screen. A rig that leaves
+  Limit Frame Rate on reads like an app that drops every other frame, so
+  the rig rules in DESIGN 7.4 matter more than the guard.
 - `flutter drive` must run with `--keep-app-running` on iOS, or the
   phone asks to trust the developer before every run.
 - The display-wait reading on the S24 could make raster overrun a false
