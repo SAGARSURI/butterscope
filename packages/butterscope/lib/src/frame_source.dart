@@ -20,7 +20,11 @@ abstract interface class FrameSource {
   /// Matches [FrameTiming.frameNumber] for the same frame.
   int get currentFrameNumber;
 
-  /// The refresh rate the screen declares now, in hertz.
+  /// The refresh rate the screen declares, in hertz.
+  ///
+  /// In Flutter 3.47.5 the engine sends it to Dart only at startup, and on
+  /// Android after a configuration change, so it does not follow a later
+  /// change of rate (`docs/decisions/0002-m2-recorder-findings.md`).
   double get declaredRefreshRate;
 }
 

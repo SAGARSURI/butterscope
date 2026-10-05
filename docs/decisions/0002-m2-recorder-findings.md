@@ -34,8 +34,9 @@ What the runs showed:
   frame numbers equalled the missed vsyncs as decision 0001 counts them
   (S24 `slow_raster`: 238.3 and 239; iPhone `gpu_heavy`: 454 and 454).
 - **Flushes were fast.** No flush timed out. In profile the slowest clean
-  flush took 88 ms and the slowest plant averaged 103 ms; in release the
-  slowest took 355 ms. The timeouts are 500 ms and 2 s. Rate reads,
+  flush took 88 ms and the slowest of any took 166 ms, in an iPhone
+  `gpu_heavy` run. In release the slowest took 355 ms. The timeouts are
+  500 ms and 2 s. Rate reads,
   which arrive with each batch, came about 10 times a second in profile
   and twice in release.
 - **Observed rates were steady.** One-second slices of clean runs read
@@ -43,21 +44,29 @@ What the runs showed:
   tolerance. The S24's forced change was flagged in the first full slice
   after it.
 - **Neither phone reported its rate.** `Display.refreshRate` read
-  120 Hz in all 92 reads of the two rate-change windows while the screen
-  ran at 60 Hz. Flutter's Android embedding updates the rate from
-  `Display.getRefreshRate()` when Android reports a display change
-  (`shell/platform/android/io/flutter/view/VsyncWaiter.java`,
-  `onDisplayChanged`); for this change Android reported none, or still
-  reported 120 Hz. On the iPhone, with Limit Frame Rate switched on
-  before launch, all 180 reads of two runs said 120 Hz while every
-  one-second slice ran at exactly 60 Hz. Each window then looked like
+  120 Hz in all 91 reads of the two rate-change windows while the screen
+  ran at 60 Hz. On the iPhone, with Limit Frame Rate switched on before
+  launch, all 180 reads of two runs said 120 Hz while every one-second
+  slice ran at exactly 60 Hz. Each window then looked like
   `postframe_decode`: half the frames, 299 missed vsyncs, 0% janky, and
   a 60 Hz observed rate. Nothing in the frame timings tells the two
   apart; the rig rules and the interleaved comparison of decision 0001
-  do. Flutter's iOS embedding reports
-  the screen's maximum rate rather than its current one (inferred from
-  `FlutterDisplayLinkManager.displayRefreshRate`, used in
-  `vsync_waiter_ios.mm`).
+  do.
+- **`Display.refreshRate` is the rate at launch.** It is a `final` field
+  that changes only when the engine sends a new display list
+  (`lib/ui/hooks.dart`, `_updateDisplays`, called from
+  `Shell::OnDisplayUpdates` in `shell/common/shell.cc`). In Flutter
+  3.47.5 that happens only at startup, and on Android also on a
+  configuration change (`FlutterEngine.java`, `FlutterView.java`,
+  `onConfigurationChanged`). Android's display listener
+  (`shell/platform/android/io/flutter/view/VsyncWaiter.java`,
+  `onDisplayChanged`) passes a new rate only to the engine's vsync
+  waiter (`vsync_waiter_android.cc`, `OnUpdateRefreshRate`), never to
+  Dart. On iOS the rate sent at startup is `VSyncClient.refreshRate`
+  before its first vsync, which is the screen's maximum
+  (`FlutterEngine.mm`, `updateDisplays`; `VSyncClient.swift`, `init`).
+  This corrects decision 0001's statement that Android updates the
+  declared rate when the display mode changes.
 - **GPU work showed as raster time on both phones.** The `gpu_heavy`
   shader raised p99 raster time to 1.55 `B` on the S24 and 8.9 `B` on the
   iPhone, with skipped frames, so the raster thread waited on the GPU.
@@ -82,7 +91,7 @@ What the runs showed:
 - **Overheads are small.** The recorder's callback cost about 240 to
   380 µs per second in profile and 75 to 200 in release, about 2 to 3 µs
   per frame. In clean runs the median `vsyncOverhead` was about 0.8 ms on
-  the S24 and 0.18 ms on the iPhone, with p99 at most 1.8 ms (0.22 `B`).
+  the S24 and 0.18 ms on the iPhone, with p99 at most 2.0 ms (0.24 `B`).
   Semantics added under one missed vsync per window on either phone.
 - **Two S24 windows had raster time near `B` without missing a vsync.**
   One clean still window had a median raster time of 8.1 ms against about
@@ -90,7 +99,7 @@ What the runs showed:
   Rate-change run 1 shows the same at 60 Hz. One reading, not confirmed:
   raster time there included waiting on the display. It never happened on
   the iPhone.
-- **Logs.** Android logcat dropped about 400 of 1,300 lines per window
+- **Logs.** Android logcat dropped about 400 of 1,300 lines per run
   without warning; 20 frames per line fixed it. On iOS, profile output
   reaches the `flutter drive` transcript; release output needs
   `idevicesyslog` from libimobiledevice.
@@ -109,8 +118,8 @@ What the runs showed:
    for at most 500 ms in profile and debug and 2 s in release. The engine
    batches timings every 100 ms in profile and every 1 s in release
    (`Shell::OnFrameRasterized`, `shell/common/shell.cc`), so the timeouts
-   leave about five times the slowest profile flush and twice the release batch
-   period. A timeout is recorded in the window.
+   leave about three times the slowest profile flush and twice the release
+   batch period. A timeout is recorded in the window.
 
 3. **`benchmarkLive` is confirmed** on both phones, including the still
    window. Decision 0001's open item on it is closed.
@@ -123,9 +132,13 @@ What the runs showed:
 5. **The declared-rate guard stays, and the rate mismatch carries the
    detection.** On neither phone did `Display.refreshRate` follow the
    screen: not the S24 forced to 60 Hz mid-run, nor the iPhone capped at
-   60 Hz from launch. The guard never fired, and only the per-slice
-   observed rate showed the drop. The guard stays because it is cheap and
-   still catches a device that reports a change.
+   60 Hz from launch. In Flutter 3.47.5 Dart gets the rate only at
+   startup, and on Android after a configuration change, so a rate change
+   mid-run never reaches the guard on either platform. Only the per-slice
+   observed rate showed the drop. The guard stays because it is cheap, it
+   still catches a configuration change on Android, and a later Flutter
+   may send rate changes to Dart. **(open, M3: the rate mismatch is not
+   computed by any code yet.)**
 
 6. **Missed vsyncs are explained by raster time too.** Decision 0001's
    count per gap of `k` intervals after frame `i` becomes
