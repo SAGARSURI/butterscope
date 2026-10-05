@@ -66,6 +66,30 @@ no plant. M2's calibration plants are left out unless named, because no
 ordinary test opens the calibration screen. Logs go to
 `build/m4_tests/<device-id>/`.
 
+### Probe
+
+`integration_test/m4_probe_test.dart` measures how much each plant costs
+its screen. It opens each screen in turn and records one 5 s window with
+M2's recorder while a scripted action runs: flings on Feed, Gallery and
+Detail, typing on Search, and waiting on Activity and Inbox, whose streams
+do the work. Frames lost are the window's length times the screen's rate,
+less the frames recorded. A plant passes when its screen loses 10% to 60%
+of its frames in 3 of 3 runs on each phone, with the clean build under 1%.
+
+```sh
+tool/m4/run_probe.sh <device-id> clean raster_clip raster_clip=12
+RUNS=3 tool/m4/run_probe.sh <device-id> clean ui_busy
+```
+
+A build is `clean`, a plant, or a plant and a cost: `raster_clip=12` sets
+the plant's knob with `--dart-define=BUTTERSCOPE_COST`, so each candidate
+value is a build rather than an edit. The script prints the frames each
+screen lost, marks the planted screen, and stops when a clean screen drew
+under 114 Hz, since a capped screen reads as a plant losing frames.
+M2's plants run M2's calibration probe instead, where the animated window
+is the planted one; `calibration` runs it with no plant. Transcripts and
+summaries go to `build/m4_probe/<device-id>/`.
+
 The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
 landscapes painted from fixed seeds by
 [`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again

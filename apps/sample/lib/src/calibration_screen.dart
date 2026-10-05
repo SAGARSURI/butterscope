@@ -125,10 +125,12 @@ class _CalibrationScreenState extends State<CalibrationScreen>
           ListenerWorkPlant(
             active: plant == Plant.listenerDecode,
             work: widget.work,
+            budgets: listenerDecodeBudgets.value,
           ),
           PostFrameWorkPlant(
             active: plant == Plant.postframeDecode,
             work: widget.work,
+            budgets: postframeDecodeBudgets.value,
           ),
         ],
       ),

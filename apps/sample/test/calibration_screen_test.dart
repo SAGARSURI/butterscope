@@ -1,15 +1,16 @@
 import 'package:butterscope_sample/src/calibration_screen.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
 import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Shows the calibration screen with [plant] in [phase], counting each run
-/// of the planted UI work in [workRuns].
+/// Shows the calibration screen with [plant] in [phase], adding the frame
+/// budgets of each run of the planted UI work to [workRuns].
 Future<void> showScreen(
   WidgetTester tester, {
   required ValueNotifier<CalibrationPhase> phase,
-  required List<int> workRuns,
+  required List<double> workRuns,
   Plant plant = Plant.none,
 }) {
   return tester.pumpWidget(
@@ -17,7 +18,7 @@ Future<void> showScreen(
       home: CalibrationScreen(
         plant: plant,
         phase: phase,
-        work: (_) => workRuns.add(workRuns.length),
+        work: (_, budgets) => workRuns.add(budgets),
       ),
     ),
   );
@@ -54,7 +55,7 @@ Matrix4 boxTransform(WidgetTester tester) {
 
 void main() {
   late ValueNotifier<CalibrationPhase> phase;
-  late List<int> workRuns;
+  late List<double> workRuns;
 
   setUp(() {
     phase = ValueNotifier(CalibrationPhase.animated);
@@ -132,6 +133,7 @@ void main() {
       await tester.pump(const Duration(milliseconds: 160));
 
       expect(workRuns, hasLength(3));
+      expect(workRuns, everyElement(listenerDecodeBudgets.value));
     });
 
     testWidgets('postframe_decode runs after each frame', (tester) async {
@@ -146,6 +148,7 @@ void main() {
 
       // One run after each of the three frames.
       expect(workRuns, hasLength(3));
+      expect(workRuns, everyElement(postframeDecodeBudgets.value));
     });
 
     for (final plant in [Plant.listenerDecode, Plant.postframeDecode]) {
