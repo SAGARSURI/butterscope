@@ -20,9 +20,16 @@ throws.
 | Feed | Scrolling list of item cards; tapping one opens Detail |
 | Search | Filters the items by title or tag as you type |
 | Detail | One item: a large picture under a frosted title panel, its facts and related items |
+| Activity | Live save counts for 40 items, bumped by a fake feed every 100 ms |
+| Inbox | Messages from a fake socket, sent as JSON every 500 ms and decoded on a background isolate |
+| Gallery | A grid of photos; tapping one opens it full screen |
 
-M4's other three screens and the plants for every screen are still to
-come.
+The plants for these screens come later in M4.
+
+The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
+landscapes painted from fixed seeds by
+[`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again
+writes the same files.
 
 ## Calibration screen and plants
 
