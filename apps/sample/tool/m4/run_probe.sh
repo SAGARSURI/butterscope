@@ -16,8 +16,10 @@
 # Android the app's logcat lines are added to the transcript, so a line
 # either source dropped is still read once.
 #
-# A clean run whose screen drew under 114 Hz on any screen stops the batch:
-# a capped or power-saving screen reads as a plant losing frames. The phone
+# A run counts only when its test passed and every window is whole; the
+# script marks any other NOT USABLE. A clean run that is not usable, or
+# drew under 114 Hz on any screen, stops the batch: a capped or
+# power-saving screen reads as a plant losing frames. The phone
 # must stay unlocked: Stay awake on for Android, Auto-Lock off for iOS.
 set -uo pipefail
 
@@ -39,26 +41,38 @@ fi
 out=build/m4_probe/$device
 mkdir -p "$out"
 
-# Prints one line per screen from a summary: lost share, observed rate,
-# and a mark on the planted screen. Prints the lowest observed rate last,
-# on a line of its own, for the clean check: "none" when no screen had one.
+# Prints one line per window from a summary: frames lost, observed rate,
+# and a mark on the planted window (for M2's plants, the animated one).
+# Prints the lowest observed rate last, on a line of its own, for the
+# clean check: 0 when any window has no usable rate.
 compact() {
   awk '
-    /== [a-z]+ \(/ {
-      match($0, /== [a-z]+/); screen = substr($0, RSTART + 3, RLENGTH - 3)
-      if (match($0, /screen=[A-Za-z]+/)) screen = substr($0, RSTART + 7, RLENGTH - 7)
-      planted = ($0 ~ /planted=true/) ? "planted" : ""
-    }
-    /Frames lost/ { match($0, /\([-0-9.]+%\)/); lost = substr($0, RSTART + 1, RLENGTH - 2) }
-    /Observed rate/ {
-      match($0, /[0-9.]+ Hz|n\/a/); hz = substr($0, RSTART, RLENGTH)
-      printf "  %-9s %-8s lost %8s   observed %s\n", screen, planted, lost, hz
-      if (hz != "n/a") {
+    function flush() {
+      if (screen == "") return
+      printf "  %-9s %-8s lost %8s   observed %s\n", screen, planted,
+        (lost == "" ? "n/a" : lost), (hz == "" ? "none" : hz)
+      windows++
+      if (hz ~ / Hz$/) {
         rate = hz + 0
         if (min == "" || rate < min) min = rate
+      } else {
+        unrated++
       }
     }
-    END { print "MIN " (min == "" ? "none" : min) }
+    /== [a-z]+ \(/ {
+      flush()
+      match($0, /== [a-z]+/); screen = substr($0, RSTART + 3, RLENGTH - 3)
+      if (match($0, /screen=[A-Za-z]+/)) screen = substr($0, RSTART + 7, RLENGTH - 7)
+      m2 = ($0 ~ /== animated / && $0 !~ /plant=none/)
+      planted = ($0 ~ /planted=true/ || m2) ? "planted" : ""
+      lost = ""; hz = ""
+    }
+    /Frames lost/ { match($0, /\([-0-9.]+%\)/); lost = substr($0, RSTART + 1, RLENGTH - 2) }
+    /Observed rate/ { match($0, /[0-9.]+ Hz|n\/a/); hz = substr($0, RSTART, RLENGTH) }
+    END {
+      flush()
+      print "MIN " ((windows == 0 || unrated > 0) ? 0 : min)
+    }
   ' "$1"
 }
 
@@ -89,22 +103,33 @@ for build in "$@"; do
       --dart-define=BUTTERSCOPE_PLANT="$define" \
       --dart-define=BUTTERSCOPE_COST="$cost" \
       -d "$device" >"$log" 2>&1
+    drive=$?
     $android && adb -s "$device" logcat -d -s flutter >>"$log"
     BSCOPE_LOG=$log fvm flutter test tool/m2/summarise.dart \
       >"$out/$name.txt" 2>&1
-    grep -q "Every line is present" "$out/$name.txt" ||
-      echo "  WARNING: lines missing or no done line; see $out/$name.txt"
+    summary=$?
     lines=$(compact "$out/$name.txt")
     echo "$lines" | grep -v '^MIN '
+    # A run counts only when the test passed and every window is whole:
+    # every line read, no flush timed out, one declared rate throughout.
+    if [ "$drive" -ne 0 ] || [ "$summary" -ne 0 ] ||
+      ! grep -q "Every line is present" "$out/$name.txt" ||
+      grep -qE "WARNING:|INCOMPLETE:|INVALID:|No usable" "$out/$name.txt"; then
+      echo "  NOT USABLE: the run failed or a window is incomplete;"
+      echo "  see $log and $out/$name.txt"
+      status=1
+      usable=false
+    else
+      usable=true
+    fi
     lowest=$(echo "$lines" | sed -n 's/^MIN //p')
     if { [ "$plant" = clean ] || [ "$plant" = calibration ]; } &&
-      [ "$lowest" != none ] &&
-      awk "BEGIN { exit !($lowest < 114) }"; then
-      echo "STOP: a clean screen drew at $lowest Hz. Check Limit Frame Rate,"
-      echo "power saving and the refresh rate setting, then run again."
+      { ! $usable || awk "BEGIN { exit !($lowest < 114) }"; }; then
+      echo "STOP: the clean run is not usable, or a screen drew under 114 Hz"
+      echo "($lowest Hz). Check Limit Frame Rate, power saving and the refresh"
+      echo "rate setting, then run again."
       exit 1
     fi
-    grep -q "All tests passed" "$log" || status=1
   done
 done
 exit "$status"

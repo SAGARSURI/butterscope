@@ -116,7 +116,9 @@ void _writeMetrics(StringBuffer out, LoggedWindow window, FrameBudget budget) {
   );
   // M4's measure of a plant: the frames a user missed. Frames run back to
   // back under benchmarkLive, so every vsync without one is a lost frame.
-  final lost = expected - samples.length;
+  // The window is bounded by frames and expected by the clock, so a frame
+  // at an edge can put the count just over; no frames are lost then.
+  final lost = math.max<double>(0, expected - samples.length);
   _row(
     out,
     'Frames lost',

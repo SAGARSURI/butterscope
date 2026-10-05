@@ -213,6 +213,11 @@ void main() {
       expect(summariseWindow(logged(114)), contains('6.0 (5.00%)'));
     });
 
+    test('counts no frames lost when an edge frame tops the count', () {
+      // 122 recorded against 120 expected: none lost, not -2.
+      expect(summariseWindow(logged(122)), contains('0.0 (0.00%)'));
+    });
+
     test('labels an M4 window with its screen, plant and cost', () {
       final window = LoggedWindow('search')
         ..fields.addAll({

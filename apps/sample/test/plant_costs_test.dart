@@ -45,5 +45,16 @@ void main() {
       );
       expect(() => sigma.resolve(Plant.gpuBlur, 'big'), throwsFormatException);
     });
+
+    test('rejects a value that is not finite and above 0', () {
+      for (final cost in ['0', '-2', 'Infinity', 'NaN']) {
+        expect(
+          () => sigma.resolve(Plant.gpuBlur, cost),
+          throwsArgumentError,
+          reason: cost,
+        );
+      }
+      expect(() => layers.resolve(Plant.rasterClip, '0'), throwsArgumentError);
+    });
   });
 }

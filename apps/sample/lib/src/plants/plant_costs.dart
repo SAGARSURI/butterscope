@@ -30,13 +30,18 @@ class PlantCost<T extends num> {
   /// value for the platform the app runs on. Butterscope supports Android
   /// and iOS only; any other platform gets the Android value.
   ///
-  /// Throws a [FormatException] when [cost] is not a number of type [T], so
-  /// a typo fails loudly instead of measuring the default.
+  /// Throws a [FormatException] when [cost] is not a number of type [T],
+  /// and an [ArgumentError] when it is not finite and above 0, so a typo
+  /// fails loudly instead of measuring the default or never finishing.
   T resolve(Plant buildPlant, String cost) {
-    if (cost.isNotEmpty && buildPlant == plant) {
-      return (T == int ? int.parse(cost) : double.parse(cost)) as T;
+    if (cost.isEmpty || buildPlant != plant) {
+      return defaultTargetPlatform == TargetPlatform.iOS ? ios : android;
     }
-    return defaultTargetPlatform == TargetPlatform.iOS ? ios : android;
+    final value = (T == int ? int.parse(cost) : double.parse(cost)) as T;
+    if (!value.isFinite || value <= 0) {
+      throw ArgumentError.value(cost, 'BUTTERSCOPE_COST', 'must be above 0');
+    }
+    return value;
   }
 }
 
