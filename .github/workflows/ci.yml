@@ -146,7 +146,7 @@ jobs:
 
   # The one check that branch protection requires. It waits for every job
   # above and passes only when all of them succeeded, so a new job (the
-  # device run in M3, the judge in M9) is added to `needs` here and the
+  # farm run in M10, the judge in M9) is added to `needs` here and the
   # branch settings never change.
   #
   # `always()` makes it run even when a job fails; without it this job would

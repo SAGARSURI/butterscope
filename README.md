@@ -9,7 +9,9 @@ line in the test file attaches Butterscope. It scripts no interactions and
 needs no app-specific code.
 
 > Status: proof of concept. M1 (metrics engine) and M2 (frame recorder) are
-> done; M3 is next. Nothing gates a build yet.
+> done. M3's farm check moved to M10 and its rate mismatch to M6
+> ([0003](docs/decisions/0003-m3-scope-moves.md)); M4 is next. Nothing gates
+> a build yet.
 
 ## How it decides
 
