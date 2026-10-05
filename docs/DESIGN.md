@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **draft for approval** (milestone M0)
+- Status: **approved** in M0; current through M2
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
