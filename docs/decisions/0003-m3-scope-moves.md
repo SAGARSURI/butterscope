@@ -1,6 +1,6 @@
 # 0003: M3's farm check moves to M10 and the rate mismatch to M6
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-05
 - Milestone: M3
 
