@@ -10,7 +10,8 @@ import 'package:butterscope/src/refresh_rate.dart';
 /// Every value comes from the frames and the budget alone, so the same
 /// frames always give the same metrics. Counts are 0 for an empty window;
 /// values that need a frame are `null`. The definitions are in
-/// `docs/DESIGN.md` and `docs/decisions/0001-metric-definitions.md`.
+/// `docs/DESIGN.md`, `docs/decisions/0001-metric-definitions.md` and
+/// `docs/decisions/0002-m2-recorder-findings.md`.
 final class WindowMetrics {
   /// Computes the metrics for [frames], in frame order, against [budget].
   factory of(List<FrameSample> frames, FrameBudget budget) {
@@ -26,7 +27,9 @@ final class WindowMetrics {
       return threads.where((t) => t == thread).length;
     }
 
-    var hitchMicros = 0.0;
+    // Lateness of the frames that rendered, plus the frames that never did.
+    final missedVsyncCount = countMissedVsyncs(frames, budget);
+    var hitchMicros = missedVsyncCount * budget.micros;
     for (final frame in judged) {
       if (frame.overrunMicros > 0) hitchMicros += frame.overrunMicros;
     }
@@ -45,7 +48,7 @@ final class WindowMetrics {
       uiJankyCount: countOn(JankThread.ui),
       rasterJankyCount: countOn(JankThread.raster),
       bothJankyCount: countOn(JankThread.both),
-      missedVsyncCount: countMissedVsyncs(frames, budget),
+      missedVsyncCount: missedVsyncCount,
       uiP90: _percentile(uis, 90),
       uiP99: _percentile(uis, 99),
       worstUi: _percentile(uis, 100),
@@ -104,12 +107,12 @@ final class WindowMetrics {
   final int bothJankyCount;
 
   /// Vsyncs that passed with no frame between the window's frames, beyond
-  /// what each frame's own UI time explains. See [countMissedVsyncs].
+  /// what a late frame explains. See [countMissedVsyncs].
   ///
   /// Catches UI-thread work that per-frame times cannot see: work queued
   /// before a frame was requested delays the request itself, so the next
   /// frame starts on time and looks smooth, and only the missing frames
-  /// show.
+  /// show. They are part of [hitchMillis].
   final int missedVsyncCount;
 
   /// The 90th percentile UI time (wait plus build), as a multiple of the
@@ -132,7 +135,8 @@ final class WindowMetrics {
   /// The longest raster time, as a multiple of the budget.
   final double? worstRaster;
 
-  /// Total lateness in milliseconds: the sum of every positive overrun.
+  /// Hitch time in milliseconds: the sum of every positive overrun, plus
+  /// [missedVsyncMillis] for the frames that never rendered.
   final double hitchMillis;
 
   /// Time spent drawing in milliseconds: frame count × budget plus
@@ -154,7 +158,8 @@ final class WindowMetrics {
   /// about the same on every screen.
   double get missedVsyncMillis => missedVsyncCount * budget.millis;
 
-  /// Milliseconds of lateness per second of rendering: the headline metric.
+  /// Milliseconds of hitch time per second of rendering: the headline
+  /// metric.
   ///
   /// Compare it with the same flow's baseline. During a test, idle time in
   /// the window still produces frames, which dilute the ratio; the hitch

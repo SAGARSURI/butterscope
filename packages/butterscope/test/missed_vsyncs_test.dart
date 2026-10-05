@@ -56,6 +56,45 @@ void main() {
       expect(countMissedVsyncs(beyond, at120), 2);
     });
 
+    group('with slow raster frames', () {
+      FrameSample frame(int vsync, {int build = 2000, int raster = 1000}) {
+        return FrameSample(
+          vsyncStartMicros: vsync,
+          buildMicros: build,
+          rasterMicros: raster,
+        );
+      }
+
+      test("leaves out the vsyncs a frame's own raster time explains", () {
+        // A 12 ms raster at 120 Hz spans two intervals (⌈12 ÷ 8.33⌉ = 2), so
+        // the two-interval gap after it adds nothing. A three-interval gap
+        // has one vsync more.
+        final explained = [frame(0, raster: 12000), frame(16667)];
+        expect(countMissedVsyncs(explained, at120), 0);
+        final beyond = [frame(0, raster: 12000), frame(25000)];
+        expect(countMissedVsyncs(beyond, at120), 1);
+      });
+
+      test('lets a slow raster frame explain the gap after the next frame', () {
+        // A 20 ms raster at 120 Hz spans three intervals (⌈2.4⌉ = 3). One is
+        // used on its own one-interval gap; the pipeline carries the other
+        // two to the gap after the next frame, which is two intervals long.
+        final carried = [frame(0, raster: 20000), frame(8333), frame(25000)];
+        expect(countMissedVsyncs(carried, at120), 0);
+        // A three-interval gap there leaves one vsync unexplained.
+        final beyond = [frame(0, raster: 20000), frame(8333), frame(33333)];
+        expect(countMissedVsyncs(beyond, at120), 1);
+      });
+
+      test('does not carry UI time to the gap after the next frame', () {
+        // A 20 ms build spans three intervals too, but the UI thread holds
+        // one frame at a time, so the two-interval gap after the next frame
+        // has one missed vsync.
+        final frames = [frame(0, build: 20000), frame(8333), frame(25000)];
+        expect(countMissedVsyncs(frames, at120), 1);
+      });
+    });
+
     test('counts a long freeze in full', () {
       // 300 ms at 60 Hz is 18 intervals: 17 vsyncs had no frame.
       final frames = framesWithGaps([300000]);

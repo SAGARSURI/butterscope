@@ -128,19 +128,25 @@ void main() {
     expect(metrics.jankyCount, 0);
     expect(metrics.missedVsyncCount, 3);
     expect(metrics.missedVsyncMillis, closeTo(25, 0.001));
+    // No frame was late, so the missed vsyncs are the whole hitch time.
+    expect(metrics.hitchMillis, closeTo(25, 0.001));
   });
 
-  test('sees an app that misses every other vsync only as missed vsyncs', () {
+  test('counts an app that misses every other vsync in the hitch ratio', () {
     // At 120 Hz, every frame renders well within B, but the app misses
     // every other vsync, so frames land 16.7 ms apart as on a 60 Hz screen.
-    // Every frame is smooth, so the janky rate and the hitch ratio read
-    // zero; only the missed vsyncs show the frames that never happened.
+    // Every frame is smooth, so the janky rate reads zero; the hitch ratio
+    // sees the frames that never happened through the missed vsyncs.
     final frames = samples(List.filled(11, (2000, 1000)));
     final metrics = WindowMetrics.of(frames, FrameBudget(120));
     expect(metrics.jankyCount, 0);
-    expect(metrics.hitchRatio, 0);
     expect(metrics.missedVsyncCount, 10);
     expect(metrics.missedVsyncMillis, closeTo(83.333, 0.001));
+    // Hitch time 10 × 8.333 = 83.333 ms; rendering time
+    // 11 × 8.333 + 83.333 = 175 ms; 83.333 ÷ 0.175 s = 476.19 ms/s.
+    expect(metrics.hitchMillis, closeTo(83.333, 0.001));
+    expect(metrics.renderingMillis, closeTo(175, 0.001));
+    expect(metrics.hitchRatio, closeTo(476.19, 0.01));
     expect(metrics.observedRefreshRate, closeTo(60, 0.01));
   });
 
@@ -212,7 +218,10 @@ void main() {
       test('$rate Hz, all smooth', () {
         final budget = FrameBudget(rate.toDouble());
         final smooth = (budget.micros * 0.9).round();
-        final frames = samples(List.filled(20, (smooth, smooth)));
+        final frames = samples(
+          List.filled(20, (smooth, smooth)),
+          gapMicros: budget.micros.round(),
+        );
         final metrics = WindowMetrics.of(frames, budget);
         expect(metrics.jankyCount, 0);
         expect(metrics.jankyRate, 0);
@@ -233,11 +242,19 @@ void main() {
     }
   });
 
-  test('the hitch ratio depends only on the frames', () {
-    final idleFrames = samples(tenFrames, gapMicros: 500000);
-    final busy = WindowMetrics.of(samples(tenFrames), budget);
-    final idle = WindowMetrics.of(idleFrames, budget);
-    expect(idle.hitchRatio, busy.hitchRatio);
-    expect(idle.renderingMillis, busy.renderingMillis);
+  test('counts a freeze between smooth frames in the hitch time', () {
+    // At 60 Hz, two smooth frames 300 ms apart: 18 intervals, so 17 vsyncs
+    // had no frame. Hitch time 17 × 16.667 = 283.333 ms; rendering time
+    // 2 × 16.667 + 283.333 = 316.667 ms; 283.333 ÷ 0.316667 s = 894.74 ms/s.
+    const smooth = [(2000, 1000), (2000, 1000)];
+    final metrics = WindowMetrics.of(
+      samples(smooth, gapMicros: 300000),
+      budget,
+    );
+    expect(metrics.jankyCount, 0);
+    expect(metrics.missedVsyncCount, 17);
+    expect(metrics.hitchMillis, closeTo(283.333, 0.001));
+    expect(metrics.renderingMillis, closeTo(316.667, 0.001));
+    expect(metrics.hitchRatio, closeTo(894.74, 0.01));
   });
 }
