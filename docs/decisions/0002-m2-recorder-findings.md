@@ -31,8 +31,8 @@ What the runs showed:
 - **Frame numbers match.** `PlatformDispatcher.frameData.frameNumber`
   bounds the window against `FrameTiming.frameNumber` with no frame lost
   or added at the edges. When the raster pipeline was full, the skipped
-  frame numbers equalled the missed vsyncs (S24 `slow_raster`: 238.3 and
-  239; iPhone `gpu_heavy`: 454 and 454).
+  frame numbers equalled the missed vsyncs as decision 0001 counts them
+  (S24 `slow_raster`: 238.3 and 239; iPhone `gpu_heavy`: 454 and 454).
 - **Flushes were fast.** No flush timed out. In profile the slowest clean
   flush took 88 ms and the slowest plant averaged 103 ms; in release the
   slowest took 355 ms. The timeouts are 500 ms and 2 s. Rate reads,
@@ -51,8 +51,10 @@ What the runs showed:
   reported 120 Hz. On the iPhone, with Limit Frame Rate switched on
   before launch, all 180 reads of two runs said 120 Hz while every
   one-second slice ran at exactly 60 Hz. Each window then looked like
-  `postframe_decode`: half the frames, 299 missed vsyncs, 0% janky. Only
-  the observed rate told the two apart. Flutter's iOS embedding reports
+  `postframe_decode`: half the frames, 299 missed vsyncs, 0% janky, and
+  a 60 Hz observed rate. Nothing in the frame timings tells the two
+  apart; the rig rules and the interleaved comparison of decision 0001
+  do. Flutter's iOS embedding reports
   the screen's maximum rate rather than its current one (inferred from
   `FlutterDisplayLinkManager.displayRefreshRate`, used in
   `vsync_waiter_ios.mm`).
