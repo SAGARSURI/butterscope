@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **approved** in M0; current through M2
+- Status: **approved** in M0; current through M3
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
@@ -367,7 +367,8 @@ same physical unit in the same session, interleaved.
    a server in the measured app, its UiAutomator2 path typically turns
    semantics on, and remote gestures add timing jitter.
 3. LambdaTest's guide builds a debug app; Butterscope needs a profile build,
-   with release as the fallback. **(open, M3: proven on the farm.)**
+   with release as the fallback. **(open, M10: proven on the farm; moved
+   from M3 by [0003](decisions/0003-m3-scope-moves.md).)**
 4. The farm runs no host script, so reports leave through the device log
    (requested with the build's `deviceLog` option) and are fetched through
    LambdaTest's API.
