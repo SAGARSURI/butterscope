@@ -175,7 +175,7 @@ All gate metrics are normalised to `B`, so one threshold is correct on 60, 90,
 | Metric | Definition |
 | --- | --- |
 | **Hitch ratio** (headline) | Hitch time (ms) ÷ rendering time (s), where hitch time is Σ positive overrun + missed vsyncs × `B`. Compared with the flow's baseline. Idle time in a span adds smooth frames and dilutes it, so absolute budgets are set per flow from M8's data. The missed vsyncs let it see frames that never rendered, such as work between frames ([0002](decisions/0002-m2-recorder-findings.md)). |
-| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what a late frame explains: the frame's own UI or raster time, or the raster time of the frame before it, since the raster pipeline holds two frames. That part is already overrun. Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only metric besides the hitch ratio that sees dropped frames between smooth ones. |
+| Missed vsyncs | Vsyncs with no frame between the span's frames, beyond what a late frame explains: the frame's own UI or raster time, or the raster time of the frame before it that its own gap did not use, since the raster pipeline holds two frames. That part is already overrun. Reported as time, count × `B`, so the same freeze reads alike on every screen. Catches UI work that per-frame times miss, and is the only metric besides the hitch ratio that sees dropped frames between smooth ones. |
 | Janky rate | Janky frames ÷ frames, reported overall and per thread. |
 | Severe count | Number of severe frames. |
 | Stall count | Number of stalls. |

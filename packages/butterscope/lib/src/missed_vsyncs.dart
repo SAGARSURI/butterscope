@@ -17,8 +17,8 @@ import 'package:butterscope/src/frame_sample.dart';
 ///   first n intervals of the gap after it;
 /// - the raster pipeline holds two frames, so a slow raster frame can cost
 ///   its vsync one frame later: a frame whose raster time spans m intervals
-///   also explains m - 1 intervals of the gap after the next frame, having
-///   used one on its own gap.
+///   and is followed by a gap of j intervals also explains m - j intervals
+///   of the gap after the next frame. Its own gap used the other j.
 ///
 /// Only the rest are counted here: work queued on the UI thread before the
 /// next frame was requested, work after the frame was built (semantics,
@@ -37,15 +37,19 @@ int countMissedVsyncs(List<FrameSample> frames, FrameBudget budget) {
   int spanned(int micros) => (micros / budget.micros).ceil();
 
   var missed = 0;
+  // Raster intervals of the frame before that its own gap did not use.
+  var carried = 0;
   for (var i = 0; i + 1 < frames.length; i++) {
     final gap = frames[i + 1].vsyncStartMicros - frames[i].vsyncStartMicros;
-    if (gap <= 0) continue;
+    // A gap of zero or less rounds to 0 or fewer intervals, below the 1
+    // every frame explains, so it is never counted.
     final intervals = (gap / budget.micros).round();
     final ui = ClassifiedFrame(frames[i], budget).uiMicros;
-    final carried = i == 0 ? 0 : spanned(frames[i - 1].rasterMicros) - 1;
-    final own = math.max(spanned(ui), spanned(frames[i].rasterMicros));
+    final raster = spanned(frames[i].rasterMicros);
+    final own = math.max(spanned(ui), raster);
     final explained = math.max(1, math.max(own, carried));
     if (intervals > explained) missed += intervals - explained;
+    carried = math.max(0, raster - math.max(1, intervals));
   }
   return missed;
 }

@@ -86,6 +86,14 @@ void main() {
         expect(countMissedVsyncs(beyond, at120), 1);
       });
 
+      test('carries only the raster time its own gap did not use', () {
+        // The 20 ms raster spans three intervals, and its own gap is three
+        // intervals long, so nothing is left to carry: the two-interval gap
+        // after the next frame has one missed vsync.
+        final frames = [frame(0, raster: 20000), frame(25000), frame(41667)];
+        expect(countMissedVsyncs(frames, at120), 1);
+      });
+
       test('does not carry UI time to the gap after the next frame', () {
         // A 20 ms build spans three intervals too, but the UI thread holds
         // one frame at a time, so the two-interval gap after the next frame
