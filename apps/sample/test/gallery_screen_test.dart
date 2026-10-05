@@ -11,12 +11,15 @@ int? decodedWidth(WidgetTester tester, int index) {
 }
 
 void main() {
-  testWidgets('decodes each grid photo at its cell width', (tester) async {
+  testWidgets('decodes each grid photo at the width it is drawn', (
+    tester,
+  ) async {
     await tester.pumpWidget(inApp(const GalleryScreen()));
 
-    // The test screen is 800 logical pixels wide at 3x: three columns of
-    // 800 / 3 logical pixels are 800 physical pixels each.
-    expect(decodedWidth(tester, 0), 800);
+    // The test screen is 800 logical pixels wide at 3x, so a column is 800
+    // physical pixels. A 4:3 photo covering a square cell is drawn 4/3 as
+    // wide: 800 x 4 / 3 = 1066.7, rounded up to 1067.
+    expect(decodedWidth(tester, 0), 1067);
   });
 
   testWidgets('opens a photo and swipes to the next', (tester) async {

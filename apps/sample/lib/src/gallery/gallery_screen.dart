@@ -25,7 +25,10 @@ class GalleryScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     return LayoutBuilder(
       builder: (context, constraints) {
-        final cell = constraints.maxWidth / 3;
+        // The photos are 4:3 landscapes. Covering a square cell scales a
+        // photo to the cell's height, so it is drawn 4/3 as wide as the
+        // cell and is decoded at that width.
+        final drawnWidth = constraints.maxWidth / 3 * 4 / 3;
         return GridView.builder(
           key: const Key('gallery-grid'),
           gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
@@ -40,7 +43,7 @@ class GalleryScreen extends StatelessWidget {
                 builder: (_) => PhotoViewer(initialIndex: index),
               ),
             ),
-            child: sizedPhoto(context, index, cell),
+            child: sizedPhoto(context, index, drawnWidth),
           ),
         );
       },

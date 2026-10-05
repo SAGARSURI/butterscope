@@ -8,22 +8,22 @@ typedef Bump = ({int index, int amount});
 /// Every call to [events] starts the same sequence, so every visit to the
 /// screen sees the same numbers.
 class ActivitySource {
-  const new({
-    this.seed = 7,
-    this.counters = 40,
-    this.period = const Duration(milliseconds: 100),
-  });
+  const new({this.seed = 7, this.period = const Duration(milliseconds: 100)});
 
   final int seed;
-
-  /// How many items have a counter.
-  final int counters;
 
   /// How often a batch of bumps arrives.
   final Duration period;
 
-  /// A batch of three bumps every [period].
-  Stream<List<Bump>> events() {
+  /// A batch of three bumps every [period], each to one of the first
+  /// [counters] items.
+  ///
+  /// Throws an [ArgumentError] when [counters] is below 1: there would be
+  /// no item to bump.
+  Stream<List<Bump>> events(int counters) {
+    if (counters < 1) {
+      throw ArgumentError.value(counters, 'counters', 'must be at least 1');
+    }
     final random = Random(seed);
     return Stream.periodic(period, (_) {
       return [

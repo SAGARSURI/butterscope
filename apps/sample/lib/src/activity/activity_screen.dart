@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math';
 
 import 'package:butterscope_sample/src/activity/activity_source.dart';
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
@@ -7,7 +8,8 @@ import 'package:butterscope_sample/src/widgets/item_art.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-/// Live save counts for the first items in the catalogue.
+/// Live save counts for the first [rows] items in the catalogue, or all of
+/// them when it holds fewer.
 ///
 /// Each row listens to its own counter, so a bump rebuilds only its row.
 class ActivityScreen extends StatefulWidget {
@@ -16,25 +18,33 @@ class ActivityScreen extends StatefulWidget {
   final Catalogue catalogue;
   final ActivitySource source;
 
+  /// The most items with a counter.
+  static const int rows = 40;
+
   @override
   State<ActivityScreen> createState() => _ActivityScreenState();
 }
 
 class _ActivityScreenState extends State<ActivityScreen> {
-  late final List<ValueNotifier<int>> _counts = [
-    for (var i = 0; i < widget.source.counters; i++) ValueNotifier(0),
-  ];
-  late final StreamSubscription<List<Bump>> _subscription;
+  late final List<ValueNotifier<int>> _counts = List.generate(
+    min(ActivityScreen.rows, widget.catalogue.items.length),
+    (_) => ValueNotifier(0),
+  );
+
+  /// Null when the catalogue is empty: with no rows, nothing listens.
+  StreamSubscription<List<Bump>>? _subscription;
 
   @override
   void initState() {
     super.initState();
-    _subscription = widget.source.events().listen(_apply);
+    if (_counts.isNotEmpty) {
+      _subscription = widget.source.events(_counts.length).listen(_apply);
+    }
   }
 
   @override
   void dispose() {
-    unawaited(_subscription.cancel());
+    unawaited(_subscription?.cancel());
     for (final count in _counts) {
       count.dispose();
     }
