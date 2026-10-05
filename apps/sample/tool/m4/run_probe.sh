@@ -115,9 +115,13 @@ for build in "$@"; do
     echo "$lines" | grep -v '^MIN '
     # A run counts only when the test passed and every window is whole:
     # every line read, no flush timed out, one declared rate throughout.
+    # The summariser prints "Every line is present" per run, so the log
+    # must hold one run ("#### Run" heads each of several) and no line it
+    # could not read.
     if [ "$drive" -ne 0 ] || [ "$summary" -ne 0 ] ||
       ! grep -q "Every line is present" "$out/$name.txt" ||
-      grep -qE "WARNING:|INCOMPLETE:|INVALID:|No usable" "$out/$name.txt"; then
+      grep -qE "WARNING:|INCOMPLETE:|INVALID:|No usable|Unreadable line|#### Run" \
+        "$out/$name.txt"; then
       echo "  NOT USABLE: the run failed or a window is incomplete;"
       echo "  see $log and $out/$name.txt"
       status=1
