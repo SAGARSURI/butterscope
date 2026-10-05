@@ -131,14 +131,15 @@ What the runs showed:
    count per gap of `k` intervals after frame `i` becomes
    `max(0, k − n)`, where
 
-   `n = max(1, ⌈UI(i) ÷ B⌉, ⌈raster(i) ÷ B⌉, ⌈raster(i − 1) ÷ B⌉ − 1)`
+   `n = max(1, ⌈UI(i) ÷ B⌉, ⌈raster(i) ÷ B⌉, ⌈raster(i − 1) ÷ B⌉ − k(i − 1))`
 
-   A slow raster frame's lateness is already its overrun, so the vsyncs
-   it costs are not counted again, whether they fall in the gap right
-   after it or, through the two-frame pipeline, the gap after the next
-   frame. The frame before has already spent one of its intervals on its
-   own gap, hence the `− 1`. Missed vsyncs now count only the vsyncs that
-   no frame's own lateness explains.
+   with `k(i − 1)`, at least 1, the intervals of the gap before. A slow
+   raster frame's lateness is already its overrun, so the vsyncs it costs
+   are not counted again, whether they fall in the gap right after it or,
+   through the two-frame pipeline, the gap after the next frame. Only the
+   intervals its own gap did not use carry over, so no raster time
+   explains two gaps. Missed vsyncs now count only the vsyncs that no
+   frame's own lateness explains.
 
 7. **Hitch time adds missed vsyncs.**
 
@@ -152,8 +153,9 @@ What the runs showed:
    frames: `postframe_decode` halves the frame rate on both phones, and
    `listener_decode` drops 15% of the iPhone's frames, yet both read 0.
    With decision 6, nothing is counted twice: on the saved runs the
-   raster plants gain at most one vsync, the iPhone `gpu_heavy` goes from
-   4,093 to 4,123 ms, and the S24's 60 Hz switch counts once
+   S24 raster plants gain at most one vsync, the iPhone `gpu_heavy` gains
+   32 that its slow frames do not explain (4,093 to 4,359 ms), and the
+   S24's 60 Hz switch counts once
    (1,155 ms, against 1,747 ms for a plain sum). The same work now reads
    alike on both phones. The owner chose this over keeping decision
    0001's overrun-only hitch time.
