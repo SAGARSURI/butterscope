@@ -3,13 +3,16 @@
 // timeline can be compared between the two (decision record 0002).
 //
 // fvm flutter drive --profile --no-dds --keep-app-running \
+//   --endless-trace-buffer \
 //   --driver=test_driver/overhead_driver.dart \
 //   --target=integration_test/m2_overhead_test.dart \
 //   --dart-define=BUTTERSCOPE_RECORDER=on
 //
 // The same command with `off` runs the arm without the recorder. The test
 // reports its arm with the traces, so the driver labels them from the build
-// itself.
+// itself. Without `--endless-trace-buffer` the VM keeps its trace in a ring of
+// 32,768 events, which a 5 s window overflows, so the trace loses the
+// window's first frames.
 
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_sample/main.dart';
