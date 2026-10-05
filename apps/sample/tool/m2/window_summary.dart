@@ -33,7 +33,14 @@ String summariseLog(BscopeLog log) {
 String summariseWindow(LoggedWindow window) {
   final out = StringBuffer('== ${window.name}');
   final run = [
-    for (final key in ['plant', 'semantics', 'mode'])
+    for (final key in [
+      'screen',
+      'planted',
+      'plant',
+      'cost',
+      'semantics',
+      'mode',
+    ])
       if (window.fields[key] case final value?) '$key=$value',
   ];
   out.writeln(run.isEmpty ? '' : ' (${run.join(', ')})');
@@ -106,6 +113,14 @@ void _writeMetrics(StringBuffer out, LoggedWindow window, FrameBudget budget) {
         '(${wallSeconds.toStringAsFixed(3)} s × '
         '${_hz(budget.refreshRate)}): '
         '${_signedPercent(samples.length / expected - 1)}',
+  );
+  // M4's measure of a plant: the frames a user missed. Frames run back to
+  // back under benchmarkLive, so every vsync without one is a lost frame.
+  final lost = expected - samples.length;
+  _row(
+    out,
+    'Frames lost',
+    '${lost.toStringAsFixed(1)} (${_percent(lost / expected)})',
   );
   _writeReads(out, window);
   _row(out, 'Observed rate', _hz(metrics.observedRefreshRate));

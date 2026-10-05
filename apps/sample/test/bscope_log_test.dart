@@ -208,6 +208,28 @@ void main() {
       expect(summary, contains('-5.00%'));
     });
 
+    test('counts the frames lost against wall-clock length × rate', () {
+      // 120 expected, 114 recorded: 6 lost, 5% of 120.
+      expect(summariseWindow(logged(114)), contains('6.0 (5.00%)'));
+    });
+
+    test('labels an M4 window with its screen, plant and cost', () {
+      final window = LoggedWindow('search')
+        ..fields.addAll({
+          'screen': 'Search',
+          'planted': 'true',
+          'plant': 'ui_busy',
+          'cost': '12',
+          'mode': 'profile',
+        });
+
+      expect(
+        summariseWindow(window).split('\n').first,
+        '== search (screen=Search, planted=true, plant=ui_busy, cost=12, '
+        'mode=profile)',
+      );
+    });
+
     test('counts frame-number gaps and the numbers skipped', () {
       final summary = summariseWindow(logged(10, skip: {13, 16, 17}));
       expect(summary, contains('2 gaps, 3 numbers skipped'));

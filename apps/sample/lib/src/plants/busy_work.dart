@@ -1,19 +1,17 @@
-import 'package:butterscope_sample/src/plants/plant_costs.dart';
 import 'package:flutter/widgets.dart';
 
-/// Keeps the UI thread busy for [decodeWorkBudgets] frame budgets of the
-/// screen [context] is shown on, like a synchronous decode of a large
-/// message.
+/// Keeps the UI thread busy for [budgets] frame budgets of the screen
+/// [context] is shown on, like a synchronous decode of a large message.
 ///
 /// A fixed busy loop, not a real decode, so its cost is the same on every
 /// phone at a given refresh rate.
 ///
 /// A screen that reports no usable rate is treated as 60 Hz.
-void busyForPlantedWork(BuildContext context) {
+void busyForPlantedWork(BuildContext context, double budgets) {
   final reported = View.of(context).display.refreshRate;
   final refreshRate = reported.isFinite && reported > 0 ? reported : 60;
   final budgetMicros = Duration.microsecondsPerSecond / refreshRate;
   final stopwatch = Stopwatch()..start();
-  final work = decodeWorkBudgets.value * budgetMicros;
+  final work = budgets * budgetMicros;
   while (stopwatch.elapsedMicroseconds < work) {}
 }
