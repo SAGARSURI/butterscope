@@ -24,7 +24,7 @@ class ListenerWorkPlant extends StatefulWidget {
   final bool active;
   final PlantedWork work;
 
-  /// How often the stream emits. **(open, M4: tuned per platform.)**
+  /// How often the stream emits.
   final Duration period;
 
   @override

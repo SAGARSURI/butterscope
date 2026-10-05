@@ -2,6 +2,9 @@ import 'dart:ui' show ImageFilter;
 
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/catalogue/item.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
+import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:butterscope_sample/src/widgets/item_art.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
 import 'package:flutter/material.dart';
@@ -63,6 +66,10 @@ class _Header extends StatelessWidget {
       fit: StackFit.expand,
       children: [
         ItemArt(item: item),
+        if (PlantScope.of(context) == Plant.gpuBlur)
+          ClipRect(
+            child: BackdropBlurPlant(layers: 1, sigma: gpuBlurSigma.value),
+          ),
         Positioned(
           left: 0,
           right: 0,

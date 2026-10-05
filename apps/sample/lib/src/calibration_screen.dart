@@ -1,9 +1,10 @@
 import 'dart:math' as math;
 
-import 'package:butterscope_sample/src/busy_work.dart';
-import 'package:butterscope_sample/src/plant.dart';
-import 'package:butterscope_sample/src/raster_plants.dart';
-import 'package:butterscope_sample/src/ui_plants.dart';
+import 'package:butterscope_sample/src/plants/busy_work.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
+import 'package:butterscope_sample/src/plants/raster_plants.dart';
+import 'package:butterscope_sample/src/plants/ui_plants.dart';
 import 'package:flutter/material.dart';
 
 /// What the calibration screen shows.
@@ -102,15 +103,25 @@ class _CalibrationScreenState extends State<CalibrationScreen>
 
   Widget _buildScene(Plant plant) {
     Widget box = _TurningBox(turns: _turns);
-    if (plant == Plant.slowRaster) box = SlowRasterPlant(child: box);
+    if (plant == Plant.slowRaster) {
+      // At M2's depth of 40, each layer gets 0.45^(1/40) = 0.980, the
+      // opacity M2 measured with.
+      box = SlowRasterPlant(
+        depth: slowRasterDepth.value,
+        fade: 0.45,
+        child: box,
+      );
+    }
     return ColoredBox(
       color: Colors.white,
       child: Stack(
         fit: StackFit.expand,
         children: [
           box,
-          if (plant == Plant.gpuHeavy) GpuHeavyPlant(turns: _turns),
-          if (plant == Plant.backdropBlur) const BackdropBlurPlant(),
+          if (plant == Plant.gpuHeavy)
+            GpuHeavyPlant(turns: _turns, iterations: gpuHeavyIterations.value),
+          if (plant == Plant.backdropBlur)
+            BackdropBlurPlant(layers: backdropBlurLayers.value, sigma: 40),
           ListenerWorkPlant(
             active: plant == Plant.listenerDecode,
             work: widget.work,

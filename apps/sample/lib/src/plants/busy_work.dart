@@ -1,12 +1,7 @@
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
 import 'package:flutter/widgets.dart';
 
-/// How much longer than one frame budget the planted UI work takes.
-///
-/// Tuned so the plant visibly janks on both phones in M2. **(open, M4: tuned
-/// per platform.)**
-const double plantedWorkBudgets = 1.5;
-
-/// Keeps the UI thread busy for [plantedWorkBudgets] frame budgets of the
+/// Keeps the UI thread busy for [decodeWorkBudgets] frame budgets of the
 /// screen [context] is shown on, like a synchronous decode of a large
 /// message.
 ///
@@ -19,5 +14,6 @@ void busyForPlantedWork(BuildContext context) {
   final refreshRate = reported.isFinite && reported > 0 ? reported : 60;
   final budgetMicros = Duration.microsecondsPerSecond / refreshRate;
   final stopwatch = Stopwatch()..start();
-  while (stopwatch.elapsedMicroseconds < plantedWorkBudgets * budgetMicros) {}
+  final work = decodeWorkBudgets.value * budgetMicros;
+  while (stopwatch.elapsedMicroseconds < work) {}
 }

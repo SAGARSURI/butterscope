@@ -1,5 +1,6 @@
 import 'package:butterscope_sample/src/inbox/inbox_screen.dart';
 import 'package:butterscope_sample/src/inbox/inbox_socket.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -110,5 +111,56 @@ void main() {
     expect(find.byKey(const Key('inbox-waiting')), findsNothing);
     final newest = tester.getTopLeft(find.byKey(const Key('message-1')));
     expect(newest.dy, lessThan(tester.getTopLeft(first).dy));
+  });
+
+  /// The subjects shown, top to bottom.
+  List<String?> shownSubjects(WidgetTester tester) => [
+    for (final tile in tester.widgetList<ExpansionTile>(
+      find.byType(ExpansionTile),
+    ))
+      (tile.title as Text).data,
+  ];
+
+  group('sync_decode', () {
+    testWidgets('shows a batch in the frame it arrives', (tester) async {
+      const socket = InboxSocket(batchSize: 2);
+      await tester.pumpWidget(
+        inApp(const InboxScreen(socket: socket), plant: Plant.syncDecode),
+      );
+
+      // No background decode to wait for.
+      await tester.pump(socket.period);
+
+      expect(find.text('2 messages'), findsOneWidget);
+    });
+
+    testWidgets('headers change nothing on screen', (tester) async {
+      const plain = InboxSocket(batchSize: 2);
+      await tester.pumpWidget(
+        inApp(const InboxScreen(socket: plain), plant: Plant.syncDecode),
+      );
+      await tester.pump(plain.period);
+      final subjects = shownSubjects(tester);
+
+      const withHeaders = InboxSocket(batchSize: 2, headers: 50);
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        inApp(const InboxScreen(socket: withHeaders), plant: Plant.syncDecode),
+      );
+      await tester.pump(withHeaders.period);
+
+      expect(subjects, hasLength(2));
+      expect(shownSubjects(tester), subjects);
+    });
+  });
+
+  testWidgets('the clean build decodes messages with headers', (tester) async {
+    const socket = InboxSocket(batchSize: 2, headers: 50);
+    await tester.pumpWidget(inApp(const InboxScreen(socket: socket)));
+
+    await tester.pump(socket.period);
+    await finishDecode(tester, 2);
+
+    expect(find.text('2 messages'), findsOneWidget);
   });
 }

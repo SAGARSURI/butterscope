@@ -1,15 +1,16 @@
 import 'dart:async';
 
 import 'package:butterscope_sample/src/inbox/inbox_socket.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 /// Messages as they arrive from the socket, newest first.
 ///
 /// Each batch is decoded on a background isolate, so the UI thread only
-/// inserts the result. While a message is open, new ones wait above the
-/// list, so the one being read stays where it is; they join the list when
-/// it closes.
+/// inserts the result; the `sync_decode` plant decodes it on the UI thread.
+/// While a message is open, new ones wait above the list, so the one being
+/// read stays where it is; they join the list when it closes.
 class InboxScreen extends StatefulWidget {
   const new({required this.socket, super.key});
 
@@ -40,10 +41,11 @@ class _InboxScreenState extends State<InboxScreen> {
     // capture this state, which cannot cross to another isolate. asyncMap
     // waits for each decode before the next, so batches land in the order
     // they arrived.
-    _subscription = widget.socket
-        .batches()
-        .asyncMap((raw) => compute(decodeBatch, raw))
-        .listen(_receive);
+    final batches = widget.socket.batches();
+    final decoded = PlantScope.of(context) == Plant.syncDecode
+        ? batches.map(decodeBatch)
+        : batches.asyncMap((raw) => compute(decodeBatch, raw));
+    _subscription = decoded.listen(_receive);
   }
 
   @override

@@ -1,6 +1,6 @@
 import 'package:butterscope_sample/src/calibration_screen.dart';
-import 'package:butterscope_sample/src/plant.dart';
-import 'package:butterscope_sample/src/raster_plants.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -217,6 +217,7 @@ void main() {
         textDirection: TextDirection.ltr,
         child: GpuHeavyPlant(
           turns: const AlwaysStoppedAnimation(0),
+          iterations: 1,
           loadProgram: () => Future.error(UnsupportedError('no shader')),
         ),
       ),
