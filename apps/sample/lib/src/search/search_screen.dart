@@ -1,6 +1,9 @@
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/catalogue/item.dart';
 import 'package:butterscope_sample/src/detail/detail_screen.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
+import 'package:butterscope_sample/src/plants/screen_plants.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
 import 'package:flutter/material.dart';
 
@@ -21,7 +24,13 @@ class _SearchScreenState extends State<SearchScreen> {
   void _search(String query) {
     setState(() {
       _query = query;
-      _results = widget.catalogue.search(query);
+      _results = PlantScope.of(context) == Plant.uiBusy
+          ? fuzzySearch(
+              widget.catalogue,
+              query,
+              words: uiBusyWordsPerItem.value,
+            )
+          : widget.catalogue.search(query);
     });
   }
 

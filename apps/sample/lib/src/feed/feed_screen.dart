@@ -1,6 +1,9 @@
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/catalogue/item.dart';
 import 'package:butterscope_sample/src/detail/detail_screen.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
+import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:butterscope_sample/src/widgets/item_art.dart';
 import 'package:flutter/material.dart';
 
@@ -37,7 +40,7 @@ class ItemCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Card(
+    final card = Card(
       key: Key('item-card-${item.id}'),
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
       clipBehavior: Clip.antiAlias,
@@ -58,6 +61,12 @@ class ItemCard extends StatelessWidget {
           ],
         ),
       ),
+    );
+    if (PlantScope.of(context) != Plant.rasterClip) return card;
+    return SlowRasterPlant(
+      depth: rasterClipLayers.value,
+      fade: 0.9,
+      child: card,
     );
   }
 }

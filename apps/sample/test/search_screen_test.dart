@@ -1,4 +1,6 @@
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
+import 'package:butterscope_sample/src/catalogue/item.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
 import 'package:butterscope_sample/src/search/search_screen.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
 import 'package:flutter/material.dart';
@@ -75,5 +77,71 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Summary of Quiet Harbour No. 2.'), findsOneWidget);
+  });
+
+  group('ui_busy', () {
+    /// The ids of the results, top to bottom.
+    List<int> shownIds(WidgetTester tester) => [
+      for (final tile in tester.widgetList<ListTile>(find.byType(ListTile)))
+        int.parse((tile.key! as ValueKey<String>).value.split('-').last),
+    ];
+
+    Future<void> searchFor(
+      WidgetTester tester,
+      Catalogue catalogue,
+      String query, {
+      Plant plant = Plant.none,
+    }) async {
+      // A fresh screen, so a second search does not reuse the first.
+      await tester.pumpWidget(const SizedBox());
+      await tester.pumpWidget(
+        inApp(SearchScreen(catalogue: catalogue), plant: plant),
+      );
+      await tester.enterText(find.byKey(const Key('search-field')), query);
+      await tester.pump();
+    }
+
+    testWidgets('finds the same items as the clean build', (tester) async {
+      await searchFor(tester, smallCatalogue, 'outdoor');
+      final clean = shownIds(tester)..sort();
+
+      await searchFor(tester, smallCatalogue, 'outdoor', plant: Plant.uiBusy);
+
+      expect(find.text('3 results'), findsOneWidget);
+      expect(shownIds(tester)..sort(), clean);
+    });
+
+    testWidgets('scores an item that has no words', (tester) async {
+      final catalogue = Catalogue([
+        item(0, 'Brisk Lantern No. 1', ['gift', 'travel']),
+        const Item(
+          id: 1,
+          title: '🎈',
+          tags: ['🎁'],
+          summary: '🎈',
+          rating: 4.5,
+          saves: 7,
+        ),
+      ]);
+
+      await searchFor(tester, catalogue, 'lantern', plant: Plant.uiBusy);
+
+      expect(tester.takeException(), isNull);
+      expect(shownIds(tester), [0]);
+    });
+
+    testWidgets('lists the closest match first', (tester) async {
+      final catalogue = Catalogue([
+        item(0, 'Lanterns Kit No. 1', ['gift', 'travel']),
+        item(1, 'Brisk Lantern No. 2', ['gift', 'travel']),
+      ]);
+
+      await searchFor(tester, catalogue, 'lantern');
+      expect(shownIds(tester), [0, 1]);
+
+      // "lanterns" is one letter from the query and "lantern" none.
+      await searchFor(tester, catalogue, 'lantern', plant: Plant.uiBusy);
+      expect(shownIds(tester), [1, 0]);
+    });
   });
 }

@@ -1,3 +1,5 @@
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
 import 'package:flutter/material.dart';
 
 /// How many cells the gallery shows. The six photos repeat.
@@ -6,8 +8,13 @@ const int galleryLength = 60;
 /// [index]'s photo, one of six bundled 4032 x 3024 JPEGs, decoded no
 /// wider than [width] logical pixels on this screen, so a 12 MP file
 /// costs only what the cell shows.
+///
+/// Under `image_full_res`, every photo is decoded at [imageFullResWidth]
+/// instead.
 Widget sizedPhoto(BuildContext context, int index, double width) {
-  final pixels = (width * MediaQuery.devicePixelRatioOf(context)).ceil();
+  final pixels = PlantScope.of(context) == Plant.imageFullRes
+      ? imageFullResWidth.value
+      : (width * MediaQuery.devicePixelRatioOf(context)).ceil();
   return Image.asset(
     'assets/photos/photo_${index % 6 + 1}.jpg',
     key: Key('photo-$index'),

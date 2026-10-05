@@ -1,4 +1,5 @@
 import 'package:butterscope_sample/src/gallery/gallery_screen.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -38,5 +39,16 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text('6 / 60'), findsOneWidget);
+  });
+
+  testWidgets('image_full_res decodes every grid photo at full size', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      inApp(const GalleryScreen(), plant: Plant.imageFullRes),
+    );
+
+    // The photos are 4032 x 3024, and the cell needs 1067.
+    expect(decodedWidth(tester, 0), 4032);
   });
 }

@@ -24,7 +24,30 @@ throws.
 | Inbox | Messages from a fake socket, sent as JSON every 500 ms and decoded on a background isolate |
 | Gallery | A grid of photos; tapping one opens it full screen |
 
-The plants for these screens come later in M4.
+### Screen plants
+
+Each screen has one planted mistake that makes it slow, never wrong. A plant
+is switched on at build time, one at a time:
+
+```sh
+fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
+```
+
+| Name | Screen | What it does | Where it should show |
+| --- | --- | --- | --- |
+| `raster_clip` | Feed | Wraps every card in layers of opacity and save-layer clips | Raster time |
+| `ui_busy` | Search | Scores every item with an edit distance on every keystroke, on the UI thread, and lists the best matches first | UI time |
+| `rebuild_all` | Activity | Rebuilds and lays out every row, each with a bar of many boxes, on every bump | UI time |
+| `sync_decode` | Inbox | Decodes each batch on the UI thread instead of a background isolate | UI time |
+| `image_full_res` | Gallery | Decodes every grid photo at full size instead of the cell's size | UI and raster time |
+| `gpu_blur` | Detail | A large backdrop blur over the header picture | Raster time |
+
+Inbox messages carry header entries that the screen never shows, so each
+batch takes real work to decode; the clean build decodes the same messages
+on a background isolate.
+
+`--dart-define=BUTTERSCOPE_OVERLAY=on` shows Flutter's performance overlay,
+for screenshots of where a plant's cost lands.
 
 ### Tests
 
@@ -32,14 +55,16 @@ Each screen has widget tests under `test/`, which CI runs, and integration
 tests under `integration_test/`, one file per screen, written the way an
 app team writes functional tests. `integration_test/app_test.dart` runs all
 six. This runs them on a phone in profile mode, once with no plant and once
-with each plant, and prints a pass or fail line per run:
+with each screen plant, and prints a pass or fail line per run:
 
 ```sh
 tool/m4/run_tests.sh <device-id>
 ```
 
 Name plants after the device to run only those; `clean` is the build with
-no plant. Logs go to `build/m4_tests/<device-id>/`.
+no plant. M2's calibration plants are left out unless named, because no
+ordinary test opens the calibration screen. Logs go to
+`build/m4_tests/<device-id>/`.
 
 The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
 landscapes painted from fixed seeds by
@@ -68,11 +93,14 @@ fvm flutter run --profile --route=/calibration \
 | `backdrop_blur` | 6 full-screen backdrop blurs | Raster time |
 | `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU work, which showed as raster time on the S24 because the raster thread waits on the GPU |
 
-The costs are tuned so each plant visibly drops frames on the Galaxy S24
-in profile mode. On the iPhone 17 Pro, `slow_raster` and `backdrop_blur`
-drop none and `gpu_heavy` drops about 3 frames in 4
-([M2 measurements](../../docs/measurements/m2.md)). **(open, M4: tuned per
-platform.)**
+The table gives the Galaxy S24's costs. Each plant's cost has a value per
+platform in [`lib/src/plants/plant_costs.dart`](lib/src/plants/plant_costs.dart),
+because the same work costs the two phones very different amounts: with
+the S24's costs, `slow_raster` and `backdrop_blur` dropped no frames on the
+iPhone 17 Pro and `gpu_heavy` dropped about 3 in 4
+([M2 measurements](../../docs/measurements/m2.md)). The iPhone's values and
+every screen plant's values are first guesses. **(open, M4: set by the
+probe runs.)**
 
 ## Platform folders
 

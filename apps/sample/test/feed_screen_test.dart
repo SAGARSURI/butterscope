@@ -1,4 +1,6 @@
 import 'package:butterscope_sample/src/feed/feed_screen.dart';
+import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -52,5 +54,43 @@ void main() {
 
     expect(find.byKey(const Key('detail-title')), findsOneWidget);
     expect(find.text('Summary of Cedar Lantern No. 3.'), findsOneWidget);
+  });
+
+  group('raster_clip', () {
+    testWidgets('wraps every card in save layers', (tester) async {
+      await tester.pumpWidget(
+        inApp(FeedScreen(catalogue: smallCatalogue), plant: Plant.rasterClip),
+      );
+
+      expect(find.byType(SlowRasterPlant), findsNWidgets(4));
+      expect(find.text('Quiet Harbour No. 2'), findsOneWidget);
+    });
+
+    testWidgets('leaves every card clearly visible', (tester) async {
+      await tester.pumpWidget(
+        inApp(FeedScreen(catalogue: smallCatalogue), plant: Plant.rasterClip),
+      );
+
+      final layers = tester.widgetList<Opacity>(
+        find.ancestor(
+          of: find.byKey(const Key('item-card-0')),
+          matching: find.byType(Opacity),
+        ),
+      );
+      final shown = layers.fold<double>(
+        1,
+        (product, layer) => product * layer.opacity,
+      );
+      // Each layer gets 0.9^(1/depth), so together they multiply back to the
+      // stack's 0.9. (Past about 27 layers the 254/255 cap would lower it;
+      // the Android depth, which tests run with, is far below that.)
+      expect(shown, closeTo(0.9, 0.001));
+    });
+
+    testWidgets('the clean build has none', (tester) async {
+      await tester.pumpWidget(inApp(FeedScreen(catalogue: smallCatalogue)));
+
+      expect(find.byType(SlowRasterPlant), findsNothing);
+    });
   });
 }

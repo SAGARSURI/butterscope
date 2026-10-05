@@ -44,6 +44,7 @@ class InboxSocket {
     this.seed = 11,
     this.batchSize = 20,
     this.period = const Duration(milliseconds: 500),
+    this.headers = 0,
   });
 
   final int seed;
@@ -54,14 +55,29 @@ class InboxSocket {
   /// How often a batch arrives.
   final Duration period;
 
+  /// Header entries in each message, as a server might send for tracing.
+  /// [Message.fromJson] skips them, but decoding must still parse them.
+  final int headers;
+
   /// A JSON array of [batchSize] messages every [period].
   Stream<String> batches() {
     final random = Random(seed);
+    final headerMap = {
+      for (var i = 0; i < headers; i++)
+        'x-header-$i': 'value-$i-${'0123456789abcdef' * 3}',
+    };
+    // Encoded once and spliced into every message, so making the batches
+    // stays cheap however many headers there are.
+    final headerField = headers == 0
+        ? ''
+        : '"headers":${jsonEncode(headerMap)},';
     var nextId = 0;
     return Stream.periodic(period, (_) {
-      return jsonEncode([
-        for (var i = 0; i < batchSize; i++) _message(nextId++, random),
-      ]);
+      final messages = [
+        for (var i = 0; i < batchSize; i++)
+          '{$headerField${jsonEncode(_message(nextId++, random)).substring(1)}',
+      ];
+      return '[${messages.join(',')}]';
     });
   }
 }

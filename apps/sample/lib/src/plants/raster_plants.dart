@@ -1,25 +1,39 @@
+import 'dart:math';
 import 'dart:ui' show FragmentProgram, FragmentShader, ImageFilter;
 
 import 'package:flutter/widgets.dart';
 
 /// Wraps [child] in [depth] layers that each need a save layer: an opacity
-/// and an anti-aliased clip that saves a layer. The child changes every
-/// frame, so every layer is drawn again each frame.
+/// and an anti-aliased clip that saves a layer. When the child changes,
+/// every layer is drawn again.
 ///
-/// The depth drops frames on the Galaxy S24 but not on the iPhone 17 Pro.
-/// **(open, M4: tuned per platform.)**
+/// `slow_raster` wraps the calibration screen's box, which changes every
+/// frame; `raster_clip` wraps each feed card, which moves as the feed
+/// scrolls.
 class SlowRasterPlant extends StatelessWidget {
-  const new({required this.child, this.depth = 40, super.key});
+  const new({
+    required this.child,
+    required this.depth,
+    required this.fade,
+    super.key,
+  });
 
   final Widget child;
   final int depth;
 
+  /// The opacity of the whole stack, so a deep stack does not hide [child].
+  /// Each layer gets fade^(1/depth), at most 254/255: at 255 an opacity has
+  /// nothing to apply. Alpha has 8 bits, so a stack deep enough to need the
+  /// cap shows at (254/255)^depth, fainter than [fade]: 0.25 for 350 layers.
+  final double fade;
+
   @override
   Widget build(BuildContext context) {
+    final opacity = min(pow(fade, 1 / depth).toDouble(), 254 / 255);
     var layered = child;
     for (var i = 0; i < depth; i++) {
       layered = Opacity(
-        opacity: 0.98,
+        opacity: opacity,
         child: ClipRRect(
           borderRadius: BorderRadius.circular(24),
           clipBehavior: Clip.antiAliasWithSaveLayer,
@@ -31,13 +45,13 @@ class SlowRasterPlant extends StatelessWidget {
   }
 }
 
-/// [layers] full-screen backdrop blurs, one over the other, over everything
-/// painted before them.
+/// [layers] backdrop blurs of [sigma], one over the other, over everything
+/// painted before them, filling the space they are given.
 ///
-/// The layer count and blur radius drop frames on the Galaxy S24 but not on
-/// the iPhone 17 Pro. **(open, M4: tuned per platform.)**
+/// `backdrop_blur` fills the calibration screen; `gpu_blur` fills the
+/// detail page's header.
 class BackdropBlurPlant extends StatelessWidget {
-  const new({this.layers = 6, this.sigma = 40, super.key});
+  const new({required this.layers, required this.sigma, super.key});
 
   final int layers;
   final double sigma;
@@ -63,13 +77,10 @@ class BackdropBlurPlant extends StatelessWidget {
 /// raster time because the raster thread waits on the GPU. Draws nothing
 /// until the shader has loaded, and throws if it fails to load, so a run
 /// cannot measure a clean screen by mistake.
-///
-/// The iteration count suits the Galaxy S24 and is far too heavy for the
-/// iPhone 17 Pro. **(open, M4: tuned per platform.)**
 class GpuHeavyPlant extends StatefulWidget {
   const new({
     required this.turns,
-    this.iterations = 500,
+    required this.iterations,
     this.loadProgram = _loadShader,
     super.key,
   });
