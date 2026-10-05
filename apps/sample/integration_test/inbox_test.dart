@@ -53,9 +53,13 @@ void main() {
       expect(tester.getTopLeft(newest), place);
       expect(find.text('20 messages'), findsOneWidget);
 
+      // Closing it lets the waiting messages in. More may have arrived by
+      // then, so the count is at least 40 rather than exactly 40.
       await tester.tap(newest);
       await tester.pump(const Duration(milliseconds: 250));
-      expect(find.text('40 messages'), findsOneWidget);
+      expect(find.byKey(const Key('inbox-waiting')), findsNothing);
+      final count = tester.widget<Text>(find.byKey(const Key('inbox-count')));
+      expect(int.parse(count.data!.split(' ').first), greaterThanOrEqualTo(40));
     });
   });
 }
