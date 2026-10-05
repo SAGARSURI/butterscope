@@ -1,3 +1,4 @@
+import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/search/search_screen.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
 import 'package:flutter/material.dart';
@@ -35,6 +36,20 @@ void main() {
 
     // Items 0, 2 and 3 are tagged "outdoor"; no title contains the word.
     expect(find.text('3 results'), findsOneWidget);
+  });
+
+  testWidgets('finds a capitalised tag from a lower-case query', (
+    tester,
+  ) async {
+    final catalogue = Catalogue([
+      item(0, 'Brisk Atlas No. 1', ['Garden', 'gift']),
+    ]);
+    await tester.pumpWidget(inApp(SearchScreen(catalogue: catalogue)));
+
+    await tester.enterText(find.byKey(const Key('search-field')), 'garden');
+    await tester.pump();
+
+    expect(find.text('1 results'), findsOneWidget);
   });
 
   testWidgets('clearing the field clears the results', (tester) async {

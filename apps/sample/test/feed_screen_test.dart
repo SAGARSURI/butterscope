@@ -13,6 +13,37 @@ void main() {
     expect(find.text('indoor · gift'), findsOneWidget);
   });
 
+  testWidgets('cards grow to fit large text', (tester) async {
+    await tester.pumpWidget(
+      MediaQuery(
+        data: const MediaQueryData(textScaler: TextScaler.linear(2)),
+        child: inApp(FeedScreen(catalogue: smallCatalogue)),
+      ),
+    );
+
+    // An overflowing card reports a layout error, which fails the test.
+    expect(tester.takeException(), isNull);
+    expect(find.text('Amber Lantern No. 1'), findsOneWidget);
+  });
+
+  testWidgets('a screen reader hears each title, not the picture', (
+    tester,
+  ) async {
+    final semantics = tester.ensureSemantics();
+    await tester.pumpWidget(inApp(FeedScreen(catalogue: smallCatalogue)));
+
+    // The card reads as one label. The picture shows the title's initial,
+    // "Q" for Quiet Harbour, which must not be read before the title.
+    final card = tester.getSemantics(
+      find.descendant(
+        of: find.byKey(const Key('item-card-1')),
+        matching: find.byType(InkWell),
+      ),
+    );
+    expect(card.label, startsWith('Quiet Harbour No. 2\n'));
+    semantics.dispose();
+  });
+
   testWidgets('tapping a card opens its detail page', (tester) async {
     await tester.pumpWidget(inApp(FeedScreen(catalogue: smallCatalogue)));
 

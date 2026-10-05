@@ -2,7 +2,8 @@ import 'package:butterscope_sample/src/catalogue/item.dart';
 import 'package:flutter/material.dart';
 
 /// An item's picture: a gradient in the item's own colour with its
-/// initial on top.
+/// initial on top. Decorative: screen readers skip it, since the title is
+/// always shown beside it.
 class ItemArt extends StatelessWidget {
   const new({required this.item, super.key});
 
@@ -22,13 +23,15 @@ class ItemArt extends StatelessWidget {
           colors: [light, dark],
         ),
       ),
-      child: Center(
-        child: FittedBox(
-          child: Padding(
-            padding: const EdgeInsets.all(8),
-            child: Text(
-              item.title.substring(0, 1),
-              style: const TextStyle(color: Colors.white70, fontSize: 48),
+      child: ExcludeSemantics(
+        child: Center(
+          child: FittedBox(
+            child: Padding(
+              padding: const EdgeInsets.all(8),
+              child: Text(
+                item.title.substring(0, 1),
+                style: const TextStyle(color: Colors.white70, fontSize: 48),
+              ),
             ),
           ),
         ),

@@ -43,19 +43,19 @@ class ItemCard extends StatelessWidget {
       clipBehavior: Clip.antiAlias,
       child: InkWell(
         onTap: () => onOpen(item),
-        child: SizedBox(
-          height: 112,
-          child: Row(
-            children: [
-              SizedBox(width: 112, child: ItemArt(item: item)),
-              Expanded(
-                child: Padding(
-                  padding: const EdgeInsets.all(12),
-                  child: _CardText(item: item, theme: theme),
-                ),
+        // The text sets the height, so large text grows the card; the
+        // picture keeps its size at the top.
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox.square(dimension: 112, child: ItemArt(item: item)),
+            Expanded(
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: _CardText(item: item, theme: theme),
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
@@ -71,6 +71,7 @@ class _CardText extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
+      mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
@@ -81,7 +82,7 @@ class _CardText extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(item.tags.join(' · '), style: theme.textTheme.bodySmall),
-        const Spacer(),
+        const SizedBox(height: 12),
         Row(
           children: [
             const Icon(Icons.star, size: 16),

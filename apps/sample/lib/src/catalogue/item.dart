@@ -31,6 +31,6 @@ class Item {
   /// [query] must already be lower case.
   bool matches(String query) {
     if (title.toLowerCase().contains(query)) return true;
-    return tags.any((tag) => tag.contains(query));
+    return tags.any((tag) => tag.toLowerCase().contains(query));
   }
 }
