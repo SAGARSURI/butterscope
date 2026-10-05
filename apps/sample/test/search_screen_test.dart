@@ -1,4 +1,5 @@
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
+import 'package:butterscope_sample/src/catalogue/item.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
 import 'package:butterscope_sample/src/search/search_screen.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
@@ -108,6 +109,25 @@ void main() {
 
       expect(find.text('3 results'), findsOneWidget);
       expect(shownIds(tester)..sort(), clean);
+    });
+
+    testWidgets('scores an item that has no words', (tester) async {
+      final catalogue = Catalogue([
+        item(0, 'Brisk Lantern No. 1', ['gift', 'travel']),
+        const Item(
+          id: 1,
+          title: '🎈',
+          tags: ['🎁'],
+          summary: '🎈',
+          rating: 4.5,
+          saves: 7,
+        ),
+      ]);
+
+      await searchFor(tester, catalogue, 'lantern', plant: Plant.uiBusy);
+
+      expect(tester.takeException(), isNull);
+      expect(shownIds(tester), [0]);
     });
 
     testWidgets('lists the closest match first', (tester) async {

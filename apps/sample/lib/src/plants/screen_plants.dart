@@ -10,8 +10,7 @@ import 'package:flutter/material.dart';
 /// The mistake is scoring every item in the catalogue on the UI thread, on
 /// every keystroke. An item's score is the smallest edit distance from the
 /// query to any of the first [words] words of its title, tags and summary;
-/// items with the same score stay in id order. [words] must be at least 1,
-/// and every item needs a word in its title.
+/// items with the same score stay in id order.
 List<Item> fuzzySearch(
   Catalogue catalogue,
   String query, {
@@ -19,16 +18,18 @@ List<Item> fuzzySearch(
 }) {
   final needle = query.trim().toLowerCase();
   if (needle.isEmpty) return const [];
-  final scores = [
-    for (final item in catalogue.items)
-      '${item.title} ${item.tags.join(' ')} ${item.summary}'
-          .toLowerCase()
-          .split(RegExp(r'\W+'))
-          .where((word) => word.isNotEmpty)
-          .take(words)
-          .map((word) => _editDistance(needle, word))
-          .reduce(min),
-  ];
+  final scores = <int>[];
+  for (final item in catalogue.items) {
+    final distances = '${item.title} ${item.tags.join(' ')} ${item.summary}'
+        .toLowerCase()
+        .split(RegExp(r'\W+'))
+        .where((word) => word.isNotEmpty)
+        .take(words)
+        .map((word) => _editDistance(needle, word))
+        .toList();
+    // An item with no words is as far as an empty word: the query's length.
+    scores.add(distances.isEmpty ? needle.length : distances.reduce(min));
+  }
   // An item's id is its position in the catalogue.
   return catalogue.search(needle)..sort((a, b) {
     final byScore = scores[a.id].compareTo(scores[b.id]);

@@ -23,7 +23,8 @@ class SlowRasterPlant extends StatelessWidget {
 
   /// The opacity of the whole stack, so a deep stack does not hide [child].
   /// Each layer gets fade^(1/depth), at most 254/255: at 255 an opacity has
-  /// nothing to apply.
+  /// nothing to apply. Alpha has 8 bits, so a stack deep enough to need the
+  /// cap shows at (254/255)^depth, fainter than [fade]: 0.25 for 350 layers.
   final double fade;
 
   @override
