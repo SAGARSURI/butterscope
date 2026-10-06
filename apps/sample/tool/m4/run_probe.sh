@@ -106,6 +106,10 @@ compact() {
 # state, which goes in the batch's transcript.
 android_ready() {
   local power awake thermal battery tenths level mem load waited=0
+  # `--keep-app-running` leaves the last run's app animating in the
+  # foreground, where it held about 300 MB and half a CPU on the S24 and
+  # warmed the phone while this waited. flutter drive starts it afresh.
+  adb -s "$device" shell am force-stop dev.butterscope.butterscope_sample
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
   awake=$(adb -s "$device" shell dumpsys power |
     sed -n 's/^ *mStayOn=//p' | head -n 1 | tr -d '\r')
@@ -253,4 +257,6 @@ for build in "$@"; do
     fi
   done
 done
+$android &&
+  adb -s "$device" shell am force-stop dev.butterscope.butterscope_sample
 exit "$status"
