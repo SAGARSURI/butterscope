@@ -125,8 +125,8 @@ fvm flutter run --profile --route=/calibration \
 
 | Name | What it does | Where it should show |
 | --- | --- | --- |
-| `listener_decode` | A stream listener busy for 1.5 frame budgets, every 50 ms | UI time |
-| `postframe_decode` | The same work in a post-frame callback, every frame | Missed vsyncs |
+| `listener_decode` | A stream listener busy for 3 frame budgets, every 50 ms | UI time |
+| `postframe_decode` | A post-frame callback busy for 1.5 frame budgets, every frame | Missed vsyncs |
 | `slow_raster` | 40 layers of opacity and save-layer clips | Raster time |
 | `backdrop_blur` | 6 full-screen backdrop blurs | Raster time |
 | `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU work, which showed as raster time on the S24 because the raster thread waits on the GPU |
@@ -136,9 +136,10 @@ platform in [`lib/src/plants/plant_costs.dart`](lib/src/plants/plant_costs.dart)
 because the same work costs the two phones very different amounts: with
 the S24's costs, `slow_raster` and `backdrop_blur` dropped no frames on the
 iPhone 17 Pro and `gpu_heavy` dropped about 3 in 4
-([M2 measurements](../../docs/measurements/m2.md)). The iPhone's values and
-every screen plant's values are first guesses. **(open, M4: set by the
-probe runs.)**
+([M2 measurements](../../docs/measurements/m2.md)). The screen plants'
+values on both phones, and the calibration plants' values on the S24, come
+from 3-run probe batches. The calibration plants' iPhone values are first
+guesses. **(open, M4: set by the iPhone probe runs.)**
 
 ## Platform folders
 
