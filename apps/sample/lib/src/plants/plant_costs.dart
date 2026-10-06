@@ -51,10 +51,13 @@ class PlantCost<T extends num> {
 // about 1.5 frame budgets. **(open, M4: set by the probe runs.)**
 
 /// Frame budgets of UI-thread work per stream event for `listener_decode`.
-/// M2 lost 10.5% on the S24 and 15.2% on the iPhone at 1.5.
+/// M2 lost 10.5% on the S24 and 15.2% on the iPhone at 1.5. The events are
+/// not tied to vsync, so a job of 1.5 budgets costs 1 or 2 frames by where
+/// it lands: in 3 S24 runs, 1.5 lost 16.5, 13.5 and 8.0%. 3 costs 3 or 4
+/// frames, and lost 33 to 34% in 3 runs.
 const listenerDecodeBudgets = PlantCost<double>(
   Plant.listenerDecode,
-  android: 1.5,
+  android: 3,
   ios: 1.5,
 );
 
