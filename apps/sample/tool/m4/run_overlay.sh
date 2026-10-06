@@ -78,9 +78,17 @@ for build in "$@"; do
     -d "$device" 2>&1 | tee "$log" | shoot
   drove=${PIPESTATUS[0]}
   [ -d "$incoming" ] && mv "$incoming"/*.png "$out"/ 2>/dev/null
-  # Each shot line the test printed, once: Android can print a line twice.
-  shots=$(sed -nE 's/.*BSCOPE [0-9]+ shot ([a-z0-9_]+-[a-z]+).*/\1/p' \
-    "$log" | sort -u)
+  # The shots the test's run line says it takes, such as
+  # `BSCOPE 1 run plant=clean screens=Feed,Search`, not those whose shot
+  # lines arrived: a dropped shot line must not let a run pass.
+  run=$(sed -nE 's/.*BSCOPE [0-9]+ run plant=([a-z_]+) screens=([A-Za-z,]+).*/\1 \2/p' \
+    "$log" | head -n 1)
+  shots=
+  if [ -n "$run" ]; then
+    for screen in $(echo "${run#* }" | tr ',' ' '); do
+      shots="$shots ${run%% *}-$(echo "$screen" | tr '[:upper:]' '[:lower:]')"
+    done
+  fi
   missing=
   for shot in $shots; do
     [ -s "$out/$shot.png" ] || missing="$missing $shot"
@@ -92,7 +100,7 @@ for build in "$@"; do
     results+=("FAIL  $build  (missing:${missing:- every shot}; see $log)")
     status=1
   else
-    results+=("pass  $build  ($(printf '%s' "$shots" | tr '\n' ' '))")
+    results+=("pass  $build  (${shots# })")
   fi
 done
 $android && adb -s "$device" shell am force-stop \
