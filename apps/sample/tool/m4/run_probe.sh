@@ -98,10 +98,16 @@ android_ready() {
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
   awake=$(adb -s "$device" shell settings get global stay_on_while_plugged_in |
     tr -d '\r')
-  # Stay awake holds which chargers keep the screen on: 1 to 7 when on,
-  # 0 or null (never set) when off.
-  if [ "$power" = 1 ] || ! [[ "$awake" =~ ^[1-7]$ ]]; then
-    echo "STOP: turn power saving off and Developer options > Stay awake on."
+  # Stay awake holds a bit per charger type that keeps the screen on (15
+  # for all four on Android 16): above 0 when on, 0 or null (never set)
+  # when off.
+  if [ "$power" = 1 ]; then
+    echo "STOP: turn power saving off (low_power is $power)."
+    return 1
+  fi
+  if ! [[ "$awake" =~ ^[0-9]+$ ]] || [ "$awake" -eq 0 ]; then
+    echo "STOP: turn Developer options > Stay awake on" \
+      "(stay_on_while_plugged_in is $awake)."
     return 1
   fi
   mem=$(adb -s "$device" shell cat /proc/meminfo |
