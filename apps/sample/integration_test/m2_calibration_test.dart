@@ -17,6 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
 import 'bscope_writer.dart';
+import 'support/run_conditions.dart';
 
 const Duration settle = Duration(seconds: 2);
 const Duration window = Duration(seconds: 5);
@@ -24,24 +25,6 @@ const Duration window = Duration(seconds: 5);
 /// The gap between the animated window and the still one, so the phase
 /// change has been drawn before the still window starts.
 const Duration phaseChange = Duration(milliseconds: 500);
-
-String get buildMode {
-  if (kReleaseMode) return 'release';
-  if (kProfileMode) return 'profile';
-  return 'debug';
-}
-
-bool semanticsFromEnvironment() {
-  const value = String.fromEnvironment(
-    'BUTTERSCOPE_SEMANTICS',
-    defaultValue: 'off',
-  );
-  return switch (value) {
-    'on' => true,
-    'off' => false,
-    _ => throw ArgumentError.value(value, 'BUTTERSCOPE_SEMANTICS'),
-  };
-}
 
 /// Records a window of [length] and returns it with its wall-clock length.
 Future<(RecordedWindow, int)> record(Duration length) async {

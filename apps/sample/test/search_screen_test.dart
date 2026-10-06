@@ -26,8 +26,8 @@ void main() {
 
     // Items 0 and 2 have "Lantern" in their titles.
     expect(find.text('2 results'), findsOneWidget);
-    expect(find.byKey(const Key('item-tile-0')), findsOneWidget);
-    expect(find.byKey(const Key('item-tile-2')), findsOneWidget);
+    expect(find.text('Amber Lantern No. 1'), findsOneWidget);
+    expect(find.text('Cedar Lantern No. 3'), findsOneWidget);
   });
 
   testWidgets('finds items by tag, ignoring case', (tester) async {
@@ -68,12 +68,30 @@ void main() {
     expect(find.textContaining('results'), findsNothing);
   });
 
+  testWidgets('updates a row in place when another item takes its place', (
+    tester,
+  ) async {
+    await tester.pumpWidget(inApp(SearchScreen(catalogue: smallCatalogue)));
+    final field = find.byKey(const Key('search-field'));
+    await tester.enterText(field, 'gift');
+    await tester.pump();
+    final row = tester.element(find.byType(ListTile).first);
+
+    await tester.enterText(field, 'lantern');
+    await tester.pump();
+
+    // Item 1 led the results and item 0 now does. The same row shows it,
+    // rather than a row built from scratch.
+    expect(find.text('Amber Lantern No. 1'), findsOneWidget);
+    expect(tester.element(find.byType(ListTile).first), same(row));
+  });
+
   testWidgets('tapping a result opens its detail page', (tester) async {
     await tester.pumpWidget(inApp(SearchScreen(catalogue: smallCatalogue)));
     await tester.enterText(find.byKey(const Key('search-field')), 'gift');
     await tester.pump();
 
-    await tester.tap(find.byKey(const Key('item-tile-1')));
+    await tester.tap(find.text('Quiet Harbour No. 2'));
     await tester.pumpAndSettle();
 
     expect(find.text('Summary of Quiet Harbour No. 2.'), findsOneWidget);
@@ -82,8 +100,8 @@ void main() {
   group('ui_busy', () {
     /// The ids of the results, top to bottom.
     List<int> shownIds(WidgetTester tester) => [
-      for (final tile in tester.widgetList<ListTile>(find.byType(ListTile)))
-        int.parse((tile.key! as ValueKey<String>).value.split('-').last),
+      for (final tile in tester.widgetList<ItemTile>(find.byType(ItemTile)))
+        tile.item.id,
     ];
 
     Future<void> searchFor(

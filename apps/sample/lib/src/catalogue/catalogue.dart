@@ -6,7 +6,16 @@ import 'package:butterscope_sample/src/catalogue/item.dart';
 ///
 /// Built from a seed, so every run of every test sees the same items.
 class Catalogue {
-  const new(this.items);
+  /// Holds [items], each one's title and tags lower-cased once here, so a
+  /// search does not lower-case every item again on every keystroke.
+  new(this.items)
+    : _searchable = [
+        for (final item in items)
+          [
+            item.title.toLowerCase(),
+            for (final tag in item.tags) tag.toLowerCase(),
+          ],
+      ];
 
   /// [count] items generated from [seed].
   factory seeded({int seed = 42, int count = 5000}) {
@@ -19,14 +28,17 @@ class Catalogue {
   /// Every item, in id order.
   final List<Item> items;
 
+  /// Each item's title and tags in lower case, in the order of [items].
+  final List<List<String>> _searchable;
+
   /// The items whose title or tags contain [query], ignoring case, in id
   /// order. A blank query matches nothing.
   List<Item> search(String query) {
     final needle = query.trim().toLowerCase();
     if (needle.isEmpty) return const [];
     return [
-      for (final item in items)
-        if (item.matches(needle)) item,
+      for (final (index, item) in items.indexed)
+        if (_searchable[index].any((text) => text.contains(needle))) item,
     ];
   }
 

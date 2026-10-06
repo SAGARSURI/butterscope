@@ -25,12 +25,4 @@ class Item {
 
   /// How many people saved the item.
   final int saves;
-
-  /// Whether [query] appears in the title or a tag, ignoring case.
-  ///
-  /// [query] must already be lower case.
-  bool matches(String query) {
-    if (title.toLowerCase().contains(query)) return true;
-    return tags.any((tag) => tag.toLowerCase().contains(query));
-  }
 }

@@ -41,8 +41,9 @@ enum Plant {
   /// Each message batch is decoded on the UI isolate.
   syncDecode('sync_decode', screen: 'Inbox'),
 
-  /// Every photo is decoded at full size, whatever its cell.
-  imageFullRes('image_full_res', screen: 'Gallery'),
+  /// Every cell averages its photo's pixels on the UI thread to tint its
+  /// frame.
+  photoTint('photo_tint', screen: 'Gallery'),
 
   /// A large blur over the whole header picture.
   gpuBlur('gpu_blur', screen: 'Detail');

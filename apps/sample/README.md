@@ -19,7 +19,7 @@ throws.
 | --- | --- |
 | Feed | Scrolling list of item cards; tapping one opens Detail |
 | Search | Filters the items by title or tag as you type |
-| Detail | One item: a large picture under a frosted title panel, its facts and related items |
+| Detail | One item: a large picture with its title on a pale band, its facts and related items |
 | Activity | Live save counts for 40 items, bumped by a fake feed every 100 ms |
 | Inbox | Messages from a fake socket, sent as JSON every 500 ms and decoded on a background isolate |
 | Gallery | A grid of photos; tapping one opens it full screen |
@@ -39,7 +39,7 @@ fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
 | `ui_busy` | Search | Scores every item with an edit distance on every keystroke, on the UI thread, and lists the best matches first | UI time |
 | `rebuild_all` | Activity | Rebuilds and lays out every row, each with a bar of many boxes, on every bump | UI time |
 | `sync_decode` | Inbox | Decodes each batch on the UI thread instead of a background isolate | UI time |
-| `image_full_res` | Gallery | Decodes every grid photo at full size instead of the cell's size | UI and raster time |
+| `photo_tint` | Gallery | Frames each cell in its photo's colour, averaged from every pixel of a large copy on the UI thread each time the cell scrolls in | UI time |
 | `gpu_blur` | Detail | A large backdrop blur over the header picture | Raster time |
 
 Inbox messages carry header entries that the screen never shows, so each
@@ -90,10 +90,45 @@ M2's plants run M2's calibration probe instead, where the animated window
 is the planted one; `calibration` runs it with no plant. Transcripts and
 summaries go to `build/m4_probe/<device-id>/`.
 
+Each batch starts with one clean warm-up run of each probe it uses, which
+is not counted, since the first runs of a batch lost more frames than
+later ones. A failed warm-up stops the batch. `WARMUP=off` skips them.
+
+On Android, each run first waits until the phone reports no thermal
+throttling and a battery at 38 °C or less, and the batch stops if power
+saving is on, Stay awake is off or less than 2 GB of memory is free. The
+phone's state is printed with each run. iOS reports none of this to the
+Mac, so keep Low Power Mode off and other apps closed.
+
+Semantics are off unless `SEMANTICS=on` is set, as in M2's probe.
+`testWidgets` turns them on by default, so the probe passes
+`semanticsEnabled` itself and records which one each run used.
+
 The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
 landscapes painted from fixed seeds by
 [`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again
 writes the same files.
+
+### Overlay screenshots
+
+`integration_test/m4_overlay_test.dart` takes screenshots of the
+performance overlay while each screen's scripted action runs, the same
+actions as the probe's. A plant's build shoots its own screen and the
+clean build shoots every screen, the calibration screen included:
+
+```sh
+tool/m4/run_overlay.sh <device-id>
+tool/m4/run_overlay.sh <device-id> clean gpu_blur
+```
+
+With no build named, it runs the clean build and the raster and GPU plants. Each
+shot is taken 3 s into the action. The overlay's charts hold the last 120
+frames, 3 s at 40 Hz, the slowest rate a plant here draws at, so they show only
+frames the action drew. The script takes each screenshot from the Mac when the
+test prints its shot line, over adb on Android and with
+`xcrun devicectl device capture screenshot` on iOS, so the app does no work
+for it. Screenshots and transcripts go to
+`build/m4_overlay/<device-id>/`.
 
 ## Calibration screen and plants
 
@@ -111,8 +146,8 @@ fvm flutter run --profile --route=/calibration \
 
 | Name | What it does | Where it should show |
 | --- | --- | --- |
-| `listener_decode` | A stream listener busy for 1.5 frame budgets, every 50 ms | UI time |
-| `postframe_decode` | The same work in a post-frame callback, every frame | Missed vsyncs |
+| `listener_decode` | A stream listener busy for 3 frame budgets, every 50 ms | UI time |
+| `postframe_decode` | A post-frame callback busy for 1.5 frame budgets, every frame | Missed vsyncs |
 | `slow_raster` | 40 layers of opacity and save-layer clips | Raster time |
 | `backdrop_blur` | 6 full-screen backdrop blurs | Raster time |
 | `gpu_heavy` | A full-screen fragment shader with a 500-step loop per pixel | GPU work, which showed as raster time on the S24 because the raster thread waits on the GPU |
@@ -122,9 +157,9 @@ platform in [`lib/src/plants/plant_costs.dart`](lib/src/plants/plant_costs.dart)
 because the same work costs the two phones very different amounts: with
 the S24's costs, `slow_raster` and `backdrop_blur` dropped no frames on the
 iPhone 17 Pro and `gpu_heavy` dropped about 3 in 4
-([M2 measurements](../../docs/measurements/m2.md)). The iPhone's values and
-every screen plant's values are first guesses. **(open, M4: set by the
-probe runs.)**
+([M2 measurements](../../docs/measurements/m2.md)). The screen plants'
+and calibration plants' values on both phones come from 3-run probe
+batches.
 
 ## Platform folders
 

@@ -13,7 +13,7 @@ void main() {
       expect(Plant.fromName('ui_busy'), Plant.uiBusy);
       expect(Plant.fromName('rebuild_all'), Plant.rebuildAll);
       expect(Plant.fromName('sync_decode'), Plant.syncDecode);
-      expect(Plant.fromName('image_full_res'), Plant.imageFullRes);
+      expect(Plant.fromName('photo_tint'), Plant.photoTint);
       expect(Plant.fromName('gpu_blur'), Plant.gpuBlur);
     });
 
@@ -42,7 +42,7 @@ void main() {
         'ui_busy': 'Search',
         'rebuild_all': 'Activity',
         'sync_decode': 'Inbox',
-        'image_full_res': 'Gallery',
+        'photo_tint': 'Gallery',
         'gpu_blur': 'Detail',
       },
     );
