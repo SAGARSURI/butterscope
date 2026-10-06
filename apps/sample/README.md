@@ -109,6 +109,27 @@ landscapes painted from fixed seeds by
 [`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again
 writes the same files.
 
+### Overlay screenshots
+
+`integration_test/m4_overlay_test.dart` takes screenshots of the
+performance overlay while each screen's scripted action runs, the same
+actions as the probe's. A plant's build shoots its own screen and the
+clean build shoots every screen, the calibration screen included:
+
+```sh
+tool/m4/run_overlay.sh <device-id>
+tool/m4/run_overlay.sh <device-id> clean gpu_blur
+```
+
+With no build named, it runs the clean build and the raster and GPU plants. Each
+shot is taken 3 s into the action. The overlay's charts hold the last 120
+frames, 3 s at 40 Hz, the slowest rate a plant here draws at, so they show only
+frames the action drew. On iOS the test takes the screenshot and the driver
+saves it at half width. On Android the plugin would first switch the app to an
+image view, which changes how frames are drawn, so the script takes the
+screenshot over adb instead. Screenshots and transcripts go to
+`build/m4_overlay/<device-id>/`.
+
 ## Calibration screen and plants
 
 The calibration screen has two phases: an animated phase, where a box
