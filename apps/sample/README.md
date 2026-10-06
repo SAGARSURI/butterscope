@@ -90,9 +90,13 @@ M2's plants run M2's calibration probe instead, where the animated window
 is the planted one; `calibration` runs it with no plant. Transcripts and
 summaries go to `build/m4_probe/<device-id>/`.
 
+Each batch starts with one clean warm-up run that is not counted, since
+the first runs of a batch lost more frames than later ones. `WARMUP=off`
+skips it.
+
 On Android, each run first waits until the phone reports no thermal
-throttling and a battery at 38 °C or less, and the batch stops if power
-saving is on, Stay awake is off or less than 2 GB of memory is free. The
+throttling, a battery at 38 °C or less and at least 3 GB of free memory,
+and the batch stops if power saving is on or Stay awake is off. The
 phone's state is printed with each run. iOS reports none of this to the
 Mac, so keep Low Power Mode off and other apps closed.
 

@@ -23,11 +23,17 @@
 # power-saving screen reads as a plant losing frames. The phone
 # must stay unlocked: Stay awake on for Android, Auto-Lock off for iOS.
 #
-# On Android each run first waits for the phone to cool, and the batch
-# stops if power saving is on, Stay awake is off or memory is short (see
-# android_ready), so heat, power settings and other apps add nothing to
-# the frames lost. iOS reports none of these to the Mac: keep Low Power
-# Mode off, close other apps and let the phone cool between batches.
+# Each batch starts with one clean warm-up run that is not counted: in
+# the S24's first guarded batch, the first runs lost more frames than
+# later ones.
+# WARMUP=off skips it.
+#
+# On Android each run first waits for the phone to cool and for 3 GB of
+# memory to be free, and the batch stops if power saving is on or Stay
+# awake is off (see android_ready), so heat, power settings and other apps
+# add nothing to the frames lost. iOS reports none of these to the Mac:
+# keep Low Power Mode off, close other apps and let the phone cool between
+# batches.
 set -uo pipefail
 
 if [ $# -lt 2 ]; then
@@ -38,10 +44,13 @@ device=$1
 shift
 runs=${RUNS:-1}
 semantics=${SEMANTICS:-off}
-case "$semantics" in
-  on | off) ;;
-  *) echo "SEMANTICS must be on or off" >&2; exit 64 ;;
-esac
+warmup=${WARMUP:-on}
+for setting in "SEMANTICS=$semantics" "WARMUP=$warmup"; do
+  case "${setting#*=}" in
+    on | off) ;;
+    *) echo "${setting%%=*} must be on or off" >&2; exit 64 ;;
+  esac
+done
 
 cd "$(dirname "$0")/../.." || exit 1
 
@@ -88,11 +97,13 @@ compact() {
   ' "$1"
 }
 
-# Android only. Fails when power saving is on, Stay awake is off or less
-# than 2 GB of memory is free, since other apps' work would land in the
-# window. Waits up to 10 minutes for the phone to cool: thermal status 0
-# (no throttling) and the battery at 38 °C or less. Prints the phone's
-# state, which goes in the batch's transcript.
+# Android only. Fails when power saving is on or Stay awake is off.
+# Waits up to 10 minutes for the phone to cool, thermal status 0 (no
+# throttling) and the battery at 38 °C or less, and for 3 GB of memory to
+# be free: in the S24's first guarded batch, clean runs with less free
+# lost up to 3 points more on Search and Detail than later ones, while
+# free memory rose from 2.7 to 4.2 GB. Prints the phone's state, which
+# goes in the batch's transcript.
 android_ready() {
   local power awake thermal battery tenths level mem load waited=0
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
@@ -109,32 +120,31 @@ android_ready() {
       "plugged in (mStayOn is ${awake:-missing})."
     return 1
   fi
-  mem=$(adb -s "$device" shell cat /proc/meminfo |
-    awk '/^MemAvailable:/ { print int($2 / 1024) }')
-  if [ "${mem:-0}" -lt 2048 ]; then
-    echo "STOP: only ${mem:-0} MB free. Close other apps on the phone."
-    return 1
-  fi
   while :; do
     thermal=$(adb -s "$device" shell dumpsys thermalservice |
       sed -n 's/^Thermal Status: //p' | tr -d '\r')
     battery=$(adb -s "$device" shell dumpsys battery | tr -d '\r')
     tenths=$(echo "$battery" | awk '/^ *temperature:/ { print $2 }')
     level=$(echo "$battery" | awk '/^ *level:/ { print $2 }')
-    # A reading the phone did not give is not a cool phone.
-    if ! [[ "$thermal" =~ ^[0-9]+$ && "$tenths" =~ ^[0-9]+$ ]]; then
-      echo "STOP: could not read the phone's thermal status or battery" \
-        "temperature."
+    mem=$(adb -s "$device" shell cat /proc/meminfo |
+      awk '/^MemAvailable:/ { print int($2 / 1024) }')
+    # A reading the phone did not give is not a cool, idle phone.
+    if ! [[ "$thermal" =~ ^[0-9]+$ && "$tenths" =~ ^[0-9]+$ &&
+      "$mem" =~ ^[0-9]+$ ]]; then
+      echo "STOP: could not read the phone's thermal status, battery" \
+        "temperature or free memory."
       return 1
     fi
-    [ "$thermal" -eq 0 ] && [ "$tenths" -le 380 ] && break
+    [ "$thermal" -eq 0 ] && [ "$tenths" -le 380 ] && [ "$mem" -ge 3072 ] &&
+      break
     if [ "$waited" -ge 600 ]; then
-      echo "STOP: the phone is still hot (thermal status $thermal," \
-        "battery $((tenths / 10)) °C)."
+      echo "STOP: after 10 minutes the phone is still hot or short of" \
+        "memory (thermal status $thermal, battery $((tenths / 10)) °C," \
+        "${mem} MB free). Close other apps on the phone and let it cool."
       return 1
     fi
-    echo "  cooling down: thermal status $thermal," \
-      "battery $((tenths / 10)) °C; waiting 30 s"
+    echo "  waiting 30 s for the phone to cool and free memory: thermal" \
+      "status $thermal, battery $((tenths / 10)) °C, ${mem} MB free"
     sleep 30
     waited=$((waited + 30))
   done
@@ -145,10 +155,39 @@ android_ready() {
     "at ${level}%, ${mem} MB free, load ${load:-unknown}"
 }
 
+# Runs the probe once in profile mode: drive <target> <plant define>
+# <cost> <log>.
+drive() {
+  fvm flutter drive --profile --no-dds --keep-app-running \
+    --driver=test_driver/integration_test.dart \
+    --target="$1" \
+    --dart-define=BUTTERSCOPE_PLANT="$2" \
+    --dart-define=BUTTERSCOPE_COST="$3" \
+    --dart-define=BUTTERSCOPE_SEMANTICS="$semantics" \
+    -d "$device" >"$4" 2>&1
+}
+
 # M2's plants: the define names in lib/src/plants/plant.dart with no screen,
 # from lines such as `slowRaster('slow_raster'),`.
 m2_plants=" calibration $(sed -nE "s/^  [a-zA-Z]+\('([a-z_]+)'\)[,;]$/\1/p" \
   lib/src/plants/plant.dart | tr '\n' ' ')"
+
+# The probe a plant runs in: M2's on the calibration screen for M2's
+# plants, else M4's.
+probe() {
+  case "$m2_plants" in
+    *" $1 "*) echo integration_test/m2_calibration_test.dart ;;
+    *) echo integration_test/m4_probe_test.dart ;;
+  esac
+}
+
+if [ "$warmup" = on ]; then
+  echo "== warm-up: clean, not counted"
+  $android && { android_ready || exit 1; }
+  first=${1%%=*}
+  drive "$(probe "$first")" "" "" "$out/warmup.log" ||
+    echo "  the warm-up run failed; see $out/warmup.log"
+fi
 
 status=0
 for build in "$@"; do
@@ -157,10 +196,7 @@ for build in "$@"; do
   [ "$build" != "$plant" ] && cost=${build#*=}
   define=$plant
   [ "$plant" = clean ] || [ "$plant" = calibration ] && define=
-  target=integration_test/m4_probe_test.dart
-  case "$m2_plants" in
-    *" $plant "*) target=integration_test/m2_calibration_test.dart ;;
-  esac
+  target=$(probe "$plant")
   for n in $(seq 1 "$runs"); do
     name=$plant${cost:+-$cost}-$n
     [ "$semantics" = on ] && name=$plant${cost:+-$cost}-semantics-$n
@@ -168,14 +204,8 @@ for build in "$@"; do
     echo "== $build, semantics $semantics, run $n of $runs"
     $android && { android_ready || exit 1; }
     $android && adb -s "$device" logcat -c
-    fvm flutter drive --profile --no-dds --keep-app-running \
-      --driver=test_driver/integration_test.dart \
-      --target="$target" \
-      --dart-define=BUTTERSCOPE_PLANT="$define" \
-      --dart-define=BUTTERSCOPE_COST="$cost" \
-      --dart-define=BUTTERSCOPE_SEMANTICS="$semantics" \
-      -d "$device" >"$log" 2>&1
-    drive=$?
+    drive "$target" "$define" "$cost" "$log"
+    drove=$?
     $android && adb -s "$device" logcat -d -s flutter >>"$log"
     BSCOPE_LOG=$log fvm flutter test tool/m2/summarise.dart \
       >"$out/$name.txt" 2>&1
@@ -190,7 +220,7 @@ for build in "$@"; do
     # The summariser prints "Every line is present" per run, so the log
     # must hold one run ("#### Run" heads each of several) and no line it
     # could not read.
-    if [ "$drive" -ne 0 ] || [ "$summary" -ne 0 ] ||
+    if [ "$drove" -ne 0 ] || [ "$summary" -ne 0 ] ||
       ! grep -q "Every line is present" "$out/$name.txt" ||
       grep -qE "WARNING:|INCOMPLETE:|INVALID:|No usable|Unreadable line|#### Run" \
         "$out/$name.txt"; then
