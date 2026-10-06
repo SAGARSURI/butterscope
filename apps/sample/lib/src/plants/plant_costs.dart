@@ -117,21 +117,24 @@ const rebuildAllSegments = PlantCost<int>(
 /// on the UI isolate. The screen shows none of them. Each is about 80
 /// bytes, so at 6,000 a batch of 20 messages is about 10 MB. The clean
 /// build gets the same messages and decodes them on a background isolate.
-/// While the socket still built its batches on the UI isolate, 6,000 cost
-/// Inbox 16% on the S24 and 12% on the iPhone, and 10,000 cost the iPhone
-/// 16%.
+/// With the socket sending bytes, 6,000 cost the S24's Inbox 9.7% and
+/// 10,000 cost the iPhone 12.7% in single runs. In 3 runs on the S24,
+/// 8,000 cost 12 to 14%, under 10 points above the clean screen's 3.4%,
+/// and 10,000 cost 17 to 18%.
 const syncDecodeHeaders = PlantCost<int>(
   Plant.syncDecode,
-  android: 6000,
+  android: 10000,
   ios: 10000,
 );
 
 /// The width in pixels of the copy of each photo whose pixels `photo_tint`
 /// averages, every time a cell is built into the grid. The copy is 4:3,
-/// so 1,500 is about 1.7 million pixels. First guess.
+/// so 2,000 is 3 million pixels. On the S24, 1,500 cost Gallery 13% and
+/// 3,000 cost 41% in single runs, and 2,000 cost 22 to 23% in 3 runs. The
+/// iPhone's value is a first guess.
 const photoTintWidth = PlantCost<int>(
   Plant.photoTint,
-  android: 1500,
+  android: 2000,
   ios: 1500,
 );
 

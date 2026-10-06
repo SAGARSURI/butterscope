@@ -94,7 +94,7 @@ compact() {
 # (no throttling) and the battery at 38 °C or less. Prints the phone's
 # state, which goes in the batch's transcript.
 android_ready() {
-  local power awake thermal battery tenths level mem waited=0
+  local power awake thermal battery tenths level mem load waited=0
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
   awake=$(adb -s "$device" shell dumpsys power |
     sed -n 's/^ *mStayOn=//p' | head -n 1 | tr -d '\r')
@@ -138,8 +138,11 @@ android_ready() {
     sleep 30
     waited=$((waited + 30))
   done
+  # The load average is recorded, not checked, until runs show what a
+  # quiet phone reads.
+  load=$(adb -s "$device" shell cat /proc/loadavg | cut -d ' ' -f 1)
   echo "  phone: thermal status $thermal, battery $((tenths / 10)) °C" \
-    "at ${level}%, ${mem} MB free"
+    "at ${level}%, ${mem} MB free, load ${load:-unknown}"
 }
 
 # M2's plants: the define names in lib/src/plants/plant.dart with no screen,
