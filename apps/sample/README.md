@@ -124,10 +124,10 @@ tool/m4/run_overlay.sh <device-id> clean gpu_blur
 With no build named, it runs the clean build and the raster and GPU plants. Each
 shot is taken 3 s into the action. The overlay's charts hold the last 120
 frames, 3 s at 40 Hz, the slowest rate a plant here draws at, so they show only
-frames the action drew. On iOS the test takes the screenshot and the driver
-saves it at half width. On Android the plugin would first switch the app to an
-image view, which changes how frames are drawn, so the script takes the
-screenshot over adb instead. Screenshots and transcripts go to
+frames the action drew. The script takes each screenshot from the Mac when the
+test prints its shot line, over adb on Android and with
+`xcrun devicectl device capture screenshot` on iOS, so the app does no work
+for it. Screenshots and transcripts go to
 `build/m4_overlay/<device-id>/`.
 
 ## Calibration screen and plants

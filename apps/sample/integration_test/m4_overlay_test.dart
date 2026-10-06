@@ -3,19 +3,16 @@
 // show the frames that action draws. tool/m4/run_overlay.sh runs it.
 //
 // fvm flutter drive --profile --no-dds --keep-app-running \
-//   --driver=test_driver/overlay_driver.dart \
+//   --driver=test_driver/integration_test.dart \
 //   --target=integration_test/m4_overlay_test.dart \
 //   --dart-define=BUTTERSCOPE_OVERLAY=on \
 //   --dart-define=BUTTERSCOPE_PLANT=<name>
 //
 // A plant's build shoots its own screen; the clean build shoots every
-// screen, for comparison. Each shot prints a `shot` line first. On iOS the
-// test takes the screenshot itself and the driver saves it. On Android the
-// plugin's screenshot first converts the Flutter view to an image view,
-// which changes how frames are drawn, so the script takes the screenshot
-// over adb when it reads the line instead.
-
-import 'dart:ui' as ui;
+// screen, for comparison. Each shot prints a `shot` line, and the script
+// takes the screenshot from the Mac when it reads the line: over adb on
+// Android, with devicectl on iOS. The app does no work for it, so the
+// charted frames are the action's alone.
 
 import 'package:butterscope_sample/src/calibration_screen.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
@@ -36,8 +33,7 @@ const Duration settle = Duration(seconds: 2);
 /// last 120 frames (flow/stopwatch.h kMaxSamples): 1 s at 120 Hz, and 3 s
 /// at 40 Hz, the slowest rate a plant here draws at (gpu_heavy on the
 /// iPhone). So every bar is a frame the action drew. The 2 s left of the
-/// action cover Android, where the script reads the line and then takes
-/// the shot.
+/// action cover the script reading the line and taking the shot.
 const Duration shootAfter = Duration(seconds: 3);
 
 /// The name M2's calibration screen goes by in screenshot names.
@@ -50,30 +46,12 @@ Set<String> screensFor(Plant plant) {
   return {for (final plant in Plant.values) ?plant.screen, calibration};
 }
 
-/// Shrinks a PNG to half its width, so a run's screenshots travel to the
-/// driver in a reasonable size and the overlay's text stays readable.
-Future<List<int>> halfSize(List<int> png) async {
-  final buffer = await ui.ImmutableBuffer.fromUint8List(
-    Uint8List.fromList(png),
-  );
-  final codec = await ui.instantiateImageCodecWithSize(
-    buffer,
-    getTargetSize: (width, height) => ui.TargetImageSize(width: width ~/ 2),
-  );
-  final frame = await codec.getNextFrame();
-  final bytes = await frame.image.toByteData(format: ui.ImageByteFormat.png);
-  frame.image.dispose();
-  codec.dispose();
-  return bytes!.buffer.asUint8List();
-}
-
 void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   final plant = Plant.fromEnvironment();
   final name = plant == Plant.none ? 'clean' : plant.defineName;
   final screens = screensFor(plant);
   final writer = BscopeWriter(debugPrintSynchronously);
-  final shots = <String, List<int>>{};
 
   Future<void> shoot(String screen, ScreenAction act) async {
     if (!screens.contains(screen)) return;
@@ -83,9 +61,6 @@ void main() {
     await Future<void>.delayed(shootAfter);
     final shot = '$name-${screen.toLowerCase()}';
     writer.line('shot', [shot]);
-    if (defaultTargetPlatform == TargetPlatform.iOS) {
-      shots[shot] = await binding.takeScreenshot(shot);
-    }
     await acting;
   }
 
@@ -118,13 +93,6 @@ void main() {
       await shoot(calibration, justWait);
     }
 
-    // Shrunk after the last action, so the work draws no charted frame.
-    binding.reportData = {
-      'screenshots': [
-        for (final MapEntry(:key, :value) in shots.entries)
-          {'screenshotName': key, 'bytes': await halfSize(value)},
-      ],
-    };
     writer.done();
   });
 }

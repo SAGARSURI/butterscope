@@ -12,11 +12,11 @@
 # raster_clip, gpu_blur, slow_raster, backdrop_blur and gpu_heavy.
 #
 # Screenshots go to build/m4_overlay/<device-id>/<build>-<screen>.png and
-# each run's transcript to <build>.log beside them. On Android the script
-# takes each screenshot over adb when the test prints its shot line; on iOS
-# the test takes it and the driver saves it. A run fails when its test
-# fails or a screenshot it announced is missing. Exits 1 when any run
-# fails.
+# each run's transcript to <build>.log beside them. The script takes each
+# screenshot from the Mac when the test prints its shot line: over adb on
+# Android, with devicectl on iOS, so the app does no work for it. A run
+# fails when its test fails or a screenshot it announced is missing. Exits
+# 1 when any run fails.
 #
 # The phone must stay unlocked: Stay awake on for Android, Auto-Lock off for
 # iOS. `--keep-app-running` keeps the app installed between runs, so iOS
@@ -40,21 +40,24 @@ if command -v adb >/dev/null && adb devices | grep -q "^$device[[:space:]]"; the
 fi
 
 out=build/m4_overlay/$device
-incoming=build/m4_overlay/incoming
 mkdir -p "$out"
 
-# Passes the run's output through, and on Android takes a screenshot for
-# each shot line, such as `BSCOPE 3 shot raster_clip-feed`, while the
-# screen's action is still running.
+# Passes the run's output through, and takes a screenshot for each shot
+# line, such as `BSCOPE 3 shot raster_clip-feed`, while the screen's action
+# is still running.
 shoot() {
   local line shot
   while IFS= read -r line; do
     printf '%s\n' "$line"
-    $android || continue
     shot=$(printf '%s\n' "$line" |
       sed -nE 's/.*BSCOPE [0-9]+ shot ([a-z0-9_]+-[a-z]+).*/\1/p')
     [ -n "$shot" ] || continue
-    adb -s "$device" exec-out screencap -p >"$out/$shot.png"
+    if $android; then
+      adb -s "$device" exec-out screencap -p >"$out/$shot.png"
+    else
+      xcrun devicectl device capture screenshot --device "$device" \
+        --destination "$out/$shot.png" --quiet
+    fi
   done
 }
 
@@ -64,20 +67,18 @@ for build in "$@"; do
   define=$build
   [ "$build" = clean ] && define=
   log=$out/$build.log
-  rm -rf "$incoming"
   rm -f "$out/$build"-*.png
   echo "== $build"
   # The last run's app is left animating by --keep-app-running.
   $android && adb -s "$device" shell am force-stop \
     dev.butterscope.butterscope_sample
   fvm flutter drive --profile --no-dds --keep-app-running \
-    --driver=test_driver/overlay_driver.dart \
+    --driver=test_driver/integration_test.dart \
     --target=integration_test/m4_overlay_test.dart \
     --dart-define=BUTTERSCOPE_OVERLAY=on \
     --dart-define=BUTTERSCOPE_PLANT="$define" \
     -d "$device" 2>&1 | tee "$log" | shoot
   drove=${PIPESTATUS[0]}
-  [ -d "$incoming" ] && mv "$incoming"/*.png "$out"/ 2>/dev/null
   # The shots the test's run line says it takes, such as
   # `BSCOPE 1 run plant=clean screens=Feed,Search`, not those whose shot
   # lines arrived: a dropped shot line must not let a run pass.
