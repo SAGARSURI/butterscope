@@ -86,13 +86,14 @@ const gpuHeavyIterations = PlantCost<int>(
   ios: 85,
 );
 
-// M4's plants, one per sample screen. Values come from single probe runs
-// with semantics off.
-// **(open, M4: set by the probe runs.)**
+// M4's plants, one per sample screen, from probe runs with semantics off.
+// Each value cost its screen 10 to 60% of frames, and at least 10 points
+// more than the clean build, in 3 of 3 runs on its phone.
 
 /// Save layers around each feed card for `raster_clip`.
-/// On the iPhone, 150 cost Feed nothing and 350 cost it 43%: the frames
-/// went from 0.7 to 2.4 budgets. On the S24, 24 cost about 1%.
+/// On the iPhone, 150 cost Feed nothing and 350 cost it 45 to 47%: the
+/// frames went from 0.7 to 2.4 budgets. On the S24, 24 cost about 1% and
+/// 60 cost 49%.
 const rasterClipLayers = PlantCost<int>(
   Plant.rasterClip,
   android: 60,
@@ -100,13 +101,14 @@ const rasterClipLayers = PlantCost<int>(
 );
 
 /// Words of each item's title, tags and summary that `ui_busy` scores
-/// against the query on every keystroke. An item has about 22.
+/// against the query on every keystroke. An item has about 22. 12 cost
+/// Search 49 to 52% on the S24 and 30% on the iPhone.
 const uiBusyWordsPerItem = PlantCost<int>(Plant.uiBusy, android: 12, ios: 12);
 
 /// Segments in each row's bar for `rebuild_all`, every one a widget that
 /// is built and laid out again on every tick.
-/// 200 cost Activity 16% on the S24 and 13% on the iPhone; 300 cost the
-/// iPhone 17%.
+/// 200 cost Activity 24 to 25% on the S24 and 13% on the iPhone in one
+/// run; 300 cost the iPhone 17%.
 const rebuildAllSegments = PlantCost<int>(
   Plant.rebuildAll,
   android: 200,
@@ -120,22 +122,23 @@ const rebuildAllSegments = PlantCost<int>(
 /// With the socket sending bytes, 6,000 cost the S24's Inbox 9.7% and
 /// 10,000 cost the iPhone 12.7% in single runs. In 3 runs on the S24,
 /// 8,000 cost 12 to 14%, under 10 points above the clean screen's 3.4%,
-/// and 10,000 cost 17 to 18%.
+/// and 10,000 cost 17 to 18%. In 3 runs on the iPhone, 12,000 cost 15%
+/// and 14,000 cost 16 to 17%.
 const syncDecodeHeaders = PlantCost<int>(
   Plant.syncDecode,
   android: 10000,
-  ios: 10000,
+  ios: 14000,
 );
 
 /// The width in pixels of the copy of each photo whose pixels `photo_tint`
 /// averages, every time a cell is built into the grid. The copy is 4:3,
 /// so 2,000 is 3 million pixels. On the S24, 1,500 cost Gallery 13% and
-/// 3,000 cost 41% in single runs, and 2,000 cost 22 to 23% in 3 runs. The
-/// iPhone's value is a first guess.
+/// 3,000 cost 41% in single runs, and 2,000 cost 22 to 23% in 3 runs. On
+/// the iPhone, 3,000 cost 13 to 14% and 4,000 cost 24 to 26% in 3 runs.
 const photoTintWidth = PlantCost<int>(
   Plant.photoTint,
   android: 2000,
-  ios: 1500,
+  ios: 4000,
 );
 
 /// Backdrop blurs stacked over the detail page's header picture for
@@ -145,6 +148,6 @@ const photoTintWidth = PlantCost<int>(
 /// CalculateScale` in `impeller/entity/contents/filters/
 /// gaussian_blur_filter_contents.cc`), so a larger sigma costs about the
 /// same. On the S24 one layer of sigma 40 cost no frames, 12 cost Detail
-/// 40%, and 24 ran the phone out of memory. On the iPhone 12 cost 11% and
-/// 24 cost 28%.
+/// 33 to 40%, and 24 ran the phone out of memory. On the iPhone 12 cost
+/// 11% and 24 cost 27 to 28%.
 const gpuBlurLayers = PlantCost<int>(Plant.gpuBlur, android: 12, ios: 24);
