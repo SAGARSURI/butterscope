@@ -52,7 +52,7 @@ void main() {
 
   testWidgets('an empty catalogue shows no counters', (tester) async {
     await tester.pumpWidget(
-      inApp(const ActivityScreen(catalogue: Catalogue([]), source: source)),
+      inApp(ActivityScreen(catalogue: Catalogue([]), source: source)),
     );
     await tester.pump(source.period * 5);
 

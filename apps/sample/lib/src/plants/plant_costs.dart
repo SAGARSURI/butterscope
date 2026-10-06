@@ -86,11 +86,18 @@ const gpuHeavyIterations = PlantCost<int>(
   ios: 85,
 );
 
-// M4's plants, one per sample screen. Every value is a first guess.
+// M4's plants, one per sample screen. Values come from single probe runs
+// with semantics off.
 // **(open, M4: set by the probe runs.)**
 
 /// Save layers around each feed card for `raster_clip`.
-const rasterClipLayers = PlantCost<int>(Plant.rasterClip, android: 6, ios: 50);
+/// On the iPhone, 150 cost Feed nothing and 350 cost it 43%: the frames
+/// went from 0.7 to 2.4 budgets. On the S24, 24 cost about 1%.
+const rasterClipLayers = PlantCost<int>(
+  Plant.rasterClip,
+  android: 60,
+  ios: 350,
+);
 
 /// Words of each item's title, tags and summary that `ui_busy` scores
 /// against the query on every keystroke. An item has about 22.
@@ -98,20 +105,25 @@ const uiBusyWordsPerItem = PlantCost<int>(Plant.uiBusy, android: 12, ios: 12);
 
 /// Segments in each row's bar for `rebuild_all`, every one a widget that
 /// is built and laid out again on every tick.
+/// 200 cost Activity 16% on the S24 and 13% on the iPhone; 300 cost the
+/// iPhone 17%.
 const rebuildAllSegments = PlantCost<int>(
   Plant.rebuildAll,
   android: 200,
-  ios: 200,
+  ios: 300,
 );
 
 /// Header entries in each inbox message's JSON, which `sync_decode` parses
 /// on the UI isolate. The screen shows none of them. Each is about 80
-/// bytes, so a batch of 20 messages is about 5 MB. The clean build gets
-/// the same messages and decodes them on a background isolate.
+/// bytes, so at 6,000 a batch of 20 messages is about 10 MB. The clean
+/// build gets the same messages and decodes them on a background isolate.
+/// While the socket still built its batches on the UI isolate, 6,000 cost
+/// Inbox 16% on the S24 and 12% on the iPhone, and 10,000 cost the iPhone
+/// 16%.
 const syncDecodeHeaders = PlantCost<int>(
   Plant.syncDecode,
-  android: 3000,
-  ios: 3000,
+  android: 6000,
+  ios: 10000,
 );
 
 /// The width in pixels `image_full_res` decodes every photo at. The photos
@@ -128,5 +140,7 @@ const imageFullResWidth = PlantCost<int>(
 /// by about 4 / sigma down to 1/16 (`GaussianBlurFilterContents::
 /// CalculateScale` in `impeller/entity/contents/filters/
 /// gaussian_blur_filter_contents.cc`), so a larger sigma costs about the
-/// same. On the S24 one layer of sigma 40 cost no frames.
-const gpuBlurLayers = PlantCost<int>(Plant.gpuBlur, android: 12, ios: 12);
+/// same. On the S24 one layer of sigma 40 cost no frames, 12 cost Detail
+/// 40%, and 24 ran the phone out of memory. On the iPhone 12 cost 11% and
+/// 24 cost 28%.
+const gpuBlurLayers = PlantCost<int>(Plant.gpuBlur, android: 12, ios: 24);

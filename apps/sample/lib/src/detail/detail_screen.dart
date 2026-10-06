@@ -1,5 +1,3 @@
-import 'dart:ui' show ImageFilter;
-
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/catalogue/item.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
@@ -18,7 +16,7 @@ Future<void> openDetail(BuildContext context, Catalogue catalogue, Item item) {
   );
 }
 
-/// One item: a large picture under a frosted title panel, its details,
+/// One item: a large picture with its title on a pale band, its details,
 /// and related items below.
 class DetailScreen extends StatelessWidget {
   const new({required this.catalogue, required this.item, super.key});
@@ -74,19 +72,16 @@ class _Header extends StatelessWidget {
           left: 0,
           right: 0,
           bottom: 0,
-          child: ClipRect(
-            child: BackdropFilter(
-              filter: ImageFilter.blur(sigmaX: 8, sigmaY: 8),
-              child: ColoredBox(
-                color: Colors.white24,
-                child: Padding(
-                  padding: const EdgeInsets.all(16),
-                  child: Text(
-                    item.title,
-                    key: const Key('detail-title'),
-                    style: Theme.of(context).textTheme.headlineSmall,
-                  ),
-                ),
+          // A plain band, not a blur: gpu_blur is the page's only blur, so
+          // the clean build keeps none of its cost.
+          child: ColoredBox(
+            color: Colors.white70,
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Text(
+                item.title,
+                key: const Key('detail-title'),
+                style: Theme.of(context).textTheme.headlineSmall,
               ),
             ),
           ),

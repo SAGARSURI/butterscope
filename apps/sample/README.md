@@ -19,7 +19,7 @@ throws.
 | --- | --- |
 | Feed | Scrolling list of item cards; tapping one opens Detail |
 | Search | Filters the items by title or tag as you type |
-| Detail | One item: a large picture under a frosted title panel, its facts and related items |
+| Detail | One item: a large picture with its title on a pale band, its facts and related items |
 | Activity | Live save counts for 40 items, bumped by a fake feed every 100 ms |
 | Inbox | Messages from a fake socket, sent as JSON every 500 ms and decoded on a background isolate |
 | Gallery | A grid of photos; tapping one opens it full screen |
