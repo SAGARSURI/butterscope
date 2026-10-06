@@ -1,5 +1,6 @@
 import 'package:butterscope_sample/src/detail/detail_screen.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
+import 'package:butterscope_sample/src/plants/plant_costs.dart';
 import 'package:butterscope_sample/src/plants/raster_plants.dart';
 import 'package:butterscope_sample/src/widgets/item_tile.dart';
 import 'package:flutter/material.dart';
@@ -52,6 +53,16 @@ void main() {
 
       expect(find.byType(BackdropBlurPlant), findsOneWidget);
       expect(find.text('Quiet Harbour No. 2'), findsOneWidget);
+    });
+
+    testWidgets('stacks as many blurs as its cost says', (tester) async {
+      await tester.pumpWidget(detailOf(1, plant: Plant.gpuBlur));
+
+      final blurs = find.descendant(
+        of: find.byType(BackdropBlurPlant),
+        matching: find.byType(BackdropFilter),
+      );
+      expect(blurs, findsNWidgets(gpuBlurLayers.value));
     });
 
     testWidgets('the clean build has no blur plant', (tester) async {

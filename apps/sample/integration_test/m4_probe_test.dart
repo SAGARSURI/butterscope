@@ -6,7 +6,8 @@
 //   --driver=test_driver/integration_test.dart \
 //   --target=integration_test/m4_probe_test.dart \
 //   --dart-define=BUTTERSCOPE_PLANT=<name> \
-//   --dart-define=BUTTERSCOPE_COST=<value>
+//   --dart-define=BUTTERSCOPE_COST=<value> \
+//   --dart-define=BUTTERSCOPE_SEMANTICS=<on|off>
 //
 // This is measurement code like M2's probe, kept apart from the ordinary
 // tests; it is not the M5 API.
@@ -20,6 +21,7 @@ import 'package:integration_test/integration_test.dart';
 
 import 'bscope_writer.dart';
 import 'support/app.dart';
+import 'support/run_conditions.dart';
 
 /// How long a screen runs before its window starts, so that opening it is
 /// not measured.
@@ -36,12 +38,6 @@ const Duration keystroke = Duration(milliseconds: 150);
 
 /// What the Search window types, one letter at a time, again and again.
 const String phrase = 'lantern garden';
-
-String get buildMode {
-  if (kReleaseMode) return 'release';
-  if (kProfileMode) return 'profile';
-  return 'debug';
-}
 
 /// Flings [scrollable] by [distance] logical pixels, alternating direction
 /// when [alternate] is set, until [watch] reaches [window].
@@ -99,14 +95,16 @@ void main() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   final plant = Plant.fromEnvironment();
   const cost = String.fromEnvironment('BUTTERSCOPE_COST');
+  final semantics = semanticsFromEnvironment();
   final writer = BscopeWriter(debugPrintSynchronously);
   final run = <String, Object>{
     'plant': plant == Plant.none ? 'none' : plant.defineName,
     'cost': cost.isEmpty ? 'default' : cost,
+    'semantics': semantics ? 'on' : 'off',
     'mode': buildMode,
   };
 
-  testWidgets('M4 screen windows', (tester) async {
+  testWidgets('M4 screen windows', semanticsEnabled: semantics, (tester) async {
     // Launch and navigate as the ordinary tests do, then switch to
     // benchmarkLive, under which pumpAndSettle would never settle.
     await launchApp(tester);

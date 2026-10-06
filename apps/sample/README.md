@@ -90,6 +90,10 @@ M2's plants run M2's calibration probe instead, where the animated window
 is the planted one; `calibration` runs it with no plant. Transcripts and
 summaries go to `build/m4_probe/<device-id>/`.
 
+Semantics are off unless `SEMANTICS=on` is set, as in M2's probe.
+`testWidgets` turns them on by default, so the probe passes
+`semanticsEnabled` itself and records which one each run used.
+
 The six gallery photos in `assets/photos` are 4032 x 3024 (12 MP)
 landscapes painted from fixed seeds by
 [`tool/m4/make_photos.dart`](tool/m4/make_photos.dart). Running it again

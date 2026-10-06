@@ -122,5 +122,11 @@ const imageFullResWidth = PlantCost<int>(
   ios: 4032,
 );
 
-/// Blur sigma over the detail page's header picture for `gpu_blur`.
-const gpuBlurSigma = PlantCost<double>(Plant.gpuBlur, android: 40, ios: 40);
+/// Backdrop blurs stacked over the detail page's header picture for
+/// `gpu_blur`, each of sigma 40 like `backdrop_blur`'s. The knob is the
+/// layer count, not the sigma: Impeller blurs a downsampled copy, scaling
+/// by about 4 / sigma down to 1/16 (`GaussianBlurFilterContents::
+/// CalculateScale` in `impeller/entity/contents/filters/
+/// gaussian_blur_filter_contents.cc`), so a larger sigma costs about the
+/// same. On the S24 one layer of sigma 40 cost no frames.
+const gpuBlurLayers = PlantCost<int>(Plant.gpuBlur, android: 12, ios: 12);

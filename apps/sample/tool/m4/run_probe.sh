@@ -8,7 +8,8 @@
 # A build is "clean", a plant such as "raster_clip", or a plant and a cost
 # such as "raster_clip=12", which sets the plant's knob for that build
 # (BUTTERSCOPE_COST, see lib/src/plants/plant_costs.dart). RUNS=3 runs each
-# build three times. M2's plants, which name no screen, run M2's probe on
+# build three times; SEMANTICS=on turns semantics on, as testWidgets does
+# by default (off unless set). M2's plants, which name no screen, run M2's probe on
 # the calibration screen instead, where the animated window is the planted
 # one; "calibration" runs that probe with no plant.
 #
@@ -30,6 +31,11 @@ fi
 device=$1
 shift
 runs=${RUNS:-1}
+semantics=${SEMANTICS:-off}
+case "$semantics" in
+  on | off) ;;
+  *) echo "SEMANTICS must be on or off" >&2; exit 64 ;;
+esac
 
 cd "$(dirname "$0")/../.." || exit 1
 
@@ -94,14 +100,16 @@ for build in "$@"; do
   esac
   for n in $(seq 1 "$runs"); do
     name=$plant${cost:+-$cost}-$n
+    [ "$semantics" = on ] && name=$plant${cost:+-$cost}-semantics-$n
     log=$out/$name.log
-    echo "== $build, run $n of $runs"
+    echo "== $build, semantics $semantics, run $n of $runs"
     $android && adb -s "$device" logcat -c
     fvm flutter drive --profile --no-dds --keep-app-running \
       --driver=test_driver/integration_test.dart \
       --target="$target" \
       --dart-define=BUTTERSCOPE_PLANT="$define" \
       --dart-define=BUTTERSCOPE_COST="$cost" \
+      --dart-define=BUTTERSCOPE_SEMANTICS="$semantics" \
       -d "$device" >"$log" 2>&1
     drive=$?
     $android && adb -s "$device" logcat -d -s flutter >>"$log"

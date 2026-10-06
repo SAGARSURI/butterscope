@@ -68,7 +68,7 @@ class _Header extends StatelessWidget {
         ItemArt(item: item),
         if (PlantScope.of(context) == Plant.gpuBlur)
           ClipRect(
-            child: BackdropBlurPlant(layers: 1, sigma: gpuBlurSigma.value),
+            child: BackdropBlurPlant(layers: gpuBlurLayers.value, sigma: 40),
           ),
         Positioned(
           left: 0,
