@@ -11,8 +11,10 @@ class ItemTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // No key from the item: when a list shows other items in the same
+    // places, as search results do on each keystroke, the tiles are updated
+    // in place instead of built again from scratch.
     return ListTile(
-      key: Key('item-tile-${item.id}'),
       leading: ClipRRect(
         borderRadius: BorderRadius.circular(8),
         child: SizedBox.square(dimension: 48, child: ItemArt(item: item)),

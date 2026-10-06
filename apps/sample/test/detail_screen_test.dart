@@ -41,7 +41,7 @@ void main() {
 
     // Items 2 and 3 share item 0's first tag, "outdoor".
     expect(find.byType(ItemTile), findsNWidgets(2));
-    await tester.tap(find.byKey(const Key('item-tile-3')));
+    await tester.tap(find.text('Silver Meadow No. 4'));
     await tester.pumpAndSettle();
 
     expect(find.text('Summary of Silver Meadow No. 4.'), findsOneWidget);
