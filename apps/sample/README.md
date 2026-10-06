@@ -95,8 +95,8 @@ is not counted, since the first runs of a batch lost more frames than
 later ones. A failed warm-up stops the batch. `WARMUP=off` skips them.
 
 On Android, each run first waits until the phone reports no thermal
-throttling, a battery at 38 °C or less and at least 3 GB of free memory,
-and the batch stops if power saving is on or Stay awake is off. The
+throttling and a battery at 38 °C or less, and the batch stops if power
+saving is on, Stay awake is off or less than 2 GB of memory is free. The
 phone's state is printed with each run. iOS reports none of this to the
 Mac, so keep Low Power Mode off and other apps closed.
 

@@ -28,10 +28,10 @@
 # lost more frames than later ones. A failed warm-up stops the batch.
 # WARMUP=off skips them.
 #
-# On Android each run first waits for the phone to cool and for 3 GB of
-# memory to be free, and the batch stops if power saving is on or Stay
-# awake is off (see android_ready), so heat, power settings and other apps
-# add nothing to the frames lost. iOS reports none of these to the Mac:
+# On Android each run first waits for the phone to cool, and the batch
+# stops if power saving is on, Stay awake is off or memory is short (see
+# android_ready), so heat, power settings and other apps add nothing to
+# the frames lost. iOS reports none of these to the Mac:
 # keep Low Power Mode off, close other apps and let the phone cool between
 # batches.
 set -uo pipefail
@@ -97,13 +97,13 @@ compact() {
   ' "$1"
 }
 
-# Android only. Fails when power saving is on or Stay awake is off.
-# Waits up to 10 minutes for the phone to cool, thermal status 0 (no
-# throttling) and the battery at 38 °C or less, and for 3 GB of memory to
-# be free: in the S24's first guarded batch, clean runs with less free
-# lost up to 3 points more on Search and Detail than later ones, while
-# free memory rose from 2.7 to 4.2 GB. Prints the phone's state, which
-# goes in the batch's transcript.
+# Android only. Fails when power saving is on, Stay awake is off or less
+# than 2 GB of memory is free, since other apps' work would land in the
+# window. Free memory is not waited on: the S24 has sat at 2.7 to 2.9 GB
+# for 10 minutes without rising, while its clean runs stayed steady at 3.1
+# to 3.4 GB. Waits up to 10 minutes for the phone to cool: thermal status
+# 0 (no throttling) and the battery at 38 °C or less. Prints the phone's
+# state, which goes in the batch's transcript.
 android_ready() {
   local power awake thermal battery tenths level mem load waited=0
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
@@ -135,16 +135,18 @@ android_ready() {
         "temperature or free memory."
       return 1
     fi
-    [ "$thermal" -eq 0 ] && [ "$tenths" -le 380 ] && [ "$mem" -ge 3072 ] &&
-      break
-    if [ "$waited" -ge 600 ]; then
-      echo "STOP: after 10 minutes the phone is still hot or short of" \
-        "memory (thermal status $thermal, battery $((tenths / 10)) °C," \
-        "${mem} MB free). Close other apps on the phone and let it cool."
+    if [ "$mem" -lt 2048 ]; then
+      echo "STOP: only ${mem} MB free. Close other apps on the phone."
       return 1
     fi
-    echo "  waiting 30 s for the phone to cool and free memory: thermal" \
-      "status $thermal, battery $((tenths / 10)) °C, ${mem} MB free"
+    [ "$thermal" -eq 0 ] && [ "$tenths" -le 380 ] && break
+    if [ "$waited" -ge 600 ]; then
+      echo "STOP: the phone is still hot (thermal status $thermal," \
+        "battery $((tenths / 10)) °C)."
+      return 1
+    fi
+    echo "  cooling down: thermal status $thermal," \
+      "battery $((tenths / 10)) °C; waiting 30 s"
     sleep 30
     waited=$((waited + 30))
   done
