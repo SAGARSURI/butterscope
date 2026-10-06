@@ -98,7 +98,9 @@ android_ready() {
   power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
   awake=$(adb -s "$device" shell settings get global stay_on_while_plugged_in |
     tr -d '\r')
-  if [ "$power" = 1 ] || [ "$awake" = 0 ]; then
+  # Stay awake holds which chargers keep the screen on: 1 to 7 when on,
+  # 0 or null (never set) when off.
+  if [ "$power" = 1 ] || ! [[ "$awake" =~ ^[1-7]$ ]]; then
     echo "STOP: turn power saving off and Developer options > Stay awake on."
     return 1
   fi
@@ -114,7 +116,13 @@ android_ready() {
     battery=$(adb -s "$device" shell dumpsys battery | tr -d '\r')
     tenths=$(echo "$battery" | awk '/^ *temperature:/ { print $2 }')
     level=$(echo "$battery" | awk '/^ *level:/ { print $2 }')
-    [ "${thermal:-0}" -eq 0 ] && [ "${tenths:-0}" -le 380 ] && break
+    # A reading the phone did not give is not a cool phone.
+    if ! [[ "$thermal" =~ ^[0-9]+$ && "$tenths" =~ ^[0-9]+$ ]]; then
+      echo "STOP: could not read the phone's thermal status or battery" \
+        "temperature."
+      return 1
+    fi
+    [ "$thermal" -eq 0 ] && [ "$tenths" -le 380 ] && break
     if [ "$waited" -ge 600 ]; then
       echo "STOP: the phone is still hot (thermal status $thermal," \
         "battery $((tenths / 10)) °C)."
@@ -125,7 +133,7 @@ android_ready() {
     sleep 30
     waited=$((waited + 30))
   done
-  echo "  phone: thermal status ${thermal:-0}, battery $((tenths / 10)) °C" \
+  echo "  phone: thermal status $thermal, battery $((tenths / 10)) °C" \
     "at ${level}%, ${mem} MB free"
 }
 
