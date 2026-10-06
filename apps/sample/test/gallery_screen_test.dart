@@ -58,7 +58,8 @@ void main() {
     );
 
     // Cells 0 and 6 show the same photo file, photo_1.jpg, but at 4032 and
-    // 4032 - 6 = 4026 pixels, so the image cache holds them apart.
-    expect(decodedWidth(tester, 6), 4026);
+    // 4032 + 6 = 4038 pixels, so the image cache holds them apart. Adding
+    // keeps every width above 0, however small the cost.
+    expect(decodedWidth(tester, 6), 4038);
   });
 }
