@@ -126,12 +126,13 @@ const syncDecodeHeaders = PlantCost<int>(
   ios: 10000,
 );
 
-/// The width in pixels `image_full_res` decodes every photo at. The photos
-/// are 4032 x 3024, so 4032 is full size.
-const imageFullResWidth = PlantCost<int>(
-  Plant.imageFullRes,
-  android: 4032,
-  ios: 4032,
+/// The width in pixels of the copy of each photo whose pixels `photo_tint`
+/// averages, every time a cell is built into the grid. The copy is 4:3,
+/// so 1,500 is about 1.7 million pixels. First guess.
+const photoTintWidth = PlantCost<int>(
+  Plant.photoTint,
+  android: 1500,
+  ios: 1500,
 );
 
 /// Backdrop blurs stacked over the detail page's header picture for

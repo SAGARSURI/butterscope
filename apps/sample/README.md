@@ -39,7 +39,7 @@ fvm flutter run --profile --dart-define=BUTTERSCOPE_PLANT=<name>
 | `ui_busy` | Search | Scores every item with an edit distance on every keystroke, on the UI thread, and lists the best matches first | UI time |
 | `rebuild_all` | Activity | Rebuilds and lays out every row, each with a bar of many boxes, on every bump | UI time |
 | `sync_decode` | Inbox | Decodes each batch on the UI thread instead of a background isolate | UI time |
-| `image_full_res` | Gallery | Decodes every grid photo at full size instead of the cell's size | UI and raster time |
+| `photo_tint` | Gallery | Frames each cell in its photo's colour, averaged from every pixel of a large copy on the UI thread each time the cell scrolls in | UI time |
 | `gpu_blur` | Detail | A large backdrop blur over the header picture | Raster time |
 
 Inbox messages carry header entries that the screen never shows, so each

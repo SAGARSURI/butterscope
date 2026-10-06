@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
 import 'package:butterscope_sample/src/catalogue/item.dart';
@@ -86,6 +87,100 @@ class SegmentedBar extends StatelessWidget {
             ),
         ],
       ),
+    );
+  }
+}
+
+/// The average colour of [rgba], pixels of four bytes each (red, green,
+/// blue, alpha), ignoring alpha.
+Color averageColour(ByteData rgba) {
+  final bytes = rgba.buffer.asUint8List(rgba.offsetInBytes, rgba.lengthInBytes);
+  final pixels = bytes.length ~/ 4;
+  var red = 0;
+  var green = 0;
+  var blue = 0;
+  for (var i = 0; i < pixels * 4; i += 4) {
+    red += bytes[i];
+    green += bytes[i + 1];
+    blue += bytes[i + 2];
+  }
+  return Color.fromARGB(255, red ~/ pixels, green ~/ pixels, blue ~/ pixels);
+}
+
+/// A gallery cell for `photo_tint`: [child] on a frame in the colour of
+/// [photo], once that colour is worked out.
+///
+/// The mistake is working the colour out from every pixel of a [width]
+/// pixel copy of the photo, on the UI thread, each time the cell is built
+/// into the grid, instead of once per photo from a small copy. Flutter
+/// decodes the copy on a background thread and caches it; reading its
+/// pixels back and averaging them is the cost.
+class TintedPhoto extends StatefulWidget {
+  const new({
+    required this.photo,
+    required this.width,
+    required this.child,
+    super.key,
+  });
+
+  final ImageProvider photo;
+
+  /// The width in pixels of the copy whose pixels are averaged.
+  final int width;
+
+  final Widget child;
+
+  @override
+  State<TintedPhoto> createState() => _TintedPhotoState();
+}
+
+class _TintedPhotoState extends State<TintedPhoto> {
+  ImageStream? _stream;
+  late final ImageStreamListener _listener = ImageStreamListener(_read);
+  Color? _tint;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    _stream ??= _resolve();
+  }
+
+  @override
+  void didUpdateWidget(TintedPhoto oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.photo == oldWidget.photo && widget.width == oldWidget.width) {
+      return;
+    }
+    _stream?.removeListener(_listener);
+    _stream = _resolve();
+  }
+
+  ImageStream _resolve() {
+    final provider = ResizeImage(widget.photo, width: widget.width);
+    return provider.resolve(createLocalImageConfiguration(context))
+      ..addListener(_listener);
+  }
+
+  Future<void> _read(ImageInfo info, bool synchronousCall) async {
+    final rgba = await info.image.toByteData();
+    // The stream hands each listener its own handle to the image.
+    info.dispose();
+    if (rgba == null || !mounted) return;
+    setState(() => _tint = averageColour(rgba));
+  }
+
+  @override
+  void dispose() {
+    _stream?.removeListener(_listener);
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ColoredBox(
+      key: const Key('photo-tint'),
+      color: _tint ?? Colors.transparent,
+      child: Padding(padding: const EdgeInsets.all(4), child: widget.child),
     );
   }
 }
