@@ -138,8 +138,8 @@ the S24's costs, `slow_raster` and `backdrop_blur` dropped no frames on the
 iPhone 17 Pro and `gpu_heavy` dropped about 3 in 4
 ([M2 measurements](../../docs/measurements/m2.md)). The screen plants'
 values on both phones, and the calibration plants' values on the S24, come
-from 3-run probe batches. The calibration plants' iPhone values are first
-guesses. **(open, M4: set by the iPhone probe runs.)**
+from 3-run probe batches. Three of the calibration plants' iPhone values
+come from single runs. **(open, M4: confirmed by 3 iPhone runs.)**
 
 ## Platform folders
 

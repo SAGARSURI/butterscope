@@ -45,24 +45,25 @@ class PlantCost<T extends num> {
   }
 }
 
-// M2's plants, on the calibration screen. The Android values are M2's,
-// from the S24 runs in docs/measurements/m2.md. The iOS values are first
-// guesses, scaled from the iPhone's p99 raster time in the same runs to
-// about 1.5 frame budgets. **(open, M4: set by the probe runs.)**
+// M2's plants, on the calibration screen. The S24's values are confirmed
+// in 3 probe runs each. The iPhone's values for listener_decode,
+// backdrop_blur and gpu_heavy come from single runs.
+// **(open, M4: confirmed by 3 iPhone runs.)**
 
 /// Frame budgets of UI-thread work per stream event for `listener_decode`.
 /// M2 lost 10.5% on the S24 and 15.2% on the iPhone at 1.5. The events are
 /// not tied to vsync, so a job of 1.5 budgets costs 1 or 2 frames by where
-/// it lands: in 3 S24 runs, 1.5 lost 16.5, 13.5 and 8.0%. 3 costs 3 or 4
-/// frames, and lost 33 to 34% in 3 runs.
+/// it lands: in 3 S24 runs, 1.5 lost 16.5, 13.5 and 8.0%, and the iPhone
+/// lost 0.2 to 1.4%. 3 costs 3 or 4 frames, and lost 33 to 34% in 3 S24
+/// runs and 33% in one iPhone run.
 const listenerDecodeBudgets = PlantCost<double>(
   Plant.listenerDecode,
   android: 3,
-  ios: 1.5,
+  ios: 3,
 );
 
-/// Frame budgets of UI-thread work per frame for `postframe_decode`. M2
-/// lost 50% on both phones at 1.5.
+/// Frame budgets of UI-thread work per frame for `postframe_decode`. 1.5
+/// lost 50% on both phones in M2 and in M4's 3 runs.
 const postframeDecodeBudgets = PlantCost<double>(
   Plant.postframeDecode,
   android: 1.5,
@@ -70,23 +71,27 @@ const postframeDecodeBudgets = PlantCost<double>(
 );
 
 /// Save-layer depth for `slow_raster`. 40 lost 39.8% on the S24 and none
-/// on the iPhone, whose p99 raster time was 0.17 budgets.
+/// on the iPhone, whose p99 raster time was 0.17 budgets. 350 lost 44% on
+/// the iPhone in 3 runs.
 const slowRasterDepth = PlantCost<int>(Plant.slowRaster, android: 40, ios: 350);
 
 /// Stacked blurs for `backdrop_blur`. 6 lost 39.1% on the S24 and none on
-/// the iPhone, whose p99 raster time was 0.30 budgets.
+/// the iPhone, whose p99 raster time was 0.30 budgets. On the iPhone, 30
+/// lost 72% in 3 runs, 20 lost 58% and 15 lost 44% in single runs.
 const backdropBlurLayers = PlantCost<int>(
   Plant.backdropBlur,
   android: 6,
-  ios: 30,
+  ios: 15,
 );
 
 /// Shader loop steps per pixel for `gpu_heavy`. 500 lost 34.1% on the S24
-/// and 76.7% on the iPhone, whose p99 raster time was 8.9 budgets.
+/// and 76.7% on the iPhone, whose p99 raster time was 8.9 budgets. On the
+/// iPhone, 85 lost nothing in 3 runs, 200 lost 45% (drawing at 40 Hz) and
+/// 300 lost 64% (30 Hz) in single runs.
 const gpuHeavyIterations = PlantCost<int>(
   Plant.gpuHeavy,
   android: 500,
-  ios: 85,
+  ios: 200,
 );
 
 // M4's plants, one per sample screen, from probe runs with semantics off.
