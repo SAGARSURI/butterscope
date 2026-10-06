@@ -9,11 +9,14 @@ const int galleryLength = 60;
 /// wider than [width] logical pixels on this screen, so a 12 MP file
 /// costs only what the cell shows.
 ///
-/// Under `image_full_res`, every photo is decoded at [imageFullResWidth]
-/// instead.
+/// Under `image_full_res`, every photo is decoded at about
+/// [imageFullResWidth] instead, a pixel narrower for each index, so each
+/// cell holds its own full-size image, as a gallery of 60 different photos
+/// would. With six photos decoded once, a full-size decode cost the phones
+/// no frames.
 Widget sizedPhoto(BuildContext context, int index, double width) {
   final pixels = PlantScope.of(context) == Plant.imageFullRes
-      ? imageFullResWidth.value
+      ? imageFullResWidth.value - index
       : (width * MediaQuery.devicePixelRatioOf(context)).ceil();
   return Image.asset(
     'assets/photos/photo_${index % 6 + 1}.jpg',

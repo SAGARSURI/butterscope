@@ -51,4 +51,14 @@ void main() {
     // The photos are 4032 x 3024, and the cell needs 1067.
     expect(decodedWidth(tester, 0), 4032);
   });
+
+  testWidgets('image_full_res gives each cell its own image', (tester) async {
+    await tester.pumpWidget(
+      inApp(const GalleryScreen(), plant: Plant.imageFullRes),
+    );
+
+    // Cells 0 and 6 show the same photo file, photo_1.jpg, but at 4032 and
+    // 4032 - 6 = 4026 pixels, so the image cache holds them apart.
+    expect(decodedWidth(tester, 6), 4026);
+  });
 }
