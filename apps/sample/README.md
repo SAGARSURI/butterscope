@@ -90,9 +90,9 @@ M2's plants run M2's calibration probe instead, where the animated window
 is the planted one; `calibration` runs it with no plant. Transcripts and
 summaries go to `build/m4_probe/<device-id>/`.
 
-Each batch starts with one clean warm-up run that is not counted, since
-the first runs of a batch lost more frames than later ones. `WARMUP=off`
-skips it.
+Each batch starts with one clean warm-up run of each probe it uses, which
+is not counted, since the first runs of a batch lost more frames than
+later ones. A failed warm-up stops the batch. `WARMUP=off` skips them.
 
 On Android, each run first waits until the phone reports no thermal
 throttling, a battery at 38 °C or less and at least 3 GB of free memory,

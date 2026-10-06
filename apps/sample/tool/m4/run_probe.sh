@@ -23,10 +23,10 @@
 # power-saving screen reads as a plant losing frames. The phone
 # must stay unlocked: Stay awake on for Android, Auto-Lock off for iOS.
 #
-# Each batch starts with one clean warm-up run that is not counted: in
-# the S24's first guarded batch, the first runs lost more frames than
-# later ones.
-# WARMUP=off skips it.
+# Each batch starts with one clean warm-up run of each probe it uses,
+# which is not counted: in the S24's first guarded batch, the first runs
+# lost more frames than later ones. A failed warm-up stops the batch.
+# WARMUP=off skips them.
 #
 # On Android each run first waits for the phone to cool and for 3 GB of
 # memory to be free, and the batch stops if power saving is on or Stay
@@ -181,12 +181,22 @@ probe() {
   esac
 }
 
+# One warm-up run per probe the batch uses, before any run counts. A
+# failed warm-up stops the batch, so a cold run is never counted.
 if [ "$warmup" = on ]; then
-  echo "== warm-up: clean, not counted"
-  $android && { android_ready || exit 1; }
-  first=${1%%=*}
-  drive "$(probe "$first")" "" "" "$out/warmup.log" ||
-    echo "  the warm-up run failed; see $out/warmup.log"
+  warmed=" "
+  for build in "$@"; do
+    target=$(probe "${build%%=*}")
+    case "$warmed" in *" $target "*) continue ;; esac
+    warmed="$warmed$target "
+    log=$out/warmup-$(basename "$target" .dart).log
+    echo "== warm-up: $target, clean, not counted"
+    $android && { android_ready || exit 1; }
+    if ! drive "$target" "" "" "$log"; then
+      echo "STOP: the warm-up run failed; see $log"
+      exit 1
+    fi
+  done
 fi
 
 status=0
