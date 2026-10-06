@@ -22,6 +22,12 @@
 # drew under 114 Hz on any screen, stops the batch: a capped or
 # power-saving screen reads as a plant losing frames. The phone
 # must stay unlocked: Stay awake on for Android, Auto-Lock off for iOS.
+#
+# On Android each run first waits for the phone to cool, and the batch
+# stops if power saving is on, Stay awake is off or memory is short (see
+# android_ready), so heat, power settings and other apps add nothing to
+# the frames lost. iOS reports none of these to the Mac: keep Low Power
+# Mode off, close other apps and let the phone cool between batches.
 set -uo pipefail
 
 if [ $# -lt 2 ]; then
@@ -82,6 +88,47 @@ compact() {
   ' "$1"
 }
 
+# Android only. Fails when power saving is on, Stay awake is off or less
+# than 2 GB of memory is free, since other apps' work would land in the
+# window. Waits up to 10 minutes for the phone to cool: thermal status 0
+# (no throttling) and the battery at 38 °C or less. Prints the phone's
+# state, which goes in the batch's transcript.
+android_ready() {
+  local power awake thermal battery tenths level mem waited=0
+  power=$(adb -s "$device" shell settings get global low_power | tr -d '\r')
+  awake=$(adb -s "$device" shell settings get global stay_on_while_plugged_in |
+    tr -d '\r')
+  if [ "$power" = 1 ] || [ "$awake" = 0 ]; then
+    echo "STOP: turn power saving off and Developer options > Stay awake on."
+    return 1
+  fi
+  mem=$(adb -s "$device" shell cat /proc/meminfo |
+    awk '/^MemAvailable:/ { print int($2 / 1024) }')
+  if [ "${mem:-0}" -lt 2048 ]; then
+    echo "STOP: only ${mem:-0} MB free. Close other apps on the phone."
+    return 1
+  fi
+  while :; do
+    thermal=$(adb -s "$device" shell dumpsys thermalservice |
+      sed -n 's/^Thermal Status: //p' | tr -d '\r')
+    battery=$(adb -s "$device" shell dumpsys battery | tr -d '\r')
+    tenths=$(echo "$battery" | awk '/^ *temperature:/ { print $2 }')
+    level=$(echo "$battery" | awk '/^ *level:/ { print $2 }')
+    [ "${thermal:-0}" -eq 0 ] && [ "${tenths:-0}" -le 380 ] && break
+    if [ "$waited" -ge 600 ]; then
+      echo "STOP: the phone is still hot (thermal status $thermal," \
+        "battery $((tenths / 10)) °C)."
+      return 1
+    fi
+    echo "  cooling down: thermal status $thermal," \
+      "battery $((tenths / 10)) °C; waiting 30 s"
+    sleep 30
+    waited=$((waited + 30))
+  done
+  echo "  phone: thermal status ${thermal:-0}, battery $((tenths / 10)) °C" \
+    "at ${level}%, ${mem} MB free"
+}
+
 # M2's plants: the define names in lib/src/plants/plant.dart with no screen,
 # from lines such as `slowRaster('slow_raster'),`.
 m2_plants=" calibration $(sed -nE "s/^  [a-zA-Z]+\('([a-z_]+)'\)[,;]$/\1/p" \
@@ -103,6 +150,7 @@ for build in "$@"; do
     [ "$semantics" = on ] && name=$plant${cost:+-$cost}-semantics-$n
     log=$out/$name.log
     echo "== $build, semantics $semantics, run $n of $runs"
+    $android && { android_ready || exit 1; }
     $android && adb -s "$device" logcat -c
     fvm flutter drive --profile --no-dds --keep-app-running \
       --driver=test_driver/integration_test.dart \

@@ -90,6 +90,12 @@ M2's plants run M2's calibration probe instead, where the animated window
 is the planted one; `calibration` runs it with no plant. Transcripts and
 summaries go to `build/m4_probe/<device-id>/`.
 
+On Android, each run first waits until the phone reports no thermal
+throttling and a battery at 38 °C or less, and the batch stops if power
+saving is on, Stay awake is off or less than 2 GB of memory is free. The
+phone's state is printed with each run. iOS reports none of this to the
+Mac, so keep Low Power Mode off and other apps closed.
+
 Semantics are off unless `SEMANTICS=on` is set, as in M2's probe.
 `testWidgets` turns them on by default, so the probe passes
 `semanticsEnabled` itself and records which one each run used.
