@@ -1,6 +1,6 @@
 # 0004: The sample app's plants and what M4 measured
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-06
 - Milestone: M4
 
