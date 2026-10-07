@@ -9,6 +9,7 @@ import 'dart:ui';
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_test/src/attach.dart';
 import 'package:butterscope_test/src/report_writer.dart';
+import 'package:flutter/widgets.dart' show EditableText;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
@@ -75,25 +76,29 @@ void main() {
       [for (final test in tests) test['name']],
       [
         'the frame policy is benchmarkLive',
+        'the text cursor holds still',
         'Feed scrolls smoothly',
         'Feed janks once',
       ],
     );
-    expect([for (final test in tests) test['kind']], ['test', 'test', 'test']);
+    expect(
+      [for (final test in tests) test['kind']],
+      [for (var i = 0; i < 4; i++) 'test'],
+    );
     // Each test keeps its own frames. The 4 rendered after each test belong
-    // to none, but are in the run: 2 + 10 + 6 + 3 × 4 = 30.
-    expect([for (final test in tests) test['frames']], [2, 10, 6]);
-    expect(report['frames'], 30);
+    // to none, but are in the run: 2 + 0 + 10 + 6 + 4 × 4 = 34.
+    expect([for (final test in tests) test['frames']], [2, 0, 10, 6]);
+    expect(report['frames'], 34);
 
-    final smooth = tests[1]['metrics']! as Map<String, Object?>;
+    final smooth = tests[2]['metrics']! as Map<String, Object?>;
     expect(smooth['janky'], 0);
     expect(smooth['hitchRatio'], 0);
 
     // One frame of 12 ms against a budget of 8.33 ms at 120 Hz.
-    final janky = tests[2]['metrics']! as Map<String, Object?>;
+    final janky = tests[3]['metrics']! as Map<String, Object?>;
     expect(janky['janky'], 1);
     expect(janky['jankyRate'], 1 / 6);
-    final diagnostics = tests[2]['diagnostics']! as Map<String, Object?>;
+    final diagnostics = tests[3]['diagnostics']! as Map<String, Object?>;
     // Builds of 2, 2, 2, 2, 2 and 12 ms: 22 ms over 6 frames.
     expect(diagnostics['avgBuildMs'], closeTo(22 / 6, 1e-9));
   });
@@ -112,6 +117,10 @@ void main() {
       LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive,
     );
     source.render(2);
+  });
+
+  test('the text cursor holds still', () {
+    expect(EditableText.debugDeterministicCursor, isTrue);
   });
 
   group('Feed', () {
