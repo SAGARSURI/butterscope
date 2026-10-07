@@ -17,6 +17,9 @@ dependencies:
     sdk: flutter
   integration_test:
     sdk: flutter
+  # TestHandle.current.name, the public way to read the running test's
+  # name. flutter_test pins the version (0.7.12 in Flutter 3.47.5).
+  test_api: ^0.7.12
 
 dev_dependencies:
   very_good_analysis: ^11.0.0
