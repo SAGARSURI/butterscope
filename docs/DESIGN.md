@@ -362,8 +362,10 @@ same physical unit in the same session, interleaved.
   (`packages/flutter_tools/lib/src/drive/drive_service.dart`, `stop()`); on
   an iPhone signed by a personal developer account, the phone then asks to
   trust the developer again before every run. The flag also leaves the
-  app running in the foreground, animating, so the runner stops it before
-  the next run. `flutter drive` does not drive release builds, so release
+  app running in the foreground, animating, so on Android the probe and
+  overlay runners (`tool/m4/run_probe.sh`, `run_overlay.sh`) stop it before
+  the next run. The ordinary tests' runner does not, since it measures no
+  frames. `flutter drive` does not drive release builds, so release
   runs are launched directly. Xcode stays closed during iOS runs, or the
   launch goes through it and stalls.
 - Same Flutter SDK and flavour as the release build; only the data layer is

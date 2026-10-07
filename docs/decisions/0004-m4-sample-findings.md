@@ -88,7 +88,8 @@ What the runs showed:
 3. **The rig keeps outside work out of the clean screens.** DESIGN 7.4
    and 7.5 gain three rules:
    - Each batch starts with one warm-up run that is not counted.
-   - Before each run, the app left by the previous run is stopped.
+   - On Android, the app left by the previous run is stopped before each
+     probe or overlay run.
    - On Android, a run starts only with power saving off, Stay awake on
      for the charger in use, at least 2 GB of memory free, no thermal
      throttling and the battery at 38 °C or less.
