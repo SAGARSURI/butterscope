@@ -16,6 +16,21 @@ final class RefreshRateRead {
   final int afterSamples;
 }
 
+/// A point inside a recording: the frame begun most recently when it was
+/// taken, and the refresh rate the screen declared then.
+final class FrameMark {
+  /// Creates a mark, for example in a test.
+  const new({required this.frameNumber, required this.declaredRefreshRate});
+
+  /// The frame begun most recently when the mark was taken. It belongs to
+  /// the part of the recording before the mark.
+  final int frameNumber;
+
+  /// The declared refresh rate read when the mark was taken, as read: it can
+  /// be 0 or not finite, for the guards to judge.
+  final double declaredRefreshRate;
+}
+
 /// Everything a recorder stored for one window, before any metric is
 /// computed.
 final class RecordedWindow {
@@ -61,4 +76,15 @@ final class RecordedWindow {
   /// The recorder's own cost: total time spent in its timings callback for
   /// this window, in microseconds.
   final int callbackMicros;
+
+  /// The samples of the frames begun after [start], up to and including
+  /// the frame [end] names, in the order they were reported.
+  List<FrameSample> samplesBetween(FrameMark start, FrameMark end) {
+    return [
+      for (final sample in samples)
+        if (sample.frameNumber > start.frameNumber &&
+            sample.frameNumber <= end.frameNumber)
+          sample,
+    ];
+  }
 }

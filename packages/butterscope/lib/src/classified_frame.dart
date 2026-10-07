@@ -50,17 +50,8 @@ final class ClassifiedFrame {
   /// The budget it is judged against.
   final FrameBudget budget;
 
-  /// UI thread time in microseconds: the wait for the UI thread after the
-  /// vsync plus the build.
-  ///
-  /// The UI thread cannot start the next frame until this one is built, so
-  /// UI time over the budget means a vsync was missed, whatever caused the
-  /// wait. A negative wait, which a well-behaved engine never reports,
-  /// counts as none.
-  int get uiMicros {
-    final wait = math.max(0, sample.vsyncOverheadMicros);
-    return wait + sample.buildMicros;
-  }
+  /// UI thread time in microseconds; see [FrameSample.uiMicros].
+  int get uiMicros => sample.uiMicros;
 
   /// The slower thread's time in microseconds.
   int get slowestMicros => math.max(uiMicros, sample.rasterMicros);

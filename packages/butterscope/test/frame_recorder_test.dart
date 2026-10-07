@@ -223,6 +223,77 @@ void main() {
     });
   });
 
+  group('FrameRecorder marks', () {
+    test('split the window at the frame begun most recently', () async {
+      final frames = recorder()..start();
+      source
+        ..report([11, 12])
+        ..currentFrameNumber = 12;
+      final first = frames.mark();
+      source
+        ..report([13, 14, 15])
+        ..currentFrameNumber = 15;
+      final second = frames.mark();
+      final window = frames.stop();
+      source.report([16]);
+
+      final recorded = await window;
+      final between = recorded.samplesBetween(first, second);
+      expect([for (final sample in between) sample.frameNumber], [13, 14, 15]);
+    });
+
+    test('keep a frame reported after the mark on its side', () async {
+      final frames = recorder()..start();
+      source.currentFrameNumber = 12;
+      final mark = frames.mark();
+      source.currentFrameNumber = 14;
+      final window = frames.stop();
+      // Frame 12 began before the mark but is reported after it.
+      source.report([11, 12, 13, 14]);
+
+      final recorded = await window;
+      final start = FrameMark(
+        frameNumber: recorded.startFrameNumber,
+        declaredRefreshRate: 120,
+      );
+      final end = FrameMark(
+        frameNumber: recorded.endFrameNumber,
+        declaredRefreshRate: 120,
+      );
+      final before = recorded.samplesBetween(start, mark);
+      final after = recorded.samplesBetween(mark, end);
+      expect([for (final sample in before) sample.frameNumber], [11, 12]);
+      expect([for (final sample in after) sample.frameNumber], [13, 14]);
+    });
+
+    test('read the declared rate and store the read', () async {
+      final frames = recorder()..start();
+      source
+        ..report([11])
+        ..currentFrameNumber = 11
+        ..declaredRefreshRate = 60;
+      final mark = frames.mark();
+      final window = frames.stop();
+
+      expect(mark.declaredRefreshRate, 60);
+      final reads = (await window).refreshRateReads;
+      // Start, the batch with frame 11, the mark, the stop.
+      expect([for (final read in reads) read.hertz], [120, 120, 60, 60]);
+      expect([for (final read in reads) read.afterSamples], [0, 1, 1, 1]);
+    });
+
+    test('cannot be taken outside a window', () async {
+      final frames = recorder();
+      expect(frames.mark, throwsStateError);
+
+      frames.start();
+      final window = frames.stop();
+      expect(frames.mark, throwsStateError);
+      await window;
+      expect(frames.mark, throwsStateError);
+    });
+  });
+
   group('FrameRecorder flush', () {
     // Unless a test sets a short timeout, it is an hour, so a test whose
     // flush waited for it would time out instead.
