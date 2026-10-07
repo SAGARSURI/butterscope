@@ -57,7 +57,8 @@ final class RunReport {
   /// Each part reports its declared refresh rate at its start and its end,
   /// and its gate and diagnostic metrics against the budget its start
   /// declared. A part whose starting rate cannot give a budget has no
-  /// metrics; M6's guards make it `INVALID`.
+  /// metrics; M6's guards make it `INVALID`. A rate that is not finite is
+  /// written as `null`, because JSON has no NaN or infinity.
   Map<String, Object?> toJson() {
     return {
       'schema': schemaVersion,
@@ -79,8 +80,8 @@ final class RunReport {
       'name': part.name,
       'startFrame': part.start.frameNumber,
       'endFrame': part.end.frameNumber,
-      'declaredHz': hertz,
-      'declaredHzAtEnd': part.end.declaredRefreshRate,
+      'declaredHz': _finiteOrNull(hertz),
+      'declaredHzAtEnd': _finiteOrNull(part.end.declaredRefreshRate),
       'frames': frames.length,
       if (valid)
         'metrics': _gateJson(WindowMetrics.of(frames, FrameBudget(hertz))),
@@ -88,6 +89,8 @@ final class RunReport {
     };
   }
 }
+
+double? _finiteOrNull(double hertz) => hertz.isFinite ? hertz : null;
 
 String get _buildMode {
   if (kReleaseMode) return 'release';

@@ -19,4 +19,14 @@ void main() {
     ];
     expect(jsonDecode(chunks.join()), json);
   });
+
+  test('never splits a character made of two code units', () {
+    final lines = <String>[];
+    // ["a😀"] is 7 code units: [ " a, the emoji's two (indices 3 and 4),
+    // then " ]. A cut at 4 would split the emoji, so the first chunk stops
+    // at 3 and the second takes the other 4.
+    ReportWriter(lines.add, chunkLength: 4).write(['a😀'], runId: 7);
+
+    expect(lines, ['BSCOPE-REPORT 7 1 2 ["a', 'BSCOPE-REPORT 7 2 2 😀"]']);
+  });
 }

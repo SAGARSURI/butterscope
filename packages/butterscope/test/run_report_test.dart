@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:butterscope/butterscope.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -54,5 +56,22 @@ void main() {
     final metrics = part['metrics']! as Map<String, Object?>;
     expect(metrics['janky'], 2);
     expect(part['declaredHzAtEnd'], 120);
+  });
+
+  test('writes a rate that is not finite as null, so JSON can hold it', () {
+    final report = RunReport(windowOf([1]), const [
+      MarkedPart(
+        PartKind.test,
+        'opens',
+        FrameMark(frameNumber: 0, declaredRefreshRate: double.nan),
+        FrameMark(frameNumber: 1, declaredRefreshRate: double.infinity),
+      ),
+    ]).toJson();
+
+    final part = (report['parts']! as List).single as Map<String, Object?>;
+    expect(part['declaredHz'], isNull);
+    expect(part['declaredHzAtEnd'], isNull);
+    expect(part.containsKey('metrics'), isFalse);
+    expect(() => jsonEncode(report), returnsNormally);
   });
 }

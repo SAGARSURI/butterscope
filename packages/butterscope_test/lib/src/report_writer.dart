@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 /// The tag that starts every report line.
 const String reportTag = 'BSCOPE-REPORT';
@@ -22,15 +23,27 @@ final class ReportWriter {
 
   /// Prints [json] as the report of the run identified by [runId].
   void write(Object? json, {required int runId}) {
-    final text = jsonEncode(json);
-    final count = (text.length + chunkLength - 1) ~/ chunkLength;
-    for (var i = 0; i < count; i++) {
-      final end = (i + 1) * chunkLength;
-      final chunk = text.substring(
-        i * chunkLength,
-        end < text.length ? end : text.length,
-      );
-      _emit('$reportTag $runId ${i + 1} $count $chunk');
+    final chunks = _chunks(jsonEncode(json));
+    for (var i = 0; i < chunks.length; i++) {
+      _emit('$reportTag $runId ${i + 1} ${chunks.length} ${chunks[i]}');
     }
+  }
+
+  /// Splits [text] into chunks of at most [chunkLength] code units. A cut
+  /// that would fall inside a surrogate pair (before a low surrogate,
+  /// 0xDC00 to 0xDFFF) moves back one, so no chunk holds half a character
+  /// a log could mangle.
+  List<String> _chunks(String text) {
+    final chunks = <String>[];
+    var start = 0;
+    while (start < text.length) {
+      var end = math.min(start + chunkLength, text.length);
+      final next = end < text.length ? text.codeUnitAt(end) : 0;
+      final splitsPair = next >= 0xDC00 && next <= 0xDFFF;
+      if (splitsPair && end - start > 1) end--;
+      chunks.add(text.substring(start, end));
+      start = end;
+    }
+    return chunks;
   }
 }
