@@ -14,7 +14,14 @@ const String reportTag = 'BSCOPE-REPORT';
 /// from the count whether any went missing. M7 freezes this format.
 final class ReportWriter {
   /// Creates a writer that prints each line with [_emit].
-  new(this._emit, {this.chunkLength = 800});
+  ///
+  /// Throws a [RangeError] when [chunkLength] is below 1, since no chunk
+  /// could then carry any of the report.
+  new(this._emit, {this.chunkLength = 800}) {
+    if (chunkLength < 1) {
+      throw RangeError.value(chunkLength, 'chunkLength', 'must be at least 1');
+    }
+  }
 
   final void Function(String line) _emit;
 

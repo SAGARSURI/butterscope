@@ -29,4 +29,8 @@ void main() {
 
     expect(lines, ['BSCOPE-REPORT 7 1 2 ["a', 'BSCOPE-REPORT 7 2 2 😀"]']);
   });
+
+  test('refuses a chunk length that could not carry the report', () {
+    expect(() => ReportWriter((_) {}, chunkLength: 0), throwsRangeError);
+  });
 }
