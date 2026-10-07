@@ -32,4 +32,57 @@ BSCOPE-REPORT 7 3 3 }
       expect(report.problems, ['Run 7: missing chunk(s) 2 of 3']);
     });
   });
+
+  group('LoggedReport.unusable', () {
+    LoggedReport reportOf(Map<String, Object?> json) {
+      return LoggedReport('7', json, const []);
+    }
+
+    Map<String, Object?> testPart(Object? observedHz) {
+      return {
+        'kind': 'test',
+        'name': 'Feed scrolls',
+        'metrics': {'observedHz': observedHz},
+      };
+    }
+
+    test('accepts a profile report with frames and a test', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 120,
+        'flushTimedOut': false,
+        'parts': [testPart(119.6)],
+      });
+
+      expect(report.unusable(minHz: 114), isEmpty);
+    });
+
+    test('rejects a report that measured nothing', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 0,
+        'flushTimedOut': false,
+        'parts': <Object?>[],
+      });
+
+      expect(report.unusable(), [
+        'The report holds no frames',
+        'The report holds no tests',
+      ]);
+    });
+
+    test('fails the warm-up on a test with no observed rate', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 3,
+        'flushTimedOut': false,
+        'parts': [testPart(null)],
+      });
+
+      expect(report.unusable(minHz: 114), [
+        'Feed scrolls has no observed rate',
+      ]);
+      expect(report.unusable(), isEmpty);
+    });
+  });
 }

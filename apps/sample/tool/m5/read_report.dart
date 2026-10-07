@@ -3,10 +3,11 @@
 //   fvm dart run tool/m5/read_report.dart <log> [--min-hz <hertz>]
 //
 // Exits 1 when a report is missing or unreadable, a log holds no report
-// or more than one, a flush timed out, or the run was not in profile mode.
-// With --min-hz, also exits 1 when a test with an observed rate drew below
-// it, which is how tool/m5/run_tests.sh catches a capped screen before
-// M6's rate mismatch exists.
+// or more than one, a report holds no frames or no tests, a flush timed
+// out, or the run was not in profile mode. With --min-hz, also exits 1
+// when a test drew below it or has no observed rate, which is how
+// tool/m5/run_tests.sh catches a capped screen before M6's rate mismatch
+// exists.
 
 import 'dart:io';
 
@@ -41,13 +42,8 @@ void main(List<String> args) {
       ..writeln('| --- | --- | --- | --- | --- | --- | --- |');
     for (final part in report.parts) {
       stdout.writeln(_row(part));
-      final low = _lowRate(part, minHz);
-      if (low != null) problems.add(low);
     }
-    if (json['flushTimedOut'] == true) problems.add('A flush timed out');
-    if (json['buildMode'] != 'profile') {
-      problems.add('Built in ${json['buildMode']} mode, not profile');
-    }
+    problems.addAll(report.unusable(minHz: minHz));
   }
   for (final problem in problems) {
     stdout.writeln('PROBLEM: $problem');
@@ -66,12 +62,4 @@ String _row(Map<String, Object?> part) {
       '| ${metrics?['missedVsyncs'] ?? 'n/a'} '
       '| ${fixed(metrics?['hitchRatio'], 1)} '
       '| ${fixed(metrics?['observedHz'], 1)} |';
-}
-
-String? _lowRate(Map<String, Object?> part, double? minHz) {
-  final metrics = part['metrics'] as Map<String, Object?>?;
-  final observed = metrics?['observedHz'];
-  if (minHz == null || observed is! num || observed >= minHz) return null;
-  return '${part['name']} drew at ${observed.toStringAsFixed(1)} Hz, '
-      'under $minHz';
 }

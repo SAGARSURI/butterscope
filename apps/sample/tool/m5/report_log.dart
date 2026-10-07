@@ -31,6 +31,35 @@ class LoggedReport {
     final list = json?['parts'] as List<Object?>? ?? const [];
     return [for (final part in list) part! as Map<String, Object?>];
   }
+
+  /// Why the decoded report cannot be used for M5's runs: it holds no
+  /// frames or no tests, a flush timed out, or it was not built in profile
+  /// mode. With [minHz], also each test that drew below it or has no
+  /// observed rate. Empty when it can be used, or when it did not decode
+  /// (then [problems] says why).
+  List<String> unusable({double? minHz}) {
+    final json = this.json;
+    if (json == null) return const [];
+    return [
+      if (json['frames'] == 0) 'The report holds no frames',
+      if (!parts.any((part) => part['kind'] == 'test'))
+        'The report holds no tests',
+      if (json['flushTimedOut'] == true) 'A flush timed out',
+      if (json['buildMode'] != 'profile')
+        'Built in ${json['buildMode']} mode, not profile',
+      if (minHz != null)
+        for (final part in parts) ?_lowRate(part, minHz),
+    ];
+  }
+}
+
+String? _lowRate(Map<String, Object?> part, double minHz) {
+  final metrics = part['metrics'] as Map<String, Object?>?;
+  final observed = metrics?['observedHz'];
+  if (observed is! num) return '${part['name']} has no observed rate';
+  if (observed >= minHz) return null;
+  return '${part['name']} drew at ${observed.toStringAsFixed(1)} Hz, '
+      'under $minHz';
 }
 
 /// Reads every report in [text], whatever comes before the tag on a line.

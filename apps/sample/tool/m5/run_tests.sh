@@ -59,13 +59,18 @@ mkdir -p "$out"
 run() {
   local define=$1 name=$2 log=$out/$2.log
   shift 2
-  $android && { android_ready || return 2; }
-  $android && adb -s "$device" logcat -c
+  : >"$log"
+  if $android; then
+    # The phone's readings go into the log beside the frames they explain.
+    android_ready 2>&1 | tee -a "$log"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || return 2
+    adb -s "$device" logcat -c
+  fi
   fvm flutter drive --profile --no-dds --keep-app-running \
     --driver=test_driver/integration_test.dart \
     --target=integration_test/app_test.dart \
     --dart-define=BUTTERSCOPE_PLANT="$define" \
-    -d "$device" >"$log" 2>&1
+    -d "$device" >>"$log" 2>&1
   local drove=$?
   $android && adb -s "$device" logcat -d -s flutter >>"$log"
   fvm dart run tool/m5/read_report.dart "$log" "$@" | tee "$out/$name.txt"
