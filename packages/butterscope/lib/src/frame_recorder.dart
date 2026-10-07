@@ -118,6 +118,29 @@ final class FrameRecorder {
     );
   }
 
+  /// Marks the frame begun most recently, inside the open window, and reads
+  /// the declared refresh rate there.
+  ///
+  /// Marks split one recording into parts, such as tests, spans and
+  /// episodes: [RecordedWindow.samplesBetween] gives the frames between two
+  /// marks. The frame the mark names belongs to the part before it, as the
+  /// last frame of a window does. The read joins the window's
+  /// [RecordedWindow.refreshRateReads].
+  ///
+  /// Throws a [StateError] if no window is open, or it is already stopping.
+  /// If reading the source throws, the error is passed on and no read is
+  /// stored.
+  FrameMark mark() {
+    if (!_recording || _endFrame != null) {
+      throw StateError('The recorder is not recording.');
+    }
+    final frameNumber = _source.currentFrameNumber;
+    return FrameMark(
+      frameNumber: frameNumber,
+      declaredRefreshRate: _readRefreshRate(),
+    );
+  }
+
   void _onTimings(List<FrameTiming> timings) {
     _callbackStopwatch.start();
     final end = _endFrame;
@@ -138,12 +161,11 @@ final class FrameRecorder {
     if (!_flushed.isCompleted) _flushed.complete(false);
   }
 
-  void _readRefreshRate() {
+  double _readRefreshRate() {
+    final hertz = _source.declaredRefreshRate;
     _rateReads.add(
-      RefreshRateRead(
-        hertz: _source.declaredRefreshRate,
-        afterSamples: _samples.length,
-      ),
+      RefreshRateRead(hertz: hertz, afterSamples: _samples.length),
     );
+    return hertz;
   }
 }
