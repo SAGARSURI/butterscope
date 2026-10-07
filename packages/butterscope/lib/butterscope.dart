@@ -19,4 +19,5 @@ export 'package:butterscope/src/missed_vsyncs.dart';
 export 'package:butterscope/src/percentile.dart';
 export 'package:butterscope/src/recorded_window.dart';
 export 'package:butterscope/src/refresh_rate.dart';
+export 'package:butterscope/src/run_report.dart';
 export 'package:butterscope/src/window_metrics.dart';
