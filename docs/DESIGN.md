@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **approved** in M0; current through M3
+- Status: **approved** in M0; current through M4
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
@@ -138,6 +138,16 @@ M4's `gpu_blur` in real flows. Raster time can also include waiting on the
 display: two S24 windows had raster time near `B` with every frame drawn.
 **(open, M8: how often, and whether such frames should count.)**
 
+**Raster time includes waiting for a drawable; the performance overlay
+does not.** `FrameTiming`'s raster span starts before the raster thread
+asks for a surface to draw into, and on iOS Impeller waits there for a
+free drawable when the GPU is behind. Flutter's performance overlay
+starts its stopwatch after that wait. On the iPhone, three plants that
+cost 43 to 47% of frames charted under 4 ms in the overlay, while on the
+S24 they all charted over `B`. So on iOS the overlay cannot confirm a
+GPU-bound regression that Butterscope reports
+([0004](decisions/0004-m4-sample-findings.md)).
+
 **Overrun is an estimate.** `FrameTiming` has no timestamp for when a frame
 reached the screen, so overrun approximates how late it was.
 
@@ -243,8 +253,12 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    vary a lot between repetitions, and marks the flow unstable.
 8. **Test code shares the UI thread.** Finders, expectations and gesture
    dispatch run between frames, so inside a span they can cost frames that
-   are counted as the app's. **(open, M5: measure the harness's cost and
-   keep test steps outside spans where possible.)**
+   are counted as the app's. On the S24, `enterText` cost 2 to 3 ms of
+   UI time per keystroke, and the sample's clean Search screen lost
+   about 4.5% of frames while typing
+   ([0004](decisions/0004-m4-sample-findings.md)). **(open, M5: measure
+   the harness's cost and keep test steps outside spans where
+   possible.)**
 9. **Recording is cheap; metrics come later.** While recording, the
    recorder only stores timings and the refresh rates it reads. Metrics are
    computed after recording stops, so they never cost a measured frame.
@@ -284,7 +298,7 @@ detected mismatch makes the run `INVALID` with a named reason.
 | Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
 | Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
-| Semantics | `PlatformDispatcher.semanticsEnabled` | **(open, M6.)** `testWidgets` turns semantics on by default (`semanticsEnabled: true`), so either observed tests pass `semanticsEnabled: false`, or semantics becomes part of the identity. |
+| Semantics | `PlatformDispatcher.semanticsEnabled` | **(open, M6.)** `testWidgets` turns semantics on by default (`semanticsEnabled: true`), so either observed tests pass `semanticsEnabled: false`, or semantics becomes part of the identity. On the S24, semantics cost the sample's scrolling Feed 4.5 to 6.1% of frames, against 0.3 to 0.8% with it off ([0004](decisions/0004-m4-sample-findings.md)). |
 | Too few frames | Frame count per span | Below the span's minimum is `INVALID` (for example, a list too short to scroll). |
 | Thermal | Android `PowerManager` thermal status (Android 10+); iOS `ProcessInfo.thermalState`; both through a small plugin | Above nominal: wait and retry. |
 | Low-power mode | Android `PowerManager.isPowerSaveMode()`; iOS `ProcessInfo.isLowPowerModeEnabled` | Must be off. |
@@ -313,6 +327,15 @@ same physical unit in the same session, interleaved.
 - Dedicated devices: not shared with manual testing, OS auto-update off.
 - Do Not Disturb on, auto-lock off, battery at 50% or more, a cooldown between
   runs, and the phone out of its case.
+- Each batch of runs starts with one warm-up run that is not counted. On
+  the S24, the first clean runs of a batch lost up to about 4 points more
+  of their frames than later ones
+  ([0004](decisions/0004-m4-sample-findings.md)).
+- On Android the runner checks before each run that the phone is not
+  thermally throttled, the battery is at 38 °C or less, power saving is
+  off, Stay awake covers the charger in use, and at least 2 GB of memory
+  is free. iOS reports none of these to the host, so they are kept by
+  hand.
 - **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
   own. When the S24 was forced to 60 Hz mid-run, `Display.refreshRate`
@@ -338,9 +361,13 @@ same physical unit in the same session, interleaved.
   the app when it stops
   (`packages/flutter_tools/lib/src/drive/drive_service.dart`, `stop()`); on
   an iPhone signed by a personal developer account, the phone then asks to
-  trust the developer again before every run. `flutter drive` does not
-  drive release builds, so release runs are launched directly. Xcode stays
-  closed during iOS runs, or the launch goes through it and stalls.
+  trust the developer again before every run. The flag also leaves the
+  app running in the foreground, animating, so on Android the probe and
+  overlay runners (`tool/m4/run_probe.sh`, `run_overlay.sh`) stop it before
+  the next run. The ordinary tests' runner does not, since it measures no
+  frames. `flutter drive` does not drive release builds, so release
+  runs are launched directly. Xcode stays closed during iOS runs, or the
+  launch goes through it and stalls.
 - Same Flutter SDK and flavour as the release build; only the data layer is
   faked.
 - Third-party SDKs (analytics, crash reporting, APM) stay initialised: their

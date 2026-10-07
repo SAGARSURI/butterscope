@@ -68,13 +68,14 @@ ordinary test opens the calibration screen. Logs go to
 
 ### Probe
 
-`integration_test/m4_probe_test.dart` measures how much each plant costs
-its screen. It opens each screen in turn and records one 5 s window with
-M2's recorder while a scripted action runs: flings on Feed, Gallery and
-Detail, typing on Search, and waiting on Activity and Inbox, whose streams
-do the work. Frames lost are the window's length times the screen's rate,
-less the frames recorded. A plant passes when its screen loses 10% to 60%
-of its frames in 3 of 3 runs on each phone, with the clean build under 1%.
+`integration_test/m4_probe_test.dart` measures how much each plant costs its
+screen. It opens each screen in turn and records one 5 s window with M2's
+recorder while a scripted action runs: flings on Feed, Gallery and Detail,
+typing on Search, and waiting on Activity and Inbox, whose streams do the work.
+Frames lost are the window's length times the screen's rate, less the frames
+recorded. A plant passes when, in 3 of 3 runs on each phone, its screen loses
+10% to 60% of its frames and at least 10 points more than the mean of that
+screen's clean runs ([0004](../../docs/decisions/0004-m4-sample-findings.md)).
 
 ```sh
 tool/m4/run_probe.sh <device-id> clean raster_clip raster_clip=12
@@ -129,6 +130,12 @@ test prints its shot line, over adb on Android and with
 `xcrun devicectl device capture screenshot` on iOS, so the app does no work
 for it. Screenshots and transcripts go to
 `build/m4_overlay/<device-id>/`.
+
+On the S24 every raster and GPU plant shows in the raster chart. On the
+iPhone only `gpu_blur` and `backdrop_blur` do: the overlay's stopwatch
+misses the time the raster thread waits on a busy GPU, which is where
+`raster_clip`, `slow_raster` and `gpu_heavy` cost their frames there
+([0004](../../docs/decisions/0004-m4-sample-findings.md)).
 
 ## Calibration screen and plants
 
