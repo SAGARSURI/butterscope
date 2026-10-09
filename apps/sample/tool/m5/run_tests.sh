@@ -13,8 +13,9 @@
 # probe runs did (decision record 0004, decision 3): one clean warm-up run
 # that is not counted (WARMUP=off skips it), and on Android the checks in
 # tool/android_ready.sh before each run. The warm-up must draw at 114 Hz
-# or more in every test, or the batch stops: until M6's rate mismatch, a
-# capped screen reads as an app losing half its frames. iOS reports none
+# or more in every test of 11 frames or more, or the batch stops: until
+# M6's rate mismatch, a capped screen reads as an app losing half its
+# frames. A shorter test has too few vsync gaps for a rate. iOS reports none
 # of this to the Mac: keep Low Power Mode and Limit Frame Rate off, close
 # other apps and let the phone cool between batches.
 #

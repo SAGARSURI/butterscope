@@ -18,7 +18,12 @@ void main() {
 
   group('Detail', () {
     testWidgets('shows the item and its facts', (tester) async {
-      await openFirstItem(tester);
+      await launchApp(tester);
+      // The page's header is in view for the whole push.
+      await span('detail open', () async {
+        await tester.tap(find.byKey(const Key('item-card-0')));
+        await tester.pumpAndSettle();
+      });
 
       expect(find.byKey(const Key('detail-title')), findsOneWidget);
       expect(find.textContaining('Rated '), findsOneWidget);

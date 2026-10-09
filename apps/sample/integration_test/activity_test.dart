@@ -29,7 +29,9 @@ void main() {
       final before = shownTotal(tester);
 
       // The feed sends a batch every 100 ms, so a second brings several.
-      await tester.pump(const Duration(seconds: 1));
+      await span('activity counters', () async {
+        await tester.pump(const Duration(seconds: 1));
+      });
 
       expect(shownTotal(tester), greaterThan(before));
     });

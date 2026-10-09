@@ -33,25 +33,45 @@ class LoggedReport {
   }
 
   /// Why the decoded report cannot be used for M5's runs: it holds no
-  /// frames or no tests, a flush timed out, or it was not built in profile
-  /// mode. With [minHz], also each test that drew below it or has no
-  /// observed rate. Empty when it can be used, or when it did not decode
-  /// (then [problems] says why).
+  /// frames or no tests, a span has no metrics, a flush timed out, or it
+  /// was not built in profile mode. With [minHz], also each test of at
+  /// least [rateFrames] frames that drew below it or has no observed rate,
+  /// or no test that long. Empty when it can be used, or when it did not
+  /// decode (then [problems] says why).
   List<String> unusable({double? minHz}) {
     final json = this.json;
     if (json == null) return const [];
+    final rated = [
+      for (final part in parts)
+        if (part['kind'] == 'test' && _frames(part) >= rateFrames) part,
+    ];
     return [
       if (json['frames'] == 0) 'The report holds no frames',
       if (!parts.any((part) => part['kind'] == 'test'))
         'The report holds no tests',
+      for (final part in parts)
+        if (part['kind'] == 'span' && part['metrics'] == null)
+          'Span ${part['name']} has no metrics',
       if (json['flushTimedOut'] == true) 'A flush timed out',
       if (json['buildMode'] != 'profile')
         'Built in ${json['buildMode']} mode, not profile',
+      if (minHz != null && rated.isEmpty)
+        'No test drew $rateFrames frames, enough to check its rate',
       if (minHz != null)
-        for (final part in parts) ?_lowRate(part, minHz),
+        for (final part in rated) ?_lowRate(part, minHz),
     ];
   }
 }
+
+/// The fewest frames a test needs before the warm-up checks its rate.
+///
+/// Decision record 0001 (decision 6, kept by 0002) reads a rate only from
+/// at least 10 vsync gaps, and 10 gaps take 11 frames. A shorter test,
+/// such as one that only launches the app, can catch the frames a phone
+/// draws at a lower rate while it starts up.
+const int rateFrames = 11;
+
+int _frames(Map<String, Object?> part) => part['frames'] as int? ?? 0;
 
 String? _lowRate(Map<String, Object?> part, double minHz) {
   final metrics = part['metrics'] as Map<String, Object?>?;

@@ -41,14 +41,16 @@ void main() {
       await launchApp(tester);
       await openTab(tester, 'Gallery');
 
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('photo-59')),
-        500,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('gallery-grid')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await span('gallery scroll', () async {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('photo-59')),
+          500,
+          scrollable: find.descendant(
+            of: find.byKey(const Key('gallery-grid')),
+            matching: find.byType(Scrollable),
+          ),
+        );
+      });
 
       expect(find.byKey(const Key('photo-59')), findsOneWidget);
     });
