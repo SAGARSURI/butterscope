@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'dart:ui';
 
 import 'package:butterscope/butterscope.dart';
+import 'package:butterscope_test/src/activity_source.dart';
 import 'package:butterscope_test/src/report_writer.dart';
 
 /// A frame source the tests advance by hand.
@@ -15,6 +16,11 @@ class FakeFrameSource implements FrameSource {
 
   @override
   double declaredRefreshRate = 120;
+
+  /// Frames run back to back, 8333 µs apart, as under `benchmarkLive`, so
+  /// the time is the current frame's vsync.
+  @override
+  int get nowMicros => currentFrameNumber * 8333;
 
   @override
   void addTimingsCallback(TimingsCallback callback) => _callback = callback;
@@ -42,6 +48,30 @@ class FakeFrameSource implements FrameSource {
       );
     }
     _callback?.call(timings);
+  }
+}
+
+/// An activity source the tests drive by hand.
+class FakeActivitySource implements ActivitySource {
+  ActivityListener? _listener;
+
+  @override
+  void start(ActivityListener listener) => _listener = listener;
+
+  @override
+  void stop() => _listener = null;
+
+  /// Sends a pointer event.
+  void input() => _listener?.input();
+
+  /// Says whether tickers wait for the next frame.
+  void animating({required bool animating}) {
+    _listener?.animating(animating: animating);
+  }
+
+  /// Says the page on top is now [page].
+  void pageShown(String? page, {bool first = false}) {
+    _listener?.pageShown(page, first: first);
   }
 }
 

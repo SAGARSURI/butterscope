@@ -17,7 +17,9 @@ void main() {
   tearDownAll(() {
     final parts = [
       for (final part in reportIn(printed)['parts']! as List<Object?>)
-        part! as Map<String, Object?>,
+        // Episodes are checked in episode_test.dart.
+        if ((part! as Map<String, Object?>)['kind'] != 'episode')
+          part as Map<String, Object?>,
     ];
 
     // In the order they ended: each span before the test it is in. The
@@ -72,7 +74,7 @@ void main() {
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  attachTo(binding, source, ReportWriter(printed.add));
+  attachTo(binding, source, FakeActivitySource(), ReportWriter(printed.add));
 
   setUpAll(() async {
     await expectLater(span('outside', () async {}), throwsStateError);
