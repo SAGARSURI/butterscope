@@ -12,7 +12,9 @@ final class RunRecording {
 
   final FrameRecorder _recorder;
   final List<MarkedPart> _parts = [];
+  final Set<String> _spanNames = {};
   (String, FrameMark)? _test;
+  String? _span;
 
   /// Starts recording the run.
   void start() => _recorder.start();
@@ -29,6 +31,33 @@ final class RunRecording {
       _parts.add(MarkedPart(PartKind.test, name, start, _recorder.mark()));
     }
     _test = null;
+  }
+
+  /// Records the frames [body] produces as the span named [name].
+  ///
+  /// The span ends when [body] completes, whether it returns or throws.
+  /// Fails with a [StateError] outside a test or inside another span, since
+  /// spans are flat (`docs/DESIGN.md` section 6.4), and with an
+  /// [ArgumentError] when [name] is already a span in this run, so a
+  /// baseline matches one span per name.
+  Future<T> span<T>(String name, Future<T> Function() body) async {
+    if (_test == null) {
+      throw StateError('span("$name") was called outside a test.');
+    }
+    if (_span case final outer?) {
+      throw StateError('span("$name") was called inside span("$outer").');
+    }
+    if (!_spanNames.add(name)) {
+      throw ArgumentError.value(name, 'name', 'is already a span in this run');
+    }
+    _span = name;
+    final start = _recorder.mark();
+    try {
+      return await body();
+    } finally {
+      _parts.add(MarkedPart(PartKind.span, name, start, _recorder.mark()));
+      _span = null;
+    }
   }
 
   /// Stops recording and reports the run.

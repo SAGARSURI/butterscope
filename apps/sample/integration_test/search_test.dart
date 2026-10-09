@@ -14,8 +14,10 @@ void main() {
       await launchApp(tester);
       await openTab(tester, 'Search');
 
-      await tester.enterText(find.byKey(const Key('search-field')), 'garden');
-      await tester.pumpAndSettle();
+      await span('search typing', () async {
+        await tester.enterText(find.byKey(const Key('search-field')), 'garden');
+        await tester.pumpAndSettle();
+      });
 
       final count = tester.widget<Text>(find.byKey(const Key('search-count')));
       expect(count.data, matches(RegExp(r'^[1-9]\d* results$')));

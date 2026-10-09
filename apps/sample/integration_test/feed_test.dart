@@ -22,14 +22,16 @@ void main() {
       await launchApp(tester);
 
       final card = find.byKey(const Key('item-card-39'));
-      await tester.scrollUntilVisible(
-        card,
-        400,
-        scrollable: find.descendant(
-          of: find.byKey(const Key('feed-list')),
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await span('feed scroll', () async {
+        await tester.scrollUntilVisible(
+          card,
+          400,
+          scrollable: find.descendant(
+            of: find.byKey(const Key('feed-list')),
+            matching: find.byType(Scrollable),
+          ),
+        );
+      });
       final title = tester
           .widget<Text>(
             find.descendant(of: card, matching: find.textContaining('No. 40')),

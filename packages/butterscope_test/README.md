@@ -16,4 +16,15 @@ attributes frames to the test that produced them, and prints the report
 after the last test as `BSCOPE-REPORT` lines. The report's schema is
 provisional until M7.
 
-Spans and episodes arrive later in M5.
+Wrap each flow to gate in a named span, inside a test:
+
+```dart
+await span('feed scroll', () async {
+  await tester.scrollUntilVisible(card, 400);
+});
+```
+
+A span's frames are those its body produces. Spans are flat, and each name
+is used once per run, so a baseline matches one span per name.
+
+Episodes arrive later in M5.

@@ -33,10 +33,10 @@ class LoggedReport {
   }
 
   /// Why the decoded report cannot be used for M5's runs: it holds no
-  /// frames or no tests, a flush timed out, or it was not built in profile
-  /// mode. With [minHz], also each test that drew below it or has no
-  /// observed rate. Empty when it can be used, or when it did not decode
-  /// (then [problems] says why).
+  /// frames or no tests, a span has no metrics, a flush timed out, or it
+  /// was not built in profile mode. With [minHz], also each test that drew
+  /// below it or has no observed rate. Empty when it can be used, or when
+  /// it did not decode (then [problems] says why).
   List<String> unusable({double? minHz}) {
     final json = this.json;
     if (json == null) return const [];
@@ -44,11 +44,15 @@ class LoggedReport {
       if (json['frames'] == 0) 'The report holds no frames',
       if (!parts.any((part) => part['kind'] == 'test'))
         'The report holds no tests',
+      for (final part in parts)
+        if (part['kind'] == 'span' && part['metrics'] == null)
+          'Span ${part['name']} has no metrics',
       if (json['flushTimedOut'] == true) 'A flush timed out',
       if (json['buildMode'] != 'profile')
         'Built in ${json['buildMode']} mode, not profile',
       if (minHz != null)
-        for (final part in parts) ?_lowRate(part, minHz),
+        for (final part in parts)
+          if (part['kind'] == 'test') ?_lowRate(part, minHz),
     ];
   }
 }

@@ -4,12 +4,13 @@
 /// void main() {
 ///   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 ///   attachButterscope();
-///   // testWidgets(...) as before
+///   // testWidgets(...) as before, with span(name, body) around each flow
+///   // to gate
 /// }
 /// ```
 ///
-/// Spans and episodes arrive later in M5.
+/// Episodes arrive later in M5.
 /// See `docs/DESIGN.md` at the repository root.
 library;
 
-export 'package:butterscope_test/src/attach.dart' show attachButterscope;
+export 'package:butterscope_test/src/attach.dart' show attachButterscope, span;

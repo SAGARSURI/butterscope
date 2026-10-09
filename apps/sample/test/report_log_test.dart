@@ -84,5 +84,38 @@ BSCOPE-REPORT 7 3 3 }
       ]);
       expect(report.unusable(), isEmpty);
     });
+
+    test('rejects a span with no metrics', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 3,
+        'flushTimedOut': false,
+        'parts': [
+          testPart(119.6),
+          {'kind': 'span', 'name': 'feed scroll'},
+        ],
+      });
+
+      expect(report.unusable(), ['Span feed scroll has no metrics']);
+    });
+
+    test('holds only tests to the warm-up rate', () {
+      // A short span can have too few frames for an observed rate.
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 3,
+        'flushTimedOut': false,
+        'parts': [
+          testPart(119.6),
+          {
+            'kind': 'span',
+            'name': 'feed scroll',
+            'metrics': {'observedHz': null},
+          },
+        ],
+      });
+
+      expect(report.unusable(minHz: 114), isEmpty);
+    });
   });
 }

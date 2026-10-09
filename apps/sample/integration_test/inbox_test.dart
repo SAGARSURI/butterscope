@@ -15,8 +15,10 @@ void main() {
       await openTab(tester, 'Inbox');
 
       // A batch of 20 arrives every 500 ms.
-      await pumpUntilFound(tester, find.text('20 messages'));
-      await pumpUntilFound(tester, find.text('40 messages'));
+      await span('inbox arrivals', () async {
+        await pumpUntilFound(tester, find.text('20 messages'));
+        await pumpUntilFound(tester, find.text('40 messages'));
+      });
     });
 
     testWidgets('the newest message is at the top and opens', (tester) async {

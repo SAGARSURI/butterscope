@@ -29,14 +29,16 @@ void main() {
       await openFirstItem(tester);
       final scroll = find.byKey(const Key('detail-scroll'));
 
-      await tester.scrollUntilVisible(
-        find.byKey(const Key('detail-end')),
-        300,
-        scrollable: find.descendant(
-          of: scroll,
-          matching: find.byType(Scrollable),
-        ),
-      );
+      await span('detail scroll', () async {
+        await tester.scrollUntilVisible(
+          find.byKey(const Key('detail-end')),
+          300,
+          scrollable: find.descendant(
+            of: scroll,
+            matching: find.byType(Scrollable),
+          ),
+        );
+      });
       final related = find.descendant(
         of: scroll,
         matching: find.byType(ListTile),

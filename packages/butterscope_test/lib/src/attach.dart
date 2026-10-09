@@ -7,8 +7,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:test_api/hooks.dart' show TestHandle;
 
-/// Whether this run is already attached.
-var _attached = false;
+/// This run's recording, once attached.
+RunRecording? _run;
 
 /// Attaches Butterscope to this test file: call it once at the top of
 /// `main`, before any `testWidgets` and outside any `group`.
@@ -52,11 +52,10 @@ void attachTo(
   FrameSource source,
   ReportWriter writer,
 ) {
-  if (_attached) return;
-  _attached = true;
+  if (_run != null) return;
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive;
   EditableText.debugDeterministicCursor = true;
-  final run = RunRecording(FrameRecorder(source));
+  final run = _run = RunRecording(FrameRecorder(source));
   setUpAll(run.start);
   // The test's full name, group names included, from test_api's public
   // hook: flutter_test keeps the description it is given private.
@@ -67,4 +66,29 @@ void attachTo(
     final runId = DateTime.now().microsecondsSinceEpoch;
     writer.write(report.toJson(), runId: runId);
   });
+}
+
+/// Gates the flow [body] runs as the span named [name], and returns what
+/// [body] returns:
+///
+/// ```dart
+/// await span('feed scroll', () async {
+///   await tester.scrollUntilVisible(card, 400);
+/// });
+/// ```
+///
+/// Its frames are those [body] produces, from when it starts to when it
+/// completes. Span names are stable across runs, so spans are what a
+/// baseline compares (`docs/DESIGN.md` section 6.4).
+///
+/// The returned future fails with a [StateError] before
+/// [attachButterscope], outside a test, or inside another span, since
+/// spans are flat, and with an [ArgumentError] when [name] is already a
+/// span in this run.
+Future<T> span<T>(String name, Future<T> Function() body) async {
+  final run = _run;
+  if (run == null) {
+    throw StateError('Call attachButterscope() before span("$name").');
+  }
+  return await run.span(name, body);
 }
