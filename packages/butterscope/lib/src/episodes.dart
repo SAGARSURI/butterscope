@@ -44,14 +44,15 @@ final class EpisodeRule {
 /// Every frame of the test belongs to exactly one episode. The first
 /// starts with the test. A later one starts at activity that follows a
 /// quiet stretch of at least [EpisodeRule.quiet], counted from the test's
-/// start for its first activity. A page change starts one too: at the
-/// input that led to it, when that input ended less than the quiet
-/// stretch before it, so a tap and the page it opens are one episode even
+/// start for its first activity. A page change starts one too, at the
+/// input that led to it: input that ended less than the quiet stretch
+/// before the change. So a tap and the page it opens are one episode, even
 /// when the tap followed a scroll too closely to start its own. With no
-/// such input, it starts at the change, unless an episode started less
-/// than the quiet stretch before it. The quiet stretch after activity
-/// stays with the episode before it. Each episode is tagged with the page
-/// on top at its end.
+/// such input, it starts at the change. Either way, it starts none when an
+/// episode started less than the quiet stretch before, so a scroll that
+/// leads straight to a tap stays with the page it opens. The quiet stretch
+/// after activity stays with the episode before it. Each episode is tagged
+/// with the page on top at its end.
 List<MarkedPart> splitEpisodes(
   MarkedPart test, {
   required List<Activity> activities,
@@ -67,17 +68,15 @@ List<MarkedPart> splitEpisodes(
     if (activity.start.micros - lastEnd >= quiet) starts.add(activity.start);
     lastEnd = math.max(lastEnd, activity.end.micros);
   }
-  // Each page change inside the test: at the input that led to it, or
-  // else at the change, a quiet stretch after the latest start.
+  // Each page change inside the test, at the input that led to it or else
+  // at the change, when that comes a quiet stretch after the latest start.
   for (final change in pages) {
     final at = change.at.micros;
     final inside = at > test.start.micros && at < test.end.micros;
     if (!change.cuts || !inside) continue;
-    final lead = _leadingInput(at, counted, quiet);
-    if (lead != null) {
-      starts.add(lead.start);
-    } else if (at - _latestStart(at, starts) >= quiet) {
-      starts.add(change.at);
+    final cut = _leadingInput(at, counted, quiet)?.start ?? change.at;
+    if (cut.micros - _latestStart(cut.micros, starts) >= quiet) {
+      starts.add(cut);
     }
   }
   final bounds = _bounds(test, starts);

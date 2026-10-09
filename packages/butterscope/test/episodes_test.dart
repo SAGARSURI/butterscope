@@ -188,6 +188,21 @@ void main() {
       expect([for (final e in episodes) e.page], [null, 'detail']);
     });
 
+    test('keeps a page with the scroll that led straight to it', () {
+      // The drag at frame 60 starts an episode, 54 frames (449 982 µs)
+      // after the input at 6. The tap at 80 opens a page at 81. The tap led
+      // to the page, but came 20 frames (166 660 µs) after the episode's
+      // start, so the drag, the tap and the page are one episode.
+      final episodes = splitEpisodes(
+        test200,
+        activities: [input(5, 6), input(60, 70), input(80, 80)],
+        pages: [PageChange(at(81), 'detail', cuts: true)],
+      );
+
+      expect(framesOf(episodes), [(0, 60), (60, 200)]);
+      expect([for (final e in episodes) e.page], [null, 'detail']);
+    });
+
     test('starts a page at the change when no input led to it', () {
       // The tap at frame 20 ended 80 frames (666 640 µs) before the page
       // changes at 100, so the change itself starts the episode.
