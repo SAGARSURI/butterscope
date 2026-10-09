@@ -173,20 +173,31 @@ void main() {
       expect([for (final e in episodes) e.page], [null, 'detail']);
     });
 
-    test('keeps a page with the input just before it', () {
+    test('starts a page at the tap that opened it, after a scroll', () {
       // A drag from frame 10 to 100, then a tap at 110 that opens a page at
-      // 111. The tap is 10 frames after the drag, so it starts no episode.
-      // The episode started at frame 0, 111 frames (924 963 µs) before the
-      // page, but the tap came 1 frame before it, so the page joins the
-      // drag's episode.
+      // 111. The tap is 10 frames (83 330 µs) after the drag, too soon to
+      // start an episode itself, but it led to the page, so the page's
+      // episode starts at the tap.
       final episodes = splitEpisodes(
         test200,
         activities: [input(10, 100), input(110, 110)],
         pages: [PageChange(at(111), 'detail', cuts: true)],
       );
 
-      expect(framesOf(episodes), [(0, 200)]);
-      expect(episodes.single.page, 'detail');
+      expect(framesOf(episodes), [(0, 110), (110, 200)]);
+      expect([for (final e in episodes) e.page], [null, 'detail']);
+    });
+
+    test('starts a page at the change when no input led to it', () {
+      // The tap at frame 20 ended 80 frames (666 640 µs) before the page
+      // changes at 100, so the change itself starts the episode.
+      final episodes = splitEpisodes(
+        test200,
+        activities: [input(20, 20)],
+        pages: [PageChange(at(100), 'detail', cuts: true)],
+      );
+
+      expect(framesOf(episodes), [(0, 100), (100, 200)]);
     });
 
     test('does not cut at the first page an app shows', () {

@@ -44,12 +44,14 @@ final class EpisodeRule {
 /// Every frame of the test belongs to exactly one episode. The first
 /// starts with the test. A later one starts at activity that follows a
 /// quiet stretch of at least [EpisodeRule.quiet], counted from the test's
-/// start for its first activity. A page change starts one too, unless
-/// activity or an episode's start came less than that long before it: a
-/// tap that opens a page is one episode with the page's transition, even
-/// when the tap followed a scroll too closely to start its own. The quiet
-/// stretch after activity stays with the episode before it. Each episode
-/// is tagged with the page on top at its end.
+/// start for its first activity. A page change starts one too: at the
+/// input that led to it, when that input ended less than the quiet
+/// stretch before it, so a tap and the page it opens are one episode even
+/// when the tap followed a scroll too closely to start its own. With no
+/// such input, it starts at the change, unless an episode started less
+/// than the quiet stretch before it. The quiet stretch after activity
+/// stays with the episode before it. Each episode is tagged with the page
+/// on top at its end.
 List<MarkedPart> splitEpisodes(
   MarkedPart test, {
   required List<Activity> activities,
@@ -65,14 +67,16 @@ List<MarkedPart> splitEpisodes(
     if (activity.start.micros - lastEnd >= quiet) starts.add(activity.start);
     lastEnd = math.max(lastEnd, activity.end.micros);
   }
-  // Each page change inside the test, a quiet stretch after the latest
-  // start or activity before it.
+  // Each page change inside the test: at the input that led to it, or
+  // else at the change, a quiet stretch after the latest start.
   for (final change in pages) {
     final at = change.at.micros;
     final inside = at > test.start.micros && at < test.end.micros;
-    if (change.cuts &&
-        inside &&
-        at - _latestBefore(at, starts, counted) >= quiet) {
+    if (!change.cuts || !inside) continue;
+    final lead = _leadingInput(at, counted, quiet);
+    if (lead != null) {
+      starts.add(lead.start);
+    } else if (at - _latestStart(at, starts) >= quiet) {
       starts.add(change.at);
     }
   }
@@ -90,15 +94,24 @@ List<MarkedPart> splitEpisodes(
   ];
 }
 
-/// The latest time, in µs, at or before [at] when one of [starts] began
-/// or [counted] activity ran. [starts] holds one at or before [at], the
-/// test's start.
-int _latestBefore(int at, List<FrameMark> starts, List<Activity> counted) {
+/// The input that led to a page change at [at]: the latest stretch of
+/// [counted] input that started by then, if it ended less than [quiet] µs
+/// before it.
+Activity? _leadingInput(int at, List<Activity> counted, int quiet) {
+  Activity? lead;
+  for (final activity in counted) {
+    if (activity.start.micros > at) break;
+    if (activity.kind == ActivityKind.input) lead = activity;
+  }
+  return lead != null && at - lead.end.micros < quiet ? lead : null;
+}
+
+/// The latest of [starts] at or before [at], in µs. [starts] holds one,
+/// the test's start.
+int _latestStart(int at, List<FrameMark> starts) {
   return [
     for (final start in starts)
       if (start.micros <= at) start.micros,
-    for (final activity in counted)
-      if (activity.start.micros <= at) math.min(activity.end.micros, at),
   ].reduce(math.max);
 }
 
