@@ -9,12 +9,13 @@ environment:
   flutter: ">=3.47.5"
 
 dependencies:
+  # For ButterscopeRouteObserver, which the app's MaterialApp holds.
+  butterscope:
+    path: ../../packages/butterscope
   flutter:
     sdk: flutter
 
 dev_dependencies:
-  butterscope:
-    path: ../../packages/butterscope
   butterscope_test:
     path: ../../packages/butterscope_test
   flutter_driver:
