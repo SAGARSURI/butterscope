@@ -38,10 +38,11 @@ BSCOPE-REPORT 7 3 3 }
       return LoggedReport('7', json, const []);
     }
 
-    Map<String, Object?> testPart(Object? observedHz) {
+    Map<String, Object?> testPart(Object? observedHz, {int frames = 40}) {
       return {
         'kind': 'test',
         'name': 'Feed scrolls',
+        'frames': frames,
         'metrics': {'observedHz': observedHz},
       };
     }
@@ -81,6 +82,46 @@ BSCOPE-REPORT 7 3 3 }
 
       expect(report.unusable(minHz: 114), [
         'Feed scrolls has no observed rate',
+      ]);
+      expect(report.unusable(), isEmpty);
+    });
+
+    test('leaves a test too short for a rate out of the warm-up', () {
+      // 10 frames give 9 gaps, one short of the 10 a rate needs (0001,
+      // decision 6). The app launching at 60 Hz is not a capped screen.
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 50,
+        'flushTimedOut': false,
+        'parts': [testPart(60, frames: 10), testPart(119.8, frames: 11)],
+      });
+
+      expect(report.unusable(minHz: 114), isEmpty);
+    });
+
+    test('checks the rate of a test of 11 frames', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 11,
+        'flushTimedOut': false,
+        'parts': [testPart(60, frames: 11)],
+      });
+
+      expect(report.unusable(minHz: 114), [
+        'Feed scrolls drew at 60.0 Hz, under 114.0',
+      ]);
+    });
+
+    test('fails the warm-up when no test is long enough to check', () {
+      final report = reportOf({
+        'buildMode': 'profile',
+        'frames': 10,
+        'flushTimedOut': false,
+        'parts': [testPart(60, frames: 10)],
+      });
+
+      expect(report.unusable(minHz: 114), [
+        'No test drew 11 frames, enough to check its rate',
       ]);
       expect(report.unusable(), isEmpty);
     });
