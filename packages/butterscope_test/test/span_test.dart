@@ -48,6 +48,27 @@ void main() {
     expect(scroll['jankyRate'], 1 / 4);
     final test = parts[1]['metrics']! as Map<String, Object?>;
     expect(test['jankyRate'], 1 / 7);
+
+    // A span carries the same metrics as a test: every gate metric and
+    // every diagnostic in DESIGN section 5.
+    expect(scroll.keys, unorderedEquals(test.keys));
+    expect(scroll.keys, hasLength(19));
+    final diagnostics = parts[0]['diagnostics']! as Map<String, Object?>;
+    expect(
+      diagnostics.keys,
+      unorderedEquals(<String>[
+        'avgUiMs',
+        'avgBuildMs',
+        'avgRasterMs',
+        'vsyncOverheadP90Ms',
+        'vsyncOverheadP99Ms',
+        'totalSpanP90Ms',
+        'totalSpanP99Ms',
+        'rasterCachePeak',
+      ]),
+    );
+    // Builds of 2, 2, 2 and 12 ms: 18 ms over 4 frames.
+    expect(diagnostics['avgBuildMs'], closeTo(18 / 4, 1e-9));
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();

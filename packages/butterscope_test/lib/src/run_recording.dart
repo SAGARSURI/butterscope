@@ -50,13 +50,18 @@ final class RunRecording {
     if (!_spanNames.add(name)) {
       throw ArgumentError.value(name, 'name', 'is already a span in this run');
     }
-    _span = name;
     final start = _recorder.mark();
+    _span = name;
     try {
       return await body();
     } finally {
-      _parts.add(MarkedPart(PartKind.span, name, start, _recorder.mark()));
-      _span = null;
+      // Cleared even when the closing mark throws, so one failed read
+      // does not make every later span look nested.
+      try {
+        _parts.add(MarkedPart(PartKind.span, name, start, _recorder.mark()));
+      } finally {
+        _span = null;
+      }
     }
   }
 
