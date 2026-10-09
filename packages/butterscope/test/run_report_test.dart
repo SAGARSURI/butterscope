@@ -29,8 +29,8 @@ void main() {
       MarkedPart(
         PartKind.test,
         'opens',
-        FrameMark(frameNumber: 0, declaredRefreshRate: 0),
-        FrameMark(frameNumber: 3, declaredRefreshRate: 0),
+        FrameMark(frameNumber: 0, declaredRefreshRate: 0, micros: 0),
+        FrameMark(frameNumber: 3, declaredRefreshRate: 0, micros: 0),
       ),
     ]).toJson();
 
@@ -47,8 +47,8 @@ void main() {
       MarkedPart(
         PartKind.test,
         'opens',
-        FrameMark(frameNumber: 0, declaredRefreshRate: 600),
-        FrameMark(frameNumber: 2, declaredRefreshRate: 120),
+        FrameMark(frameNumber: 0, declaredRefreshRate: 600, micros: 0),
+        FrameMark(frameNumber: 2, declaredRefreshRate: 120, micros: 0),
       ),
     ]).toJson();
 
@@ -63,8 +63,12 @@ void main() {
       MarkedPart(
         PartKind.test,
         'opens',
-        FrameMark(frameNumber: 0, declaredRefreshRate: double.nan),
-        FrameMark(frameNumber: 1, declaredRefreshRate: double.infinity),
+        FrameMark(frameNumber: 0, declaredRefreshRate: double.nan, micros: 0),
+        FrameMark(
+          frameNumber: 1,
+          declaredRefreshRate: double.infinity,
+          micros: 0,
+        ),
       ),
     ]).toJson();
 

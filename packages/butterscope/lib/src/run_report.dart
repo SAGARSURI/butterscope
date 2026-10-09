@@ -1,47 +1,25 @@
+import 'package:butterscope/src/activity.dart';
 import 'package:butterscope/src/classified_frame.dart';
 import 'package:butterscope/src/diagnostic_metrics.dart';
 import 'package:butterscope/src/frame_budget.dart';
+import 'package:butterscope/src/marks.dart';
 import 'package:butterscope/src/recorded_window.dart';
 import 'package:butterscope/src/window_metrics.dart';
 import 'package:flutter/foundation.dart' show kProfileMode, kReleaseMode;
-
-/// The kinds of part a run is split into.
-enum PartKind {
-  /// One `testWidgets` test, from its `setUp` to its `tearDown`.
-  test,
-
-  /// A named span a test marked around a flow. Spans are gated.
-  span,
-
-  /// A part of a test split out by activity, without the test marking it.
-  episode,
-}
-
-/// One part of a run, between two marks of its recording.
-final class MarkedPart {
-  /// Creates a part named [name] of [kind], from [start] to [end].
-  const new(this.kind, this.name, this.start, this.end);
-
-  /// What sort of part this is.
-  final PartKind kind;
-
-  /// The test's full name, or the span's name.
-  final String name;
-
-  /// The mark at its start. Its frames begin after this mark's frame.
-  final FrameMark start;
-
-  /// The mark at its end. Its last frame is this mark's frame.
-  final FrameMark end;
-}
 
 /// The report of one run: what M5 prints after the last test.
 ///
 /// The schema is provisional (version 0). M7 freezes version 1 and the way
 /// it leaves the phone (`docs/DESIGN.md` section 8).
 final class RunReport {
-  /// Builds the report of [window], split into [parts].
-  new(this.window, this.parts);
+  /// Builds the report of [window], split into [parts], with the
+  /// [activities] and [pages] that episodes were split on.
+  new(
+    this.window,
+    this.parts, {
+    this.activities = const [],
+    this.pages = const [],
+  });
 
   /// The provisional schema's version.
   static const int schemaVersion = 0;
@@ -52,6 +30,12 @@ final class RunReport {
   /// The tests, spans and episodes, in the order they ended.
   final List<MarkedPart> parts;
 
+  /// The activity recorded during the run.
+  final List<Activity> activities;
+
+  /// The page changes recorded during the run.
+  final List<PageChange> pages;
+
   /// The report as JSON-ready maps and lists.
   ///
   /// Each part reports its declared refresh rate at its start and its end,
@@ -59,6 +43,11 @@ final class RunReport {
   /// declared. A part whose starting rate cannot give a budget has no
   /// metrics; M6's guards make it `INVALID`. A rate that is not finite is
   /// written as `null`, because JSON has no NaN or infinity.
+  ///
+  /// The activity and page changes go in too, as lists of
+  /// `[kind, startFrame, startMicros, endFrame, endMicros]` and
+  /// `[frame, micros, page, cuts]`, so a reader can split the tests again
+  /// by another rule.
   Map<String, Object?> toJson() {
     return {
       'schema': schemaVersion,
@@ -68,6 +57,20 @@ final class RunReport {
       'flushMicros': window.flushMicros,
       'callbackMicros': window.callbackMicros,
       'parts': [for (final part in parts) _partJson(part)],
+      'activity': [
+        for (final Activity(:kind, :start, :end) in activities)
+          [
+            kind.name,
+            start.frameNumber,
+            start.micros,
+            end.frameNumber,
+            end.micros,
+          ],
+      ],
+      'pages': [
+        for (final PageChange(:at, :page, :cuts) in pages)
+          [at.frameNumber, at.micros, page, cuts],
+      ],
     };
   }
 
@@ -78,8 +81,12 @@ final class RunReport {
     return {
       'kind': part.kind.name,
       'name': part.name,
+      'test': ?part.test,
+      'page': ?part.page,
       'startFrame': part.start.frameNumber,
       'endFrame': part.end.frameNumber,
+      'startMicros': part.start.micros,
+      'endMicros': part.end.micros,
       'declaredHz': _finiteOrNull(hertz),
       'declaredHzAtEnd': _finiteOrNull(part.end.declaredRefreshRate),
       'frames': frames.length,

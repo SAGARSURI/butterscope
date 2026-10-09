@@ -1,4 +1,5 @@
 import 'package:butterscope/src/frame_sample.dart';
+import 'package:butterscope/src/marks.dart';
 
 /// One read of the screen's declared refresh rate, placed in the frame
 /// sequence of a window.
@@ -14,21 +15,6 @@ final class RefreshRateRead {
   /// How many of the window's samples were reported before this read. The
   /// read sits after them, and before any sample reported later.
   final int afterSamples;
-}
-
-/// A point inside a recording: the frame begun most recently when it was
-/// taken, and the refresh rate the screen declared then.
-final class FrameMark {
-  /// Creates a mark, for example in a test.
-  const new({required this.frameNumber, required this.declaredRefreshRate});
-
-  /// The frame begun most recently when the mark was taken. It belongs to
-  /// the part of the recording before the mark.
-  final int frameNumber;
-
-  /// The declared refresh rate read when the mark was taken, as read: it can
-  /// be 0 or not finite, for the guards to judge.
-  final double declaredRefreshRate;
 }
 
 /// Everything a recorder stored for one window, before any metric is
