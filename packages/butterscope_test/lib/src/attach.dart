@@ -2,6 +2,7 @@ import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_test/src/report_writer.dart';
 import 'package:butterscope_test/src/run_recording.dart';
 import 'package:flutter/foundation.dart' show debugPrintSynchronously;
+import 'package:flutter/widgets.dart' show EditableText;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:test_api/hooks.dart' show TestHandle;
@@ -14,7 +15,8 @@ var _attached = false;
 ///
 /// It switches the binding to the `benchmarkLive` frame policy, so frames
 /// run back to back at vsync for the whole run and every missed vsync shows
-/// (`docs/DESIGN.md` section 6.2). It records every frame from the first
+/// (`docs/DESIGN.md` section 6.2). It also holds text cursors still: see
+/// [attachTo]. It records every frame from the first
 /// test to the last, attributes them to the test that produced them, and
 /// prints the report after the last test.
 ///
@@ -36,6 +38,15 @@ void attachButterscope() {
 /// 3.47.5), and `tearDownAll` callbacks run in reverse order
 /// (`Invoker.runTearDowns` in test_api 0.7.12), so the report registered
 /// here is printed before the driver stops reading the device's output.
+///
+/// It sets [EditableText.debugDeterministicCursor], so a focused text
+/// field's cursor stops blinking. On iOS the cursor fades with an animation
+/// that restarts from a zero-length timer (`_onCursorTick` in
+/// `editable_text.dart`, Flutter 3.47.5). Under `benchmarkLive` a pump only
+/// waits while frames keep running, so `pumpAndSettle` almost never lands
+/// in that gap and a test that types waits until its timeout. Without
+/// Butterscope, each pump draws one frame and checks right after it, so
+/// the gap is found and the test settles.
 void attachTo(
   LiveTestWidgetsFlutterBinding binding,
   FrameSource source,
@@ -44,6 +55,7 @@ void attachTo(
   if (_attached) return;
   _attached = true;
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive;
+  EditableText.debugDeterministicCursor = true;
   final run = RunRecording(FrameRecorder(source));
   setUpAll(run.start);
   // The test's full name, group names included, from test_api's public
