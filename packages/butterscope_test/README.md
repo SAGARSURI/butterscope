@@ -34,9 +34,11 @@ advisory and never gated, since the same test can split differently from
 run to run.
 
 To tag each episode with the page on top, add the observer from
-`package:butterscope` to the app's `MaterialApp`. A page change then starts
-an episode too, and a page is named by its route's `RouteSettings.name`.
-Outside a test run the observer does nothing.
+`package:butterscope` to the app's `MaterialApp`, the root navigator. A
+page change then starts an episode too, unless a tap or another pointer
+event came less than 300 ms before it, and a page is named by its route's
+`RouteSettings.name`. Outside a test run the observer does nothing, so it
+can stay in a release build.
 
 ```dart
 MaterialApp(navigatorObservers: [ButterscopeRouteObserver()], ...)

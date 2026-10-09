@@ -3,6 +3,7 @@
 
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_test/src/activity_source.dart';
+import 'package:flutter/gestures.dart' show PointerDeviceKind;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -70,6 +71,17 @@ void main() {
       'animating',
       'still',
     ]);
+  });
+
+  testWidgets('leaves a mouse hovering out of input', (tester) async {
+    await launch(tester);
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    await mouse.moveTo(tester.getCenter(find.text('open')));
+    await mouse.removePointer();
+    await tester.pumpAndSettle();
+
+    expect(listener.heard, ['page / first']);
   });
 
   testWidgets('hears nothing once stopped', (tester) async {

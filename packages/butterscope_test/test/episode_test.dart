@@ -82,7 +82,13 @@ void main() {
 
   test('input after a quiet stretch starts an episode', () {
     source.render(2);
-    activity.input();
+    final reads = source.rateReads;
+    activity
+      ..input()
+      ..input()
+      ..input();
+    // Three events in one frame are one mark, with one read of the rate.
+    expect(source.rateReads - reads, 1);
     source.render(1);
     activity.input();
     source.render(36);

@@ -1,5 +1,11 @@
 import 'package:butterscope/butterscope.dart';
-import 'package:flutter/gestures.dart' show GestureBinding, PointerEvent;
+import 'package:flutter/gestures.dart'
+    show
+        GestureBinding,
+        PointerAddedEvent,
+        PointerEvent,
+        PointerHoverEvent,
+        PointerRemovedEvent;
 import 'package:flutter/scheduler.dart' show SchedulerBinding;
 
 /// What a run is told about activity, to split its tests into episodes.
@@ -29,10 +35,12 @@ abstract interface class ActivitySource {
 /// The [ActivitySource] of a running app, from public APIs of Flutter
 /// 3.47.5, each passed on only when it changes:
 ///
-/// - Input: every pointer event, through a global route of
+/// - Input: every pointer event a user makes, through a global route of
 ///   `GestureBinding.pointerRouter` (`gestures/pointer_router.dart`). The
 ///   binding routes every event it dispatches there
 ///   (`GestureBinding.handleEvent`), the test's own taps and drags too.
+///   A mouse's hover, and a pointer's arrival and departure, are not the
+///   user acting, so they are left out.
 /// - Animation: whether `SchedulerBinding.transientCallbackCount` is above
 ///   0, read in a persistent frame callback. Those run after the frame's
 ///   transient callbacks, so a count above 0 means a ticker waits for the
@@ -66,7 +74,14 @@ final class EngineActivitySource implements ActivitySource {
     _listener = null;
   }
 
-  void _onPointer(PointerEvent event) => _listener?.input();
+  void _onPointer(PointerEvent event) {
+    if (event is PointerHoverEvent ||
+        event is PointerAddedEvent ||
+        event is PointerRemovedEvent) {
+      return;
+    }
+    _listener?.input();
+  }
 
   void _onFrame() {
     final listener = _listener;

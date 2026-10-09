@@ -14,8 +14,14 @@ class FakeFrameSource implements FrameSource {
   @override
   int currentFrameNumber = 0;
 
+  /// How many times the refresh rate has been read.
+  int rateReads = 0;
+
   @override
-  double declaredRefreshRate = 120;
+  double get declaredRefreshRate {
+    rateReads++;
+    return 120;
+  }
 
   /// Frames run back to back, 8333 µs apart, as under `benchmarkLive`, so
   /// the time is the current frame's vsync.

@@ -7,8 +7,8 @@ import 'package:butterscope_test/src/activity_source.dart';
 /// between a mark at its start and a mark at its end. Activity is stored as
 /// marks too, and each test is split into episodes at [finish]. Nothing is
 /// measured until then, so recording costs a measured frame nothing beyond
-/// the recorder's own callback and a mark per change of activity
-/// (`docs/DESIGN.md` section 6.9).
+/// the recorder's own callback, a mark per frame with input, and a mark per
+/// change of other activity (`docs/DESIGN.md` section 6.9).
 final class RunRecording implements ActivityListener {
   /// Creates a recording that reads frames through [_recorder].
   new(this._recorder);
@@ -74,8 +74,12 @@ final class RunRecording implements ActivityListener {
 
   @override
   void input() {
-    final mark = _recorder.mark();
     final last = _input;
+    // A drag sends a few events a frame; the stretch already ends there.
+    if (last != null && _recorder.currentFrameNumber == last.end.frameNumber) {
+      return;
+    }
+    final mark = _recorder.mark();
     // Input in consecutive frames is one stretch.
     if (last != null && mark.frameNumber - last.end.frameNumber <= 1) {
       _input = Activity(ActivityKind.input, last.start, mark);
