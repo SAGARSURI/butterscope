@@ -26,6 +26,12 @@ abstract interface class FrameSource {
   /// Android after a configuration change, so it does not follow a later
   /// change of rate (`docs/decisions/0002-m2-recorder-findings.md`).
   double get declaredRefreshRate;
+
+  /// The time now, in microseconds on a clock that only runs forward.
+  ///
+  /// Marks take it, so the quiet stretches that split episodes are measured
+  /// in time, not in frames.
+  int get nowMicros;
 }
 
 /// The [FrameSource] of a running app, on a phone.
@@ -45,6 +51,7 @@ final class EngineFrameSource implements FrameSource {
   new({this._view});
 
   final FlutterView? _view;
+  final Stopwatch _clock = Stopwatch()..start();
 
   @override
   void addTimingsCallback(TimingsCallback callback) {
@@ -69,4 +76,7 @@ final class EngineFrameSource implements FrameSource {
     }
     return view.display.refreshRate;
   }
+
+  @override
+  int get nowMicros => _clock.elapsedMicroseconds;
 }

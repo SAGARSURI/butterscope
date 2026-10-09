@@ -18,7 +18,11 @@ void main() {
   tearDownAll(() {
     final report = reportIn(printed);
     final parts = report['parts']! as List<Object?>;
-    final tests = [for (final part in parts) part! as Map<String, Object?>];
+    // Episodes are checked in episode_test.dart.
+    final tests = [
+      for (final part in parts.cast<Map<String, Object?>>())
+        if (part['kind'] != 'episode') part,
+    ];
 
     expect(report['schema'], 0);
     expect(report['buildMode'], 'debug');
@@ -57,9 +61,14 @@ void main() {
   tearDown(() => source.render(4));
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  attachTo(binding, source, ReportWriter(printed.add, chunkLength: 100));
+  attachTo(
+    binding,
+    source,
+    FakeActivitySource(),
+    ReportWriter(printed.add, chunkLength: 100),
+  );
   // A second attach, as from another file's main, changes nothing.
-  attachTo(binding, source, ReportWriter(printed.add));
+  attachTo(binding, source, FakeActivitySource(), ReportWriter(printed.add));
 
   test('the frame policy is benchmarkLive', () {
     expect(

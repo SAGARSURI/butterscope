@@ -11,6 +11,7 @@ import 'package:flutter/material.dart';
 Future<void> openDetail(BuildContext context, Catalogue catalogue, Item item) {
   return Navigator.of(context).push(
     MaterialPageRoute<void>(
+      settings: const RouteSettings(name: '/detail'),
       builder: (_) => DetailScreen(catalogue: catalogue, item: item),
     ),
   );

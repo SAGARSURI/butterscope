@@ -44,6 +44,7 @@ class GalleryScreen extends StatelessWidget {
           itemBuilder: (context, index) => GestureDetector(
             onTap: () => Navigator.of(context).push(
               MaterialPageRoute<void>(
+                settings: const RouteSettings(name: '/photo'),
                 builder: (_) => PhotoViewer(initialIndex: index),
               ),
             ),

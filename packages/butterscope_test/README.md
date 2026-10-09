@@ -27,4 +27,18 @@ await span('feed scroll', () async {
 A span's frames are those its body produces. Spans are flat, and each name
 is used once per run, so a baseline matches one span per name.
 
-Episodes arrive later in M5.
+Each test is also split into episodes without marking them: a new
+episode starts at a pointer event (a tap, drag or fling) after 300 ms
+without one. Typing is not a pointer event, so it starts none. Episodes are
+advisory and never gated, since the same test can split differently from
+run to run.
+
+To tag each episode with the page on top, add the observer from
+`package:butterscope` to the app's `MaterialApp`, the root navigator. A
+page change then starts an episode too, at the tap that opened the page,
+and a page is named by its route's `RouteSettings.name`. Outside a test run the observer does nothing, so it
+can stay in a release build.
+
+```dart
+MaterialApp(navigatorObservers: [ButterscopeRouteObserver()], ...)
+```

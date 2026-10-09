@@ -5,19 +5,25 @@
 /// nearest-rank percentiles, missed vsyncs and the observed refresh rate.
 /// M2 adds the frame recorder, which stores the frames of a window on a
 /// phone for the engine to measure. M5 adds marks, which split one
-/// recording into tests, spans and episodes, and the diagnostic metrics.
+/// recording into tests, spans and episodes, the diagnostic metrics, and
+/// `ButterscopeRouteObserver`, which an app adds to its navigator so that
+/// episodes are tagged with the page on top.
 /// See `docs/DESIGN.md` at the repository root.
 library;
 
+export 'package:butterscope/src/activity.dart';
 export 'package:butterscope/src/classified_frame.dart';
 export 'package:butterscope/src/diagnostic_metrics.dart';
+export 'package:butterscope/src/episodes.dart';
 export 'package:butterscope/src/frame_budget.dart';
 export 'package:butterscope/src/frame_recorder.dart';
 export 'package:butterscope/src/frame_sample.dart';
 export 'package:butterscope/src/frame_source.dart';
+export 'package:butterscope/src/marks.dart';
 export 'package:butterscope/src/missed_vsyncs.dart';
 export 'package:butterscope/src/percentile.dart';
 export 'package:butterscope/src/recorded_window.dart';
 export 'package:butterscope/src/refresh_rate.dart';
+export 'package:butterscope/src/route_observer.dart';
 export 'package:butterscope/src/run_report.dart';
 export 'package:butterscope/src/window_metrics.dart';

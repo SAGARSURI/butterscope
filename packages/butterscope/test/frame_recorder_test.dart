@@ -8,6 +8,9 @@ class FakeFrameSource implements FrameSource {
   @override
   int currentFrameNumber = 10;
 
+  @override
+  int nowMicros = 0;
+
   /// When set, reading the refresh rate throws it.
   Error? rateError;
 
@@ -255,10 +258,12 @@ void main() {
       final start = FrameMark(
         frameNumber: recorded.startFrameNumber,
         declaredRefreshRate: 120,
+        micros: 0,
       );
       final end = FrameMark(
         frameNumber: recorded.endFrameNumber,
         declaredRefreshRate: 120,
+        micros: 0,
       );
       final before = recorded.samplesBetween(start, mark);
       final after = recorded.samplesBetween(mark, end);
@@ -280,6 +285,16 @@ void main() {
       // Start, the batch with frame 11, the mark, the stop.
       expect([for (final read in reads) read.hertz], [120, 120, 60, 60]);
       expect([for (final read in reads) read.afterSamples], [0, 1, 1, 1]);
+    });
+
+    test('take the time from the frame source', () async {
+      final frames = recorder()..start();
+      source.nowMicros = 41667;
+      final mark = frames.mark();
+      final window = frames.stop();
+
+      expect(mark.micros, 41667);
+      await window;
     });
 
     test('cannot be taken outside a window', () async {

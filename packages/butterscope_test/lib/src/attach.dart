@@ -1,4 +1,5 @@
 import 'package:butterscope/butterscope.dart';
+import 'package:butterscope_test/src/activity_source.dart';
 import 'package:butterscope_test/src/report_writer.dart';
 import 'package:butterscope_test/src/run_recording.dart';
 import 'package:flutter/foundation.dart' show debugPrintSynchronously;
@@ -17,8 +18,10 @@ RunRecording? _run;
 /// run back to back at vsync for the whole run and every missed vsync shows
 /// (`docs/DESIGN.md` section 6.2). It also holds text cursors still: see
 /// [attachTo]. It records every frame from the first
-/// test to the last, attributes them to the test that produced them, and
-/// prints the report after the last test.
+/// test to the last, attributes them to the test that produced them,
+/// splits each test into episodes on input, and prints the
+/// report after the last test. With a [ButterscopeRouteObserver] in the
+/// app, a change of page splits an episode too and tags it.
 ///
 /// Calling it again in the same run does nothing, so a file that runs other
 /// files' `main`s, each of which attaches, still records one run.
@@ -26,11 +29,17 @@ void attachButterscope() {
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   // Printed at once: debugPrint queues long output on a timer, which could
   // still be printing when the driver stops reading.
-  attachTo(binding, EngineFrameSource(), ReportWriter(debugPrintSynchronously));
+  attachTo(
+    binding,
+    EngineFrameSource(),
+    EngineActivitySource(),
+    ReportWriter(debugPrintSynchronously),
+  );
 }
 
-/// Attaches to [binding], reading frames from [source] and printing the
-/// report with [writer]. [attachButterscope] passes the real ones.
+/// Attaches to [binding], reading frames from [source] and activity from
+/// [activity], and printing the report with [writer]. [attachButterscope]
+/// passes the real ones.
 ///
 /// The binding must be created before this runs. It registers a
 /// `tearDownAll` that tells the driver the run is over
@@ -50,18 +59,23 @@ void attachButterscope() {
 void attachTo(
   LiveTestWidgetsFlutterBinding binding,
   FrameSource source,
+  ActivitySource activity,
   ReportWriter writer,
 ) {
   if (_run != null) return;
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive;
   EditableText.debugDeterministicCursor = true;
   final run = _run = RunRecording(FrameRecorder(source));
-  setUpAll(run.start);
+  setUpAll(() {
+    run.start();
+    activity.start(run);
+  });
   // The test's full name, group names included, from test_api's public
   // hook: flutter_test keeps the description it is given private.
   setUp(() => run.testStarted(TestHandle.current.name));
   tearDown(run.testEnded);
   tearDownAll(() async {
+    activity.stop();
     final report = await run.finish();
     final runId = DateTime.now().microsecondsSinceEpoch;
     writer.write(report.toJson(), runId: runId);

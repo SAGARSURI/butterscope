@@ -4,6 +4,7 @@ import 'dart:ui' show FrameTiming;
 
 import 'package:butterscope/src/frame_sample.dart';
 import 'package:butterscope/src/frame_source.dart';
+import 'package:butterscope/src/marks.dart';
 import 'package:butterscope/src/recorded_window.dart';
 import 'package:flutter/foundation.dart' show kReleaseMode;
 
@@ -118,8 +119,12 @@ final class FrameRecorder {
     );
   }
 
+  /// The frame begun most recently, read without a mark, so a caller can
+  /// skip marking a frame it has marked already.
+  int get currentFrameNumber => _source.currentFrameNumber;
+
   /// Marks the frame begun most recently, inside the open window, and reads
-  /// the declared refresh rate there.
+  /// the declared refresh rate and the time there.
   ///
   /// Marks split one recording into parts, such as tests, spans and
   /// episodes: [RecordedWindow.samplesBetween] gives the frames between two
@@ -138,6 +143,7 @@ final class FrameRecorder {
     return FrameMark(
       frameNumber: frameNumber,
       declaredRefreshRate: _readRefreshRate(),
+      micros: _source.nowMicros,
     );
   }
 

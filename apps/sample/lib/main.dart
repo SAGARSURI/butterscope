@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:butterscope/butterscope.dart' show ButterscopeRouteObserver;
 import 'package:butterscope_sample/src/activity/activity_source.dart';
 import 'package:butterscope_sample/src/calibration_screen.dart';
 import 'package:butterscope_sample/src/catalogue/catalogue.dart';
@@ -74,6 +75,9 @@ class SampleApp extends StatelessWidget {
         title: 'Catalogue',
         theme: ThemeData(colorSchemeSeed: Colors.teal),
         showPerformanceOverlay: overlay,
+        // Tags Butterscope's episodes with the page on top while tests
+        // record; it does nothing otherwise.
+        navigatorObservers: [ButterscopeRouteObserver()],
         home: HomeShell(catalogue: catalogue, activity: activity, inbox: inbox),
         routes: {
           calibrationRoute: (_) => CalibrationScreen(
