@@ -18,7 +18,12 @@ void main() {
 
   group('Detail', () {
     testWidgets('shows the item and its facts', (tester) async {
-      await openFirstItem(tester);
+      await launchApp(tester);
+      // The page's header is in view for the whole push.
+      await span('detail open', () async {
+        await tester.tap(find.byKey(const Key('item-card-0')));
+        await tester.pumpAndSettle();
+      });
 
       expect(find.byKey(const Key('detail-title')), findsOneWidget);
       expect(find.textContaining('Rated '), findsOneWidget);
@@ -29,16 +34,14 @@ void main() {
       await openFirstItem(tester);
       final scroll = find.byKey(const Key('detail-scroll'));
 
-      await span('detail scroll', () async {
-        await tester.scrollUntilVisible(
-          find.byKey(const Key('detail-end')),
-          300,
-          scrollable: find.descendant(
-            of: scroll,
-            matching: find.byType(Scrollable),
-          ),
-        );
-      });
+      await tester.scrollUntilVisible(
+        find.byKey(const Key('detail-end')),
+        300,
+        scrollable: find.descendant(
+          of: scroll,
+          matching: find.byType(Scrollable),
+        ),
+      );
       final related = find.descendant(
         of: scroll,
         matching: find.byType(ListTile),
