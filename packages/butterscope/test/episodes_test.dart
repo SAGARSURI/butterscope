@@ -53,6 +53,19 @@ void main() {
       expect([for (final e in episodes) e.name], ['episode 1', 'episode 2']);
     });
 
+    test('starts an episode at the first input after a quiet start', () {
+      // The test starts at frame 0 and its first input comes at frame 50:
+      // 50 frames is 416 650 µs, so the frames before it, such as the
+      // app's launch, are an episode of their own.
+      final episodes = splitEpisodes(
+        test200,
+        activities: [input(50, 51)],
+        pages: [],
+      );
+
+      expect(framesOf(episodes), [(0, 50), (50, 200)]);
+    });
+
     test('keeps the quiet after activity with the episode it follows', () {
       final episodes = splitEpisodes(
         test200,
@@ -158,6 +171,22 @@ void main() {
 
       expect(framesOf(episodes), [(0, 120), (120, 200)]);
       expect([for (final e in episodes) e.page], [null, 'detail']);
+    });
+
+    test('keeps a page with the input just before it', () {
+      // A drag from frame 10 to 100, then a tap at 110 that opens a page at
+      // 111. The tap is 10 frames after the drag, so it starts no episode.
+      // The episode started at frame 0, 111 frames (924 963 µs) before the
+      // page, but the tap came 1 frame before it, so the page joins the
+      // drag's episode.
+      final episodes = splitEpisodes(
+        test200,
+        activities: [input(10, 100), input(110, 110)],
+        pages: [PageChange(at(111), 'detail', cuts: true)],
+      );
+
+      expect(framesOf(episodes), [(0, 200)]);
+      expect(episodes.single.page, 'detail');
     });
 
     test('does not cut at the first page an app shows', () {

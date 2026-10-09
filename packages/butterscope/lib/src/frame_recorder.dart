@@ -119,6 +119,10 @@ final class FrameRecorder {
     );
   }
 
+  /// The frame begun most recently, read without a mark, so a caller can
+  /// skip marking a frame it has marked already.
+  int get currentFrameNumber => _source.currentFrameNumber;
+
   /// Marks the frame begun most recently, inside the open window, and reads
   /// the declared refresh rate and the time there.
   ///

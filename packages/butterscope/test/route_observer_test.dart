@@ -55,6 +55,32 @@ void main() {
     expect(shown, [('/', true), ('gallery', false)]);
   });
 
+  testWidgets('reports the page left on top when one is removed', (
+    tester,
+  ) async {
+    final navigator = await launch(tester);
+    final detail = page('detail');
+    navigator.push(detail);
+    await tester.pumpAndSettle();
+    navigator.removeRoute(detail);
+    await tester.pumpAndSettle();
+
+    expect(shown, [('/', true), ('detail', false), ('/', false)]);
+  });
+
+  testWidgets('leaves out a page replaced under the one on top', (
+    tester,
+  ) async {
+    final navigator = await launch(tester);
+    final detail = page('detail');
+    navigator.push(detail);
+    await tester.pumpAndSettle();
+    navigator.replaceRouteBelow(anchorRoute: detail, newRoute: page('feed'));
+    await tester.pumpAndSettle();
+
+    expect(shown, [('/', true), ('detail', false)]);
+  });
+
   testWidgets('leaves dialogs out, since they are not pages', (tester) async {
     await launch(tester);
     final context = tester.element(find.text('home'));

@@ -13,32 +13,30 @@ typedef PageListener = void Function(String? page, {required bool first});
 /// ```
 ///
 /// While Butterscope records a test run, a change of page also starts a new
-/// episode. Outside a run it does nothing. It follows page routes only, so
-/// a dialog or a menu does not count as a page, and a page is named by its
-/// route's [RouteSettings.name].
+/// episode. Outside a run it does nothing, so it can stay in a release
+/// build. It follows the page route on top, however it got there: pushed,
+/// popped, replaced or removed. A dialog or a menu is not a page, so it
+/// changes nothing, and a page is named by its route's
+/// [RouteSettings.name].
+///
+/// It belongs on the app's root navigator only: a run hears one page at a
+/// time, so the pages of nested navigators would interleave. The first
+/// page it sees is the app's first, which starts no episode, so one
+/// observer should last as long as the navigator.
 class ButterscopeRouteObserver extends NavigatorObserver {
   /// Gets each change of page while a run records. `butterscope_test` sets
   /// it when it starts recording and clears it when it stops.
   static PageListener? listener;
 
-  @override
-  void didPush(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route is PageRoute) _show(route, first: previousRoute == null);
-  }
+  Route<dynamic>? _page;
 
+  // Flutter 3.47.5 calls this once the navigator's history settles, with
+  // the route now on top (`widgets/navigator.dart`, `_flushHistoryUpdates`).
   @override
-  void didPop(Route<dynamic> route, Route<dynamic>? previousRoute) {
-    if (route is PageRoute && previousRoute is PageRoute) {
-      _show(previousRoute, first: false);
-    }
-  }
-
-  @override
-  void didReplace({Route<dynamic>? newRoute, Route<dynamic>? oldRoute}) {
-    if (newRoute is PageRoute) _show(newRoute, first: oldRoute == null);
-  }
-
-  void _show(Route<dynamic> route, {required bool first}) {
-    listener?.call(route.settings.name, first: first);
+  void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
+    if (topRoute is! PageRoute || identical(topRoute, _page)) return;
+    final first = _page == null;
+    _page = topRoute;
+    listener?.call(topRoute.settings.name, first: first);
   }
 }

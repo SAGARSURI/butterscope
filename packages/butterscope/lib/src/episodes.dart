@@ -43,9 +43,11 @@ final class EpisodeRule {
 ///
 /// Every frame of the test belongs to exactly one episode. The first
 /// starts with the test. A later one starts at activity that follows a
-/// quiet stretch of at least [EpisodeRule.quiet], and at a page change,
-/// unless an episode started less than that long before it: a tap that
-/// opens a page is one episode with the page's transition. The quiet
+/// quiet stretch of at least [EpisodeRule.quiet], counted from the test's
+/// start for its first activity. A page change starts one too, unless
+/// activity or an episode's start came less than that long before it: a
+/// tap that opens a page is one episode with the page's transition, even
+/// when the tap followed a scroll too closely to start its own. The quiet
 /// stretch after activity stays with the episode before it. Each episode
 /// is tagged with the page on top at its end.
 List<MarkedPart> splitEpisodes(
@@ -54,8 +56,26 @@ List<MarkedPart> splitEpisodes(
   required List<PageChange> pages,
   EpisodeRule rule = EpisodeRule.inputOnly,
 }) {
-  final starts = [test.start, ..._activityStarts(test, activities, rule)];
-  _addPageStarts(starts, test, pages, rule.quiet.inMicroseconds);
+  final counted = _counted(test, activities, rule);
+  final quiet = rule.quiet.inMicroseconds;
+  final starts = [test.start];
+  // Activity after a quiet stretch, counted from the test's start.
+  var lastEnd = test.start.micros;
+  for (final activity in counted) {
+    if (activity.start.micros - lastEnd >= quiet) starts.add(activity.start);
+    lastEnd = math.max(lastEnd, activity.end.micros);
+  }
+  // Each page change inside the test, a quiet stretch after the latest
+  // start or activity before it.
+  for (final change in pages) {
+    final at = change.at.micros;
+    final inside = at > test.start.micros && at < test.end.micros;
+    if (change.cuts &&
+        inside &&
+        at - _latestBefore(at, starts, counted) >= quiet) {
+      starts.add(change.at);
+    }
+  }
   final bounds = _bounds(test, starts);
   return [
     for (var i = 0; i + 1 < bounds.length; i++)
@@ -70,25 +90,16 @@ List<MarkedPart> splitEpisodes(
   ];
 }
 
-/// Adds to [starts] each page change inside [test] that comes at least
-/// [quiet] µs after the latest start before it.
-void _addPageStarts(
-  List<FrameMark> starts,
-  MarkedPart test,
-  List<PageChange> pages,
-  int quiet,
-) {
-  for (final change in pages) {
-    final at = change.at.micros;
-    if (!change.cuts || at <= test.start.micros || at >= test.end.micros) {
-      continue;
-    }
-    final latest = starts
-        .map((start) => start.micros)
-        .where((micros) => micros <= at)
-        .reduce(math.max);
-    if (at - latest >= quiet) starts.add(change.at);
-  }
+/// The latest time, in µs, at or before [at] when one of [starts] began
+/// or [counted] activity ran. [starts] holds one at or before [at], the
+/// test's start.
+int _latestBefore(int at, List<FrameMark> starts, List<Activity> counted) {
+  return [
+    for (final start in starts)
+      if (start.micros <= at) start.micros,
+    for (final activity in counted)
+      if (activity.start.micros <= at) math.min(activity.end.micros, at),
+  ].reduce(math.max);
 }
 
 /// The marks between [test]'s episodes, in order: its start, each of
@@ -103,27 +114,19 @@ List<FrameMark> _bounds(MarkedPart test, List<FrameMark> starts) {
   return bounds..add(test.end);
 }
 
-/// The marks where activity in [test] starts after a quiet stretch.
-Iterable<FrameMark> _activityStarts(
+/// The activity [rule] counts that overlaps [test], by start.
+List<Activity> _counted(
   MarkedPart test,
   List<Activity> activities,
   EpisodeRule rule,
-) sync* {
-  final counted = [
+) {
+  return [
     for (final activity in activities)
       if ((rule.countsAnimation || activity.kind == ActivityKind.input) &&
           activity.end.micros >= test.start.micros &&
           activity.start.micros <= test.end.micros)
         activity,
   ]..sort((a, b) => a.start.micros.compareTo(b.start.micros));
-  int? lastEnd;
-  for (final activity in counted) {
-    if (lastEnd != null &&
-        activity.start.micros - lastEnd >= rule.quiet.inMicroseconds) {
-      yield activity.start;
-    }
-    lastEnd = math.max(lastEnd ?? 0, activity.end.micros);
-  }
 }
 
 /// The page on top just before [mark]: the last change before it. A change
