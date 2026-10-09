@@ -64,30 +64,31 @@ void main() {
       expect(framesOf(episodes), [(0, 150), (150, 200)]);
     });
 
-    test('counts animation under rule A and not under rule B', () {
+    test('counts animation under rule A and not under rule B, the default', () {
       // An animation from frame 50 to 60 after input ends at frame 10:
       // 40 frames is 333 320 µs of quiet.
       final activities = [input(5, 10), animation(50, 60)];
 
-      final ruleA = splitEpisodes(test200, activities: activities, pages: []);
-      final ruleB = splitEpisodes(
+      final ruleA = splitEpisodes(
         test200,
         activities: activities,
         pages: [],
-        rule: EpisodeRule.inputOnly,
+        rule: EpisodeRule.inputOrAnimation,
       );
+      final ruleB = splitEpisodes(test200, activities: activities, pages: []);
 
       expect(framesOf(ruleA), [(0, 50), (50, 200)]);
       expect(framesOf(ruleB), [(0, 200)]);
     });
 
     test('joins activity that overlaps, however long it runs', () {
-      // The animation runs from frame 12 to 120, so the input at frame 115
-      // follows no quiet.
+      // Under rule A the animation runs from frame 12 to 120, so the input
+      // at frame 115 follows no quiet.
       final episodes = splitEpisodes(
         test200,
         activities: [input(10, 12), animation(12, 120), input(115, 116)],
         pages: [],
+        rule: EpisodeRule.inputOrAnimation,
       );
 
       expect(framesOf(episodes), [(0, 200)]);

@@ -105,9 +105,7 @@ final class RunRecording implements ActivityListener {
 
   /// Stops recording and reports the run, each test split into episodes
   /// by [rule] and listed before it.
-  Future<RunReport> finish({
-    EpisodeRule rule = EpisodeRule.inputOrAnimation,
-  }) async {
+  Future<RunReport> finish({EpisodeRule rule = EpisodeRule.inputOnly}) async {
     // Activity still open at the end closes there.
     if (_input case final input?) _activities.add(input);
     animating(animating: false);

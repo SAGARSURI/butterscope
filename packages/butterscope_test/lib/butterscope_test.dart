@@ -9,8 +9,8 @@
 /// }
 /// ```
 ///
-/// Each test is also split into episodes, on input and animation, without
-/// the test marking them. An app that adds `ButterscopeRouteObserver`, from
+/// Each test is also split into episodes, on input, without the test
+/// marking them. An app that adds `ButterscopeRouteObserver`, from
 /// `package:butterscope`, to its navigator gets each episode tagged with the
 /// page on top. See `docs/DESIGN.md` at the repository root.
 library;

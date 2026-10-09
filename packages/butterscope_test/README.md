@@ -28,9 +28,10 @@ A span's frames are those its body produces. Spans are flat, and each name
 is used once per run, so a baseline matches one span per name.
 
 Each test is also split into episodes without marking them: a new
-episode starts at input or animation after 300 ms without either. Episodes
-are advisory and never gated, since the same test can split differently
-from run to run. M5 picks the rule from phone runs, so it may change.
+episode starts at a pointer event (a tap, drag or fling) after 300 ms
+without one. Typing is not a pointer event, so it starts none. Episodes are
+advisory and never gated, since the same test can split differently from
+run to run.
 
 To tag each episode with the page on top, add the observer from
 `package:butterscope` to the app's `MaterialApp`. A page change then starts

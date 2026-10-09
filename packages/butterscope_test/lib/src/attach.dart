@@ -19,7 +19,7 @@ RunRecording? _run;
 /// (`docs/DESIGN.md` section 6.2). It also holds text cursors still: see
 /// [attachTo]. It records every frame from the first
 /// test to the last, attributes them to the test that produced them,
-/// splits each test into episodes on input and animation, and prints the
+/// splits each test into episodes on input, and prints the
 /// report after the last test. With a [ButterscopeRouteObserver] in the
 /// app, a change of page splits an episode too and tags it.
 ///

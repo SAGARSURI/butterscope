@@ -7,8 +7,12 @@ import 'package:butterscope/src/marks.dart';
 /// a quiet stretch must be before activity starts a new one.
 ///
 /// Under `benchmarkLive` frames never pause, so episodes split on activity
-/// rather than on gaps between frames (`docs/DESIGN.md` section 6.3). M5
-/// chooses between the two rules below on phone runs.
+/// rather than on gaps between frames (`docs/DESIGN.md` section 6.3). In
+/// M5's first five runs per phone, both rules below repeated every test's
+/// episode count at 150, 300, 500 and 1000 ms. [inputOnly] is the default:
+/// its episodes follow the user's actions, where a stream's animations
+/// join everything around them into one under [inputOrAnimation], and at
+/// 150 ms rule A split Inbox's tests differently on the two phones.
 final class EpisodeRule {
   /// Creates a rule that counts animation when [countsAnimation] is set,
   /// and needs [quiet] without activity before a new episode.
@@ -48,7 +52,7 @@ List<MarkedPart> splitEpisodes(
   MarkedPart test, {
   required List<Activity> activities,
   required List<PageChange> pages,
-  EpisodeRule rule = EpisodeRule.inputOrAnimation,
+  EpisodeRule rule = EpisodeRule.inputOnly,
 }) {
   final starts = [test.start, ..._activityStarts(test, activities, rule)];
   _addPageStarts(starts, test, pages, rule.quiet.inMicroseconds);

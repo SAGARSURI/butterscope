@@ -1,8 +1,8 @@
 // A test file that attaches as a team would, with fake frame and activity
 // sources in place of the engine, and checks the episodes in the printed
 // report. Frames run 8333 µs apart, so 36 frames (300 ms less 12 µs) are
-// just short of the 300 ms of quiet that starts an episode, and 37 frames
-// (308 321 µs) are enough.
+// just short of the 300 ms without input that starts an episode, and 37
+// frames (308 321 µs) are enough.
 
 import 'package:butterscope_test/src/attach.dart';
 import 'package:butterscope_test/src/report_writer.dart';
@@ -37,11 +37,10 @@ void main() {
         'episode episode 1: 50-126',
         'episode episode 2: 126-180',
         'test input after a quiet stretch starts an episode: 50-180',
-        // The animation from 185 to 200 starts nothing: it is the test's
-        // first activity. The one from 237, 37 frames after 200, does.
-        'episode episode 1: 180-237',
-        'episode episode 2: 237-260',
-        'test animation counts as activity: 180-260',
+        // Episodes split on input only, so animations from 185 to 200 and
+        // from 237, 37 frames later, start none.
+        'episode episode 1: 180-260',
+        'test animation alone starts no episode: 180-260',
         // The app's first page cuts nothing. The tap at 302, 40 frames
         // after the one at 262, starts episode 2, and the page it opens at
         // 304 joins it.
@@ -93,7 +92,7 @@ void main() {
     source.render(54);
   });
 
-  test('animation counts as activity', () {
+  test('animation alone starts no episode', () {
     source.render(5);
     activity.animating(animating: true);
     source.render(15);
