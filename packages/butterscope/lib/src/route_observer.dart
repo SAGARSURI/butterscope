@@ -20,9 +20,10 @@ typedef PageListener = void Function(String? page, {required bool first});
 /// [RouteSettings.name].
 ///
 /// It belongs on the app's root navigator only: a run hears one page at a
-/// time, so the pages of nested navigators would interleave. The first
-/// page it sees is the app's first, which starts no episode, so one
-/// observer should last as long as the navigator.
+/// time, so the pages of nested navigators would interleave. The
+/// navigator's first page starts no episode. That is read from the
+/// navigator, so an app may create the observer in `build`: one that
+/// replaces another on a rebuild hears the next page as a change.
 class ButterscopeRouteObserver extends NavigatorObserver {
   /// Gets each change of page while a run records. `butterscope_test` sets
   /// it when it starts recording and clears it when it stops.
@@ -35,8 +36,7 @@ class ButterscopeRouteObserver extends NavigatorObserver {
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
     if (topRoute is! PageRoute || identical(topRoute, _page)) return;
-    final first = _page == null;
     _page = topRoute;
-    listener?.call(topRoute.settings.name, first: first);
+    listener?.call(topRoute.settings.name, first: previousTopRoute == null);
   }
 }

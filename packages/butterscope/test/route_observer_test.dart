@@ -81,6 +81,48 @@ void main() {
     expect(shown, [('/', true), ('detail', false)]);
   });
 
+  testWidgets('reports a page change after the app rebuilds its observer', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    // Each pump builds a new observer, as an app that creates it in
+    // `build` does whenever its root rebuilds.
+    Widget app() {
+      return MaterialApp(
+        navigatorKey: navigator,
+        navigatorObservers: [ButterscopeRouteObserver()],
+        home: const Text('home'),
+      );
+    }
+
+    await tester.pumpWidget(app());
+    await tester.pumpWidget(app());
+    navigator.currentState!.push(page('detail'));
+    await tester.pumpAndSettle();
+
+    expect(shown, [('/', true), ('detail', false)]);
+  });
+
+  testWidgets('reports the first page of each navigator it is added to', (
+    tester,
+  ) async {
+    // One observer, kept across two launches of the app, as a top-level
+    // final in the app would be across tests.
+    final observer = ButterscopeRouteObserver();
+    Widget app(Key key) {
+      return MaterialApp(
+        key: key,
+        navigatorObservers: [observer],
+        home: const Text('home'),
+      );
+    }
+
+    await tester.pumpWidget(app(const ValueKey(1)));
+    await tester.pumpWidget(app(const ValueKey(2)));
+
+    expect(shown, [('/', true), ('/', true)]);
+  });
+
   testWidgets('leaves dialogs out, since they are not pages', (tester) async {
     await launch(tester);
     final context = tester.element(find.text('home'));
