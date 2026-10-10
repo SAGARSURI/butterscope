@@ -1,6 +1,6 @@
 # 0005: The public API, episodes and what M5 measured
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-10
 - Milestone: M5
 
@@ -22,15 +22,19 @@ What the runs showed:
   screen's plant: 7 of 7 builds on each phone. No test file needed more
   than the line. Butterscope itself needed one change, below.
 - **A blinking cursor kept iOS tests from settling.** On the first
-  iPhone run every Search test waited 40 to 80 s after typing, drawing
-  1,000 to 21,000 idle frames, until the app was sent to the background.
-  On iOS a focused field's cursor fades with an animation that restarts
-  from a zero-length timer (`_onCursorTick` in
-  `widgets/editable_text.dart`). Under `benchmarkLive` a pump waits only
-  while frames keep running, so `pumpAndSettle` almost never lands in
-  the gap between two fades. Under the default `fadePointers` each pump
-  draws one frame and checks right after it, so M4's tests found the gap.
-  Android blinks on a periodic timer and was not affected. With the
+  iPhone run every Search test stopped settling after typing and drew
+  1,000 or more idle frames, until the app was sent to the background.
+  A Material `TextField` fades its cursor when the theme's platform is
+  iOS (`cursorOpacityAnimates`), with an animation that restarts from a
+  zero-length timer (`_onCursorTick` in `widgets/editable_text.dart`).
+  Under `benchmarkLive` a pump draws nothing and only waits its 100 ms
+  while the engine draws, so `pumpAndSettle` checks at an arbitrary
+  moment. The fade has a frame scheduled at every moment but that
+  timer's gap, so the check almost never finds the gap. Under the
+  default `fadePointers` each pump draws one frame and checks right
+  after it, before the timer fires, so M4's tests found the gap. On
+  Android the cursor blinks on a periodic timer and was not affected. A
+  `CupertinoTextField` fades on every platform. With the
   cursor held still, the Search tests took 1 to 2 s and all builds
   passed. Apart from this, `pumpAndSettle` settled under `benchmarkLive`
   on both phones, as the source predicted.
@@ -39,23 +43,23 @@ What the runs showed:
   span was clearly worse than its clean span, 3.6 to 11.9 times its
   hitch ratio on the S24. But a span covers one short action, where M4's
   probe ran the same action for 5 s, so a span's janky share is not
-  M4's.
-  `raster_clip` and `gpu_blur` reached 92 to 100% of a span's frames.
+  M4's. On 2026-10-09 the owner accepted that every plant shows clearly
+  on its span and that span numbers differ from M4's probe windows.
+  `raster_clip` and `gpu_blur` made 92 to 100% of a span's frames janky.
   `ui_busy` and `sync_decode` showed as missed vsyncs, not janky frames.
   The S24's clean Feed and Gallery spans were 13 to 15% janky, against
   0 to 1.3% on the iPhone. The ordinary tests keep semantics on, which M4
   found costs the S24's Feed 4.5 to 6.1% of frames, so part of that is
-  likely semantics (inferred). The owner accepted this reading on
-  2026-10-09.
+  likely semantics (inferred).
 - **The S24 draws its first frames at 60 Hz.** In the test that only
   launches the app, the S24 drew 5 or 6 frames at 60 Hz; the iPhone drew
   11 or 12 at 120 Hz. Every longer test drew at 120 Hz on both phones.
 - **Every candidate episode rule repeated.** Two rules were tried, each at
   150, 300, 500 and 1000 ms of quiet: A splits on input or animation, B
   on input only. In 5 clean runs per phone every rule repeated every
-  test's episode count. Under A, the streams on Activity and Inbox
-  animate throughout, so each of those tests stayed one episode, and at
-  150 ms A split two Inbox tests differently on the two phones. B at
+  test's episode count. Under A at 300 ms, the streams on Activity and
+  Inbox animate throughout, so each of those tests stayed one episode;
+  at 150 ms A split two Inbox tests differently on the two phones. B at
   300 ms was chosen. In 10 fresh runs per phone it repeated every test's
   count in 10 of 10 (the bar was 9 of 10), with the same 32 episodes per
   run on both phones. Every episode carried a page tag, metrics and
@@ -67,13 +71,14 @@ What the runs showed:
   first episode, so the margin is about 17 ms.
 - **Reading the tree costs no more frames than an empty span; gestures
   cost some on a real screen; typing costs the most.** Each step ran 50
-  times, 100 ms apart, in a 5 s span of its own, in 5 runs per phone. The
-  ms columns are each call's elapsed time on a stopwatch, not UI time: an
-  async call's time can include a frame drawn while it waits.
+  times, 100 ms apart, in a 5 s span of its own, in 5 runs per phone,
+  with semantics off as in M4's probes. The ms columns are each call's
+  elapsed time on a stopwatch, not UI time: an async call's time can
+  include a frame drawn while it waits.
 
   | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
   | --- | --- | --- | --- | --- | --- |
-  | Finders, `expect`, `tester.widget` | Still | 0.5 to 0.6 | 0 | 0.3 | 0 |
+  | Finders, `expect`, `tester.widget` | Still | 0.5 to 0.6 | 0 | 0.3 to 0.4 | 0 |
   | Finders, `expect`, `tester.widget` | Feed | 1.1 to 1.9 | 0 | 1.1 to 1.8 | 0 |
   | `tap`, `drag` | Still | 2.0 to 2.2 | 0 to 1 | 1.5 to 1.7 | 0 |
   | `tap`, `drag` | Feed | 6.1 to 6.2 | 0 to 6, up to 27 missed vsyncs | 5.4 | 0 |
@@ -88,12 +93,12 @@ What the runs showed:
   cause too. This is inferred from the still screen, where the same
   keystroke into a field with no handler cost 2.5 ms on the S24 and lost
   0 or 1 janky frame a run, as an empty span did.
-- **iPhone runs failed four times for reasons outside the test.** Twice
-  the phone had dropped from its cable to Wi-Fi debugging. Once the
-  launch went through Xcode and never attached. Once the app was stopped
-  mid-test over USB, with no cause found. Once the phone was reconnected
-  by cable, and the previous run's app was stopped by hand before each
-  run, every run passed on its first try.
+- **iPhone harness runs failed four times for reasons outside the
+  test.** Twice the phone had dropped from its cable to Wi-Fi debugging.
+  Once the launch went through Xcode and never attached. Once the app
+  was stopped mid-test over USB, with no cause found. Once the phone was
+  reconnected by cable, and the previous run's app was stopped by hand
+  before each run, every run passed on its first try.
 
 ## Decision
 
@@ -108,19 +113,22 @@ What the runs showed:
 
    `attachButterscope()` goes once at the top of a test file's `main`,
    before any `testWidgets` and outside any `group`. Calling it again in
-   the same run does nothing, so a file that runs other files' `main`s
-   still records one run. `span`'s future fails with a `StateError`
-   before `attachButterscope()`, outside a test or inside another span,
-   and with an `ArgumentError` for a name already used in the run. M6
-   may add named options to `attachButterscope` without breaking it.
-   DESIGN 6.1 is closed.
+   the same run does nothing, so a file that calls other files' `main`s
+   at its top level, outside any `group`, still records one run.
+   `span`'s future fails with a `StateError` before
+   `attachButterscope()`, outside a test or inside another span, and
+   with an `ArgumentError` for a name already used in the run. M6 may
+   add named options to `attachButterscope` without breaking it. DESIGN
+   6.1 is closed.
 
 2. **One recording covers the run; tests, spans and episodes are marks
    inside it.** A mark stores the latest frame number, a time and a read
    of the declared rate. Each test's start and end are marked in `setUp`
    and `tearDown`, labelled with the test's full name from
    `TestHandle.current.name` (`package:test_api/hooks.dart`, test_api
-   0.7.12), because `flutter_test` keeps the description private. Frames
+   0.7.12), because `flutter_test` exposes the description only on
+   `WidgetTester.testDescription`, which lacks group names and is not
+   set until after `setUp`. Frames
    drawn between tests belong to no test. Metrics are computed from the
    frames between marks after the last test. DESIGN 6.5 is closed.
 
@@ -145,16 +153,18 @@ What the runs showed:
    pointer arriving or leaving, are not input. The rule and its 300 ms
    are `EpisodeRule.inputOnly` in `package:butterscope`, and the report
    keeps the raw activity, so a host tool can split saved runs again by
-   another rule. DESIGN 2 and 6.3 are closed.
+   another rule, and count and tag the episodes. Their metrics need the
+   frames, which the report does not keep. DESIGN 2 and 6.3 are closed.
 
 5. **`ButterscopeRouteObserver` lives in `butterscope`,** because the
    app's own code holds it and `butterscope_test` is a dev dependency. It
    follows the navigator's `didChangeTop`, so a page removed from the top
    updates the tag and a page replaced below it does not. Only page
    routes count, so a dialog does not split an episode. The app's first
-   page tags the first episodes without splitting one. It watches the
-   root navigator only, and it does nothing until Butterscope listens, so
-   it can stay in a release build.
+   page tags the first episodes without splitting one. It belongs on the
+   root navigator only; it does not check which navigator it is on. It
+   does nothing until Butterscope listens, so it can stay in a release
+   build.
 
 6. **Diagnostic times are in milliseconds, and raster cache figures are
    each field's peak.** The gate's per-frame times stay multiples of `B`,
@@ -179,8 +189,9 @@ What the runs showed:
    where a production app's runner is known. Verifying it now means
    adding Patrol's native test targets to the sample on both platforms,
    for a runner no milestone uses. `attachButterscope()` relies only on
-   `IntegrationTestWidgetsFlutterBinding`, which `PatrolBinding` extends,
-   so it should work, but that stays unverified. DESIGN 6.6 is marked
+   `IntegrationTestWidgetsFlutterBinding`, which Patrol documents
+   `PatrolBinding` as extending, so it should work, but neither has been
+   checked against Patrol's source. DESIGN 6.6 is marked
    **(open, adoption plan)**.
 
 9. **The rig rules gain three lines.** DESIGN 7.4 and 7.5 now say:
@@ -207,6 +218,9 @@ What the runs showed:
   tap or drag took 6 ms a call and, in some runs, cost missed vsyncs.
   Base and head run the same test code, so a comparison stands, but a
   clean span on the S24 does not read 0.
+- The harness ran with semantics off, and the ordinary tests keep it on,
+  so their steps may cost more than the table shows. Whether observed
+  tests turn semantics off is **(open, M6)** (DESIGN 7.2).
 - A span around typing measures the app's response to each keystroke as
   much as the keystroke. That is what a person typing would cause, so it
   stays inside the flow.
@@ -218,9 +232,10 @@ What the runs showed:
   saved runs.
 - The M5 report is still provisional (schema 0). It holds no identity
   beyond the build mode and no issue list yet; M6 and M7 add them.
-- `tool/m4/` stays until M7's `collect` replaces its reading side. Spans
-  now do the probe's job.
-- `tool/m5/run_tests.sh` stops the previous app only on Android. On the
+- `apps/sample/tool/m4/` stays until M7's `collect` replaces its
+  reading side. Spans now do the probe's job.
+- `apps/sample/tool/m5/run_tests.sh` stops the previous app only on
+  Android. On the
   iPhone, `--keep-app-running` left the app running after each run, and
   it was stopped by hand before the harness runs. The runner should do
   that on iOS too before M8's runs.

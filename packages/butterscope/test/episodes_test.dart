@@ -215,6 +215,22 @@ void main() {
       expect(framesOf(episodes), [(0, 100), (100, 200)]);
     });
 
+    test('keeps a page opened by input from before the test in its first '
+        'episode', () {
+      // The test runs from frame 100 to 300. A drag from frame 90 to 110
+      // opens a page at 112, so the input that led to it began before the
+      // test, and the page belongs to the test's first episode.
+      final test = MarkedPart(PartKind.test, 'Feed opens', at(100), at(300));
+      final episodes = splitEpisodes(
+        test,
+        activities: [input(90, 110)],
+        pages: [PageChange(at(112), 'detail', cuts: true)],
+      );
+
+      expect(framesOf(episodes), [(100, 300)]);
+      expect(episodes.single.page, 'detail');
+    });
+
     test('does not cut at the first page an app shows', () {
       final episodes = splitEpisodes(
         test200,
