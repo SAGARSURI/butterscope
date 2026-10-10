@@ -1,6 +1,6 @@
 # 0005: The public API, episodes and what M5 measured
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-10
 - Milestone: M5
 
