@@ -87,7 +87,7 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`. In Flutter 3.47.5 Dart receives it only
+`FlutterView.display.refreshRate`. In Flutter 3.47.6 Dart receives it only
 at startup, and on Android after a configuration change, so it is the rate
 at launch ([0002](decisions/0002-m2-recorder-findings.md)). The recorder
 still reads it at the start and end of each span and each time a batch of
@@ -425,7 +425,7 @@ same physical unit in the same session, interleaved.
   runner stops the previous app yet, so it is stopped by hand.
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
-  Flutter 3.47.5's app template sets it to true, so the sample app can reach
+  Flutter 3.47.6's app template sets it to true, so the sample app can reach
   120 Hz.
 
 ### 7.5 Build rules
@@ -532,7 +532,7 @@ window on `main`.)**
 | Package | Role | Dependencies |
 | --- | --- | --- |
 | `butterscope` | Recorder, metrics, report, episode split, `ButterscopeRouteObserver` | Flutter only. Safe to ship in an app later; the observer does nothing outside a run. |
-| `butterscope_test` | One-line attach, spans, activity for episodes | `butterscope`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.5), for the running test's name. A dev dependency. |
+| `butterscope_test` | One-line attach, spans, activity for episodes | `butterscope`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.6), for the running test's name. A dev dependency. |
 | `butterscope_cli` | `collect`, `judge` | Pure Dart; host only. |
 | `butterscope_sample` | Proof app with ordinary tests and planted regressions | Not shipped. |
 
@@ -540,7 +540,7 @@ window on `main`.)**
 - **Lints:** [very_good_analysis](https://pub.dev/packages/very_good_analysis)
   11.x, as a dev dependency of every package; one shared
   `analysis_options.yaml` at the root.
-- **Toolchain:** Flutter 3.47.5 (Dart 3.13.4), pinned in `.fvmrc`; CI reads the
+- **Toolchain:** Flutter 3.47.6 (Dart 3.13.5), pinned in `.fvmrc`; CI reads the
   same file.
 - **CI gate:** branch protection requires one check, `required`, which passes
   only when every other CI job succeeded. Each new job is added to its
