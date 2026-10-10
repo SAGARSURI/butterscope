@@ -20,12 +20,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 
-import '../tool/m5/harness_costs.dart' show harnessTag;
+import '../tool/m5/harness_costs.dart'
+    show emptyAfter, emptyBefore, harnessCalls, harnessTag;
 import 'support/app.dart';
 import 'support/screen_tour.dart' show phrase;
-
-/// How many times each step runs in its span.
-const int calls = 50;
 
 /// The time from one call's start to the next.
 const Duration interval = Duration(milliseconds: 100);
@@ -37,8 +35,9 @@ const Duration settle = Duration(seconds: 2);
 /// One test step, as a test would write it.
 typedef Step = Future<void> Function();
 
-/// Runs [step] [calls] times, [interval] apart, inside the span [name], and
-/// returns each call's time in µs. With no [step] the span is empty.
+/// Runs [step] [harnessCalls] times, [interval] apart, inside the span
+/// [name], and returns each call's time in µs. With no [step] the span is
+/// empty.
 ///
 /// The span ends one [interval] after the last call, so it lasts 5 s and
 /// holds the frames of every call.
@@ -46,10 +45,10 @@ Future<List<int>> measure(String name, [Step? step]) {
   return span(name, () async {
     final times = <int>[];
     final clock = Stopwatch()..start();
-    for (var i = 0; i <= calls; i++) {
+    for (var i = 0; i <= harnessCalls; i++) {
       final wait = interval * i - clock.elapsed;
       await Future<void>.delayed(wait.isNegative ? Duration.zero : wait);
-      if (step == null || i == calls) continue;
+      if (step == null || i == harnessCalls) continue;
       final call = Stopwatch()..start();
       await step();
       times.add(call.elapsedMicroseconds);
@@ -62,12 +61,12 @@ Future<List<int>> measure(String name, [Step? step]) {
 /// then prints each step's call times.
 Future<void> measureScreen(String screen, Map<String, Step> steps) async {
   await Future<void>.delayed(settle);
-  await measure('$screen: empty before');
+  await measure('$screen: $emptyBefore');
   final times = {
     for (final MapEntry(key: name, value: step) in steps.entries)
       name: await measure('$screen: $name', step),
   };
-  await measure('$screen: empty after');
+  await measure('$screen: $emptyAfter');
   // Printed after the spans, so printing costs no measured frame.
   for (final MapEntry(key: name, value: micros) in times.entries) {
     debugPrintSynchronously('$harnessTag $screen: $name ${micros.join(',')}');

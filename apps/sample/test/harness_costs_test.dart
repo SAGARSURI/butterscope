@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter_test/flutter_test.dart';
 
 import '../tool/m5/harness_costs.dart';
@@ -93,6 +95,71 @@ a line about something else
         contains('| still: tap | 3 | 0.31 | 0.32 | 0.32 | 2 | 3 |'),
       );
       expect(table, contains('| still: empty before | 0 |  |  |  | 0 | 0 |'));
+    });
+  });
+  group('readRun', () {
+    // One usable report: profile mode, frames, a test, and spans with
+    // metrics, of which only the tap is a step.
+    Map<String, Object?> report({bool flushTimedOut = false}) => {
+      'buildMode': 'profile',
+      'frames': 1800,
+      'flushTimedOut': flushTimedOut,
+      'parts': [
+        {'kind': 'test', 'name': 'still screen', 'frames': 1800},
+        for (final name in ['still: $emptyBefore', 'still: tap'])
+          {
+            'kind': 'span',
+            'name': name,
+            'metrics': {'janky': 0, 'missedVsyncs': 0},
+          },
+      ],
+    };
+    String reportLine(Map<String, Object?> json) =>
+        'BSCOPE-REPORT 7 1 1 ${jsonEncode(json)}';
+    final tapLine =
+        '$harnessTag still: tap ${List.filled(harnessCalls, 300).join(',')}';
+
+    test('counts a run with a usable report and every call time', () {
+      final run = readRun('${reportLine(report())}\n$tapLine\n');
+
+      expect(run.problems, isEmpty);
+      expect(run.report, isNotNull);
+      expect(run.calls['still: tap'], hasLength(harnessCalls));
+    });
+
+    test('does not count a run whose flush timed out', () {
+      final run = readRun(
+        '${reportLine(report(flushTimedOut: true))}\n$tapLine\n',
+      );
+
+      expect(run.problems, ['A flush timed out']);
+      expect(run.report, isNull);
+    });
+
+    test("does not count a run whose log lost a step's call times", () {
+      final run = readRun('${reportLine(report())}\n');
+
+      expect(run.problems, ['still: tap has 0 call times, not $harnessCalls']);
+      expect(run.report, isNull);
+    });
+
+    test('does not count a run with a call time missing', () {
+      final short = List.filled(harnessCalls - 1, 300).join(',');
+      final run = readRun(
+        '${reportLine(report())}\n$harnessTag still: tap $short\n',
+      );
+
+      expect(run.problems, [
+        'still: tap has ${harnessCalls - 1} call times, not $harnessCalls',
+      ]);
+      expect(run.report, isNull);
+    });
+
+    test('does not count a log without a report', () {
+      final run = readRun('$tapLine\n');
+
+      expect(run.problems, ['Expected one report, found 0']);
+      expect(run.report, isNull);
     });
   });
 }

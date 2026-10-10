@@ -5,13 +5,12 @@
 //
 // One row per span: each step's own time per call over all the runs, and
 // the janky frames and missed vsyncs of its span in each run, beside the
-// empty spans of each screen. Exits 1 when a log does not hold exactly one
-// readable report, or holds no call times.
+// empty spans of each screen. Exits 1 when a run cannot be counted: its log
+// does not hold exactly one usable report, or a step lacks call times.
 
 import 'dart:io';
 
 import 'harness_costs.dart';
-import 'report_log.dart';
 
 void main(List<String> logs) {
   if (logs.isEmpty) {
@@ -21,16 +20,16 @@ void main(List<String> logs) {
   final reports = <Map<String, Object?>>[];
   final calls = <String, List<int>>{};
   for (final log in logs) {
-    final text = File(log).readAsStringSync();
-    final found = readReports(text);
-    final json = found.length == 1 ? found.single.json : null;
-    final times = readCallTimes(text);
-    if (json == null || times.isEmpty) {
-      stdout.writeln('PROBLEM: $log does not hold one report and call times');
+    final run = readRun(File(log).readAsStringSync());
+    final report = run.report;
+    if (report == null) {
+      for (final problem in run.problems) {
+        stdout.writeln('PROBLEM: $log: $problem');
+      }
       exit(1);
     }
-    reports.add(json);
-    for (final MapEntry(key: name, value: micros) in times.entries) {
+    reports.add(report);
+    for (final MapEntry(key: name, value: micros) in run.calls.entries) {
       calls.putIfAbsent(name, () => []).addAll(micros);
     }
   }

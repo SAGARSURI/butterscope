@@ -5,8 +5,62 @@ library;
 
 import 'dart:convert';
 
+import 'report_log.dart';
+
 /// The tag each line of call times starts with.
 const String harnessTag = 'BSCOPE-HARNESS';
+
+/// How many times each step runs in its span.
+const int harnessCalls = 50;
+
+/// The name, after `<screen>: `, of the empty span before a screen's steps.
+const String emptyBefore = 'empty before';
+
+/// The name, after `<screen>: `, of the empty span after a screen's steps.
+const String emptyAfter = 'empty after';
+
+/// One run read back from its saved [log]: the report, each step's call
+/// times, and why the run cannot be counted.
+///
+/// The run cannot be counted when the log does not hold exactly one
+/// report, the report is unusable (see [LoggedReport.unusable]), or a
+/// step's span lacks its [harnessCalls] call times. The report is null
+/// whenever there is a problem.
+({
+  Map<String, Object?>? report,
+  Map<String, List<int>> calls,
+  List<String> problems,
+})
+readRun(String log) {
+  final found = readReports(log);
+  final calls = readCallTimes(log);
+  final json = found.length == 1 ? found.single.json : null;
+  final problems = [
+    if (found.length != 1) 'Expected one report, found ${found.length}',
+    for (final report in found) ...[...report.problems, ...report.unusable()],
+    if (json != null) ...missingCalls(json, calls),
+  ];
+  return (
+    report: problems.isEmpty ? json : null,
+    calls: calls,
+    problems: problems,
+  );
+}
+
+/// Each step span in [report] whose call times in [calls] are missing, or
+/// fewer or more than [harnessCalls], as a message for people. The empty
+/// spans have none.
+List<String> missingCalls(
+  Map<String, Object?> report,
+  Map<String, List<int>> calls,
+) {
+  return [
+    for (final name in _spanMetrics(report).keys)
+      if (!name.endsWith(emptyBefore) && !name.endsWith(emptyAfter))
+        if (calls[name]?.length case final count when count != harnessCalls)
+          '$name has ${count ?? 0} call times, not $harnessCalls',
+  ];
+}
 
 /// Each span's call times in µs, from the [harnessTag] lines in [log].
 ///
