@@ -250,7 +250,7 @@ cause rather than set a threshold
    settled, once Butterscope held the text cursor still: on iOS the
    cursor's fade restarts from a zero-length timer, which `pumpAndSettle`
    under `benchmarkLive` almost never sees between frames, so a test that
-   typed waited until its timeout. `attachButterscope()` sets
+   typed stalled. `attachButterscope()` sets
    `EditableText.debugDeterministicCursor`, so a span that types does not
    measure the cursor's fade
    ([0005](decisions/0005-m5-attach-findings.md)). A run whose frames are
@@ -307,9 +307,10 @@ cause rather than set a threshold
    | `enterText`, one keystroke | Still | 2.5 | 0 to 1 | 1.3 | 0 |
    | `enterText`, one keystroke | Search | 10.8 | 23 to 49 | 5.2 | 1 to 2 |
 
-   Empty spans lost 0 or 1 janky frame on the S24 and none on the iPhone.
-   On Search each keystroke also runs the app's search, so that row is
-   mostly the app's response to typing. A span holds only its flow:
+   Empty spans lost 0 or 1 janky frame a run on the S24 and none on the
+   iPhone. On Search each keystroke also runs the app's search, so that
+   row is mostly the app's response to typing (inferred from the still
+   screen). A span holds only its flow:
    - Inside go the flow's own gestures and typing, and the pumps that
      wait for them.
    - Setup goes before the span, and checks of the result after it.
@@ -317,7 +318,8 @@ cause rather than set a threshold
      rates (section 5).
    - A finder the flow needs, such as the target of
      `scrollUntilVisible`, may stay inside: at 10 calls a second, finders
-     and expectations lost no frames on either phone.
+     and expectations lost no more frames than an empty span on either
+     phone.
 
    A span with gestures carries their cost. Base and head run the same
    test code, so comparisons stand, but a clean span on the S24 does not
@@ -396,8 +398,9 @@ same physical unit in the same session, interleaved.
   ([0004](decisions/0004-m4-sample-findings.md)). Until M6's rate
   mismatch exists, the warm-up must draw at 114 Hz or more in every test
   of 11 frames or more, or the batch stops: a capped screen reads as an
-  app losing half its frames. A shorter test has too few vsync gaps for a
-  rate; the S24 draws its first few launch frames at 60 Hz
+  app losing half its frames. A shorter test has fewer than the 10 vsync
+  gaps 0001 asks of a slice; the S24 draws its first few launch frames at
+  60 Hz
   ([0005](decisions/0005-m5-attach-findings.md)).
 - On Android the runner checks before each run that the phone is not
   thermally throttled, the battery is at 38 °C or less, power saving is
@@ -417,9 +420,9 @@ same physical unit in the same session, interleaved.
   Frame Rate on, `Display.refreshRate` still reported 120 Hz while the
   screen ran at 60 Hz, so only a rate mismatch flags a capped or slower
   screen ([0002](decisions/0002-m2-recorder-findings.md)). Runs go over
-  the USB cable, never Wi-Fi debugging: when the phone dropped to Wi-Fi,
-  runs failed to attach or were stopped mid-test
-  ([0005](decisions/0005-m5-attach-findings.md)).
+  the USB cable, never Wi-Fi debugging: both runs that fell back to
+  Wi-Fi failed ([0005](decisions/0005-m5-attach-findings.md)). On iOS no
+  runner stops the previous app yet, so it is stopped by hand.
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.5's app template sets it to true, so the sample app can reach

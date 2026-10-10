@@ -36,13 +36,14 @@ What the runs showed:
   on both phones, as the source predicted.
 - **Spans report every metric.** In every run on both phones, every span
   reported all 19 gate metrics and all 8 diagnostics. Every planted
-  span was clearly worse than its clean span, 2.5 to 11 times its hitch
-  ratio on the S24. But a span covers one short action, where M4's probe
-  ran the same action for 5 s, so a span's janky share is not M4's.
+  span was clearly worse than its clean span, 3.6 to 11.9 times its
+  hitch ratio on the S24. But a span covers one short action, where M4's
+  probe ran the same action for 5 s, so a span's janky share is not
+  M4's.
   `raster_clip` and `gpu_blur` reached 92 to 100% of a span's frames.
   `ui_busy` and `sync_decode` showed as missed vsyncs, not janky frames.
-  The S24's clean Feed and Gallery spans were 13 to 15% janky, against 0
-  to 1% on the iPhone. The ordinary tests keep semantics on, which M4
+  The S24's clean Feed and Gallery spans were 13 to 15% janky, against
+  0 to 1.3% on the iPhone. The ordinary tests keep semantics on, which M4
   found costs the S24's Feed 4.5 to 6.1% of frames, so part of that is
   likely semantics (inferred). The owner accepted this reading on
   2026-10-09.
@@ -64,9 +65,9 @@ What the runs showed:
   that opens the detail page comes 317 to 429 ms after the test starts,
   317.2 ms at the least. A tap within 300 ms of the start would join the
   first episode, so the margin is about 17 ms.
-- **Reading the tree costs no frames; gestures cost some on a real
-  screen; typing costs the most.** Each step ran 50 times, 100 ms apart,
-  in a 5 s span of its own, in 5 runs per phone:
+- **Reading the tree costs no more frames than an empty span; gestures
+  cost some on a real screen; typing costs the most.** Each step ran 50
+  times, 100 ms apart, in a 5 s span of its own, in 5 runs per phone:
 
   | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
   | --- | --- | --- | --- | --- | --- |
@@ -77,16 +78,20 @@ What the runs showed:
   | `enterText`, one keystroke | Still | 2.5 | 0 to 1 | 1.3 | 0 |
   | `enterText`, one keystroke | Search | 10.8 | 23 to 49 | 5.2 | 1 to 2 |
 
-  Empty spans of the same length lost 0 or 1 janky frame on the S24 and
-  none on the iPhone. On Search each keystroke also runs the app's search,
-  inside `onChanged` (`apps/sample/lib/src/search/search_screen.dart`),
-  so that row's time and frames are mostly the app's response, which a
-  person typing would cause too. This is inferred from the still screen,
-  where the same keystroke into a field nothing listens to cost 2.5 ms
-  on the S24 and lost no more frames than an empty span.
-- **An iPhone run must stay on its cable.** When the cable failed, the
-  phone dropped to Wi-Fi debugging: runs then failed to attach, or the
-  app was stopped mid-test. On a new cable every run passed.
+  Empty spans of the same length lost 0 or 1 janky frame a run on the
+  S24 and none on the iPhone; the finder spans lost no more. On Search
+  each keystroke also runs the app's search, inside `onChanged`
+  (`apps/sample/lib/src/search/search_screen.dart`), so that row's time
+  and frames are mostly the app's response, which a person typing would
+  cause too. This is inferred from the still screen, where the same
+  keystroke into a field with no handler cost 2.5 ms on the S24 and lost
+  0 or 1 janky frame a run, as an empty span did.
+- **iPhone runs failed four times for reasons outside the test.** Twice
+  the phone had dropped from its cable to Wi-Fi debugging. Once the
+  launch went through Xcode and never attached. Once the app was stopped
+  mid-test over USB, with no cause found. Once the phone was reconnected
+  by cable, and the previous run's app was stopped by hand before each
+  run, every run passed on its first try.
 
 ## Decision
 
@@ -129,11 +134,12 @@ What the runs showed:
    start for its first. Animation does not count. With
    `ButterscopeRouteObserver` in the app, a change of page starts an
    episode at the input that led to it: input that ended less than
-   300 ms before the change, or else at the change itself. No episode
-   starts within 300 ms of the previous start, so a scroll that leads
-   straight to a tap stays with the page the tap opens. Each episode is
-   tagged with the page on top at its end, by its route name. Every frame
-   of a test belongs to exactly one episode. A mouse's hover, and a
+   300 ms before the change, or else at the change itself. It starts
+   none when an episode started less than 300 ms before that point, so a
+   tap less than 300 ms after an episode starts stays in that episode,
+   with the page it opens. Each episode is tagged with the page on top at
+   its end, by its route name. Every frame of a test belongs to exactly
+   one episode. A mouse's hover, and a
    pointer arriving or leaving, are not input. The rule and its 300 ms
    are `EpisodeRule.inputOnly` in `package:butterscope`, and the report
    keeps the raw activity, so a host tool can split saved runs again by
@@ -149,9 +155,9 @@ What the runs showed:
    it can stay in a release build.
 
 6. **Diagnostic times are in milliseconds, and raster cache figures are
-   each field's peak.** Gate metrics stay multiples of `B`, so one
-   threshold fits every screen. Diagnostics explain a cause, which reads
-   best in time. A cache count or size is a level, not a cost, so a span
+   each field's peak.** The gate's per-frame times stay multiples of `B`,
+   so one threshold fits every screen. Diagnostics explain a cause, which
+   reads best in time. A cache count or size is a level, not a cost, so a span
    reports its highest. DESIGN section 5 says so.
 
 7. **Test steps inside a span cost the app's frames by these amounts,
@@ -164,7 +170,8 @@ What the runs showed:
      flow, and those dilute its rates (DESIGN section 5).
    - A finder the flow needs, such as the target of
      `scrollUntilVisible`, may stay inside. At 10 calls a second, finders
-     and expectations lost no frames on either phone.
+     and expectations lost no more frames than an empty span on either
+     phone.
 
 8. **The Patrol check moves out of M5,** to the adoption plan after M11,
    where a production app's runner is known. Verifying it now means
@@ -177,13 +184,15 @@ What the runs showed:
 9. **The rig rules gain three lines.** DESIGN 7.4 and 7.5 now say:
    - The warm-up must draw at 114 Hz or more in every test of 11 frames
      or more, or the batch stops. Until M6's rate mismatch, a capped
-     screen reads as an app losing half its frames. 0001 reads a rate
-     only from 10 vsync gaps, which take 11 frames, so a test that only
-     launches the app is not checked.
+     screen reads as an app losing half its frames. 0001 judges a slice's
+     rate only from 10 vsync gaps or more, which take 11 frames; the
+     check borrows that minimum, so a test that only launches the app is
+     not checked.
    - On Android, the runner of the ordinary tests now stops the previous
      run's app before each run, as the probe's does, since the tests now
      record frames.
-   - An iPhone run goes over its USB cable, never Wi-Fi debugging.
+   - An iPhone run goes over its USB cable, never Wi-Fi debugging. Both
+     runs that fell back to Wi-Fi failed.
 
 ## Consequences
 
@@ -209,3 +218,7 @@ What the runs showed:
   beyond the build mode and no issue list yet; M6 and M7 add them.
 - `tool/m4/` stays until M7's `collect` replaces its reading side. Spans
   now do the probe's job.
+- `tool/m5/run_tests.sh` stops the previous app only on Android. On the
+  iPhone, `--keep-app-running` left the app running after each run, and
+  it was stopped by hand before the harness runs. The runner should do
+  that on iOS too before M8's runs.
