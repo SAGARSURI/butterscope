@@ -36,7 +36,16 @@ class ButterscopeRouteObserver extends NavigatorObserver {
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
     if (topRoute is! PageRoute || identical(topRoute, _page)) return;
+    // A page is no change when nothing was on top before it. Nor is it
+    // when this observer, replacing another on a rebuild, has heard no page
+    // yet and a dialog or menu has just closed: the page left on top is
+    // the one shown before it opened.
+    final first =
+        previousTopRoute == null ||
+        (_page == null &&
+            previousTopRoute is! PageRoute &&
+            !previousTopRoute.isActive);
     _page = topRoute;
-    listener?.call(topRoute.settings.name, first: previousTopRoute == null);
+    listener?.call(topRoute.settings.name, first: first);
   }
 }

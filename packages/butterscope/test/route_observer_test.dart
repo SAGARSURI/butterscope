@@ -103,6 +103,60 @@ void main() {
     expect(shown, [('/', true), ('detail', false)]);
   });
 
+  testWidgets('starts nothing when a dialog open across a rebuild closes', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    Widget app() {
+      return MaterialApp(
+        navigatorKey: navigator,
+        navigatorObservers: [ButterscopeRouteObserver()],
+        home: const Text('home'),
+      );
+    }
+
+    await tester.pumpWidget(app());
+    final context = tester.element(find.text('home'));
+    unawaited(
+      showDialog<void>(context: context, builder: (context) => const Text('?')),
+    );
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(app());
+    navigator.currentState!.pop();
+    await tester.pumpAndSettle();
+    navigator.currentState!.push(page('detail'));
+    await tester.pumpAndSettle();
+
+    // Home shows again when the dialog closes: no change. The page pushed
+    // after it is one.
+    expect(shown, [('/', true), ('/', true), ('detail', false)]);
+  });
+
+  testWidgets('reports a page pushed over a dialog after a rebuild', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    Widget app() {
+      return MaterialApp(
+        navigatorKey: navigator,
+        navigatorObservers: [ButterscopeRouteObserver()],
+        home: const Text('home'),
+      );
+    }
+
+    await tester.pumpWidget(app());
+    final context = tester.element(find.text('home'));
+    unawaited(
+      showDialog<void>(context: context, builder: (context) => const Text('?')),
+    );
+    await tester.pumpAndSettle();
+    await tester.pumpWidget(app());
+    navigator.currentState!.push(page('detail'));
+    await tester.pumpAndSettle();
+
+    expect(shown, [('/', true), ('detail', false)]);
+  });
+
   testWidgets('reports the first page of each navigator it is added to', (
     tester,
   ) async {
