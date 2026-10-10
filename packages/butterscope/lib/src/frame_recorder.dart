@@ -22,7 +22,7 @@ final class FrameRecorder {
   /// Creates a recorder that reads frames from [_source].
   ///
   /// The engine batches timings, so after [stop] the recorder waits for
-  /// the window's last ones. `Shell::OnFrameRasterized` (Flutter 3.47.5,
+  /// the window's last ones. `Shell::OnFrameRasterized` (Flutter 3.47.6,
   /// `shell/common/shell.cc`) reports a batch every 100 ms in debug and
   /// profile builds and every 1000 ms in release, or at 100 frames. The wait
   /// gives up after [profileFlushTimeout] (also used in debug) or

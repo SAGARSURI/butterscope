@@ -44,14 +44,14 @@ void attachButterscope() {
 /// The binding must be created before this runs. It registers a
 /// `tearDownAll` that tells the driver the run is over
 /// (`packages/integration_test/lib/integration_test.dart` in Flutter
-/// 3.47.5), and `tearDownAll` callbacks run in reverse order
+/// 3.47.6), and `tearDownAll` callbacks run in reverse order
 /// (`Invoker.runTearDowns` in test_api 0.7.12), so the report registered
 /// here is printed before the driver stops reading the device's output.
 ///
 /// It sets [EditableText.debugDeterministicCursor], so a focused text
 /// field's cursor stops blinking. On iOS the cursor fades with an animation
 /// that restarts from a zero-length timer (`_onCursorTick` in
-/// `editable_text.dart`, Flutter 3.47.5). Under `benchmarkLive` a pump only
+/// `editable_text.dart`, Flutter 3.47.6). Under `benchmarkLive` a pump only
 /// waits while frames keep running, so `pumpAndSettle` almost never lands
 /// in that gap and a test that types waits until its timeout. Without
 /// Butterscope, each pump draws one frame and checks right after it, so

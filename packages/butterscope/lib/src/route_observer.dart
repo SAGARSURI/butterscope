@@ -30,7 +30,7 @@ class ButterscopeRouteObserver extends NavigatorObserver {
 
   Route<dynamic>? _page;
 
-  // Flutter 3.47.5 calls this once the navigator's history settles, with
+  // Flutter 3.47.6 calls this once the navigator's history settles, with
   // the route now on top (`widgets/navigator.dart`, `_flushHistoryUpdates`).
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {

@@ -46,7 +46,7 @@ melos:
       # changes a file, so a package cannot drift.
       environment:
         sdk: ^3.13.0
-        flutter: ">=3.47.5"
+        flutter: ">=3.47.6"
       dev_dependencies:
         very_good_analysis: ^11.0.0
 

@@ -33,7 +33,7 @@ abstract interface class ActivitySource {
 }
 
 /// The [ActivitySource] of a running app, from public APIs of Flutter
-/// 3.47.5, each passed on only when it changes:
+/// 3.47.6, each passed on only when it changes:
 ///
 /// - Input: every pointer event a user makes, through a global route of
 ///   `GestureBinding.pointerRouter` (`gestures/pointer_router.dart`). The

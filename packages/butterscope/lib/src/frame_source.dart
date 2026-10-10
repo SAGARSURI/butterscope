@@ -22,7 +22,7 @@ abstract interface class FrameSource {
 
   /// The refresh rate the screen declares, in hertz.
   ///
-  /// In Flutter 3.47.5 the engine sends it to Dart only at startup, and on
+  /// In Flutter 3.47.6 the engine sends it to Dart only at startup, and on
   /// Android after a configuration change, so it does not follow a later
   /// change of rate (`docs/decisions/0002-m2-recorder-findings.md`).
   double get declaredRefreshRate;
@@ -37,7 +37,7 @@ abstract interface class FrameSource {
 /// The [FrameSource] of a running app, on a phone.
 ///
 /// Frame numbers come from `PlatformDispatcher.instance.frameData`. In the
-/// pinned engine (Flutter 3.47.5), each vsync gets a `FrameTimingsRecorder`
+/// pinned engine (Flutter 3.47.6), each vsync gets a `FrameTimingsRecorder`
 /// that takes the next number from one counter
 /// (`engine/src/flutter/flow/frame_timings.cc:41`). `Animator::BeginFrame`
 /// passes that number to the framework with the frame

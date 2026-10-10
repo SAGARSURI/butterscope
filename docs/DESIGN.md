@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **approved** in M0; current through M4
+- Status: **approved** in M0; current through M5
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
@@ -47,7 +47,7 @@ any app-specific code (for example a fake socket client).
 | **Hitch ratio** | Hitch time (ms) per second of rendering in a span or episode. |
 | **Rendering time** | Frame count × `B` plus the hitch time. During a test frames run back to back, so it is close to wall-clock time. |
 | **Missed vsyncs** | Vsyncs that passed with no frame between consecutive frames, beyond those a late frame explains. |
-| **Episode** | A part of a run split out automatically, without the test marking it. **(open, M5: how to split.)** |
+| **Episode** | A part of a test split out automatically, without the test marking it: a new one starts at input after 300 ms without any, or at a change of page (section 6.3). |
 | **Span** | A named window a test marks around a flow. Gates apply to spans. |
 | **Run** | One execution of one test file on one device. |
 | **Identity** | The fields stamped on every run that decide what it can be compared with. |
@@ -87,14 +87,15 @@ any app-specific code (for example a fake socket client).
 ## 4. Classifying frames
 
 **Budget.** `B = 1000 / refreshRate`, where `refreshRate` is the test view's
-`FlutterView.display.refreshRate`. In Flutter 3.47.5 Dart receives it only
+`FlutterView.display.refreshRate`. In Flutter 3.47.6 Dart receives it only
 at startup, and on Android after a configuration change, so it is the rate
 at launch ([0002](decisions/0002-m2-recorder-findings.md)). The recorder
 still reads it at the start and end of each span and each time a batch of
 timings arrives, about 10 times a second in profile and twice in release.
 Each read is placed in the frame sequence after the last frame reported
-before it. A span's `B` comes from the read at its start, and an episode's
-from the last read before its first frame. Each span and episode records
+before it. A span's `B` comes from the read at its start, and so does an
+episode's: every point where a span or episode can start reads the rate
+([0005](decisions/0005-m5-attach-findings.md)). Each span and episode records
 its declared and observed rate, so one run can hold different rates
 (section 7.3).
 
@@ -207,19 +208,34 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
 
 ### Diagnostic metrics (recorded, never gated)
 
+Diagnostic times are in milliseconds, not multiples of `B`: they explain a
+cause rather than set a threshold
+([0005](decisions/0005-m5-attach-findings.md)).
+
 - Averages of UI, build and raster time.
 - p90 and p99 of `vsyncOverhead` (the wait for the UI thread, to tell it
   apart from build time) and `totalSpan` (latency, for example tick-to-pixel
   on a live price screen).
 - Raster cache counts and bytes from `FrameTiming` (`layerCacheCount`,
-  `layerCacheBytes`, `pictureCacheCount`, `pictureCacheBytes`).
+  `layerCacheBytes`, `pictureCacheCount`, `pictureCacheBytes`), each as its
+  peak in the span or episode: they are levels, not costs.
 - Garbage-collection counts are **not** collected: they need the VM timeline.
 
 ## 6. The passive observer
 
-1. **One line attaches.** A call at the top of a test file's `main`, before
-   any `testWidgets`, sets the frame policy, records the whole run, and emits
-   the report when the tests finish. **(open, M5: API names.)**
+1. **One line attaches.** `attachButterscope()`, from `butterscope_test`,
+   goes once at the top of a test file's `main`, before any `testWidgets`
+   and outside any `group`. It sets the frame policy, records the whole
+   run, and prints the report when the tests finish. Calling it again in
+   the same run does nothing. The public API is frozen
+   ([0005](decisions/0005-m5-attach-findings.md)):
+
+   | Name | Signature | Package |
+   | --- | --- | --- |
+   | `attachButterscope` | `void attachButterscope()` | `butterscope_test` |
+   | `span` | `Future<T> span<T>(String name, Future<T> Function() body)` | `butterscope_test` |
+   | `ButterscopeRouteObserver` | `class ButterscopeRouteObserver extends NavigatorObserver` | `butterscope` |
+
 2. **Frame policy: `benchmarkLive`.** The live test binding defaults to
    `fadePointers`, which renders frames at the test's own pump rhythm, not at
    vsync. Under `LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive` the
@@ -229,23 +245,48 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    documentation describes scheduling that follows real frame requests. M2
    confirmed it on both phones, including a window where nothing changes
    on screen ([0002](decisions/0002-m2-recorder-findings.md)). Flutter's
-   docs warn that changing the policy can
-   change test behaviour, so M5 records which ordinary tests run unchanged.
-   A run whose frames are not vsync-driven is `INVALID` (section 7).
-3. **Episodes** split the run automatically. An optional navigator observer
-   tags each episode with its route. Episodes are advisory: the same flow can
-   split differently from run to run. Frames never pause under
-   `benchmarkLive`, so episodes cannot split on gaps with no frames.
-   **(open, M5: split on activity instead.)**
+   docs warn that changing the policy can change test behaviour. Every
+   M4 sample test passed unchanged on both phones, and `pumpAndSettle`
+   settled, once Butterscope held the text cursor still: on iOS the
+   cursor's fade restarts from a zero-length timer, which `pumpAndSettle`
+   under `benchmarkLive` almost never sees between frames, so a test that
+   typed stalled. `attachButterscope()` sets
+   `EditableText.debugDeterministicCursor`, so a span that types does not
+   measure the cursor's fade
+   ([0005](decisions/0005-m5-attach-findings.md)). A run whose frames are
+   not vsync-driven is `INVALID` (section 7).
+3. **Episodes** split each test automatically. Frames never pause under
+   `benchmarkLive`, so episodes split on input, not on gaps with no
+   frames. The first starts with the test; a later one starts at a
+   pointer event after at least 300 ms without one, counted from the
+   test's start for its first. Animation does not count, since a stream
+   that animates throughout would join a whole test into one episode.
+   `ButterscopeRouteObserver`, from `butterscope`, in the app's root
+   navigator adds a cut at each change of page route, placed at the input
+   that led to it (input that ended under 300 ms before), unless an
+   episode started under 300 ms before. Each episode is tagged with the
+   route name of the page on top at its end. Every frame of a test
+   belongs to exactly one episode. In 10 runs per phone every sample
+   test split into the same number of episodes every time
+   ([0005](decisions/0005-m5-attach-findings.md)). Episodes are still
+   advisory and never gated: a flow near the 300 ms line can split
+   differently.
 4. **Named spans** mark the flows that are gated:
    `span('open detail', () async { … })`. Names are stable across runs, so
    only spans are compared with a baseline. Spans are flat in v1 (no
    nesting).
-5. **Frames are attributed to the test that produced them.** **(open, M5:
-   mechanism.)**
+5. **Frames are attributed to the test that produced them.** One
+   recording covers the run. `setUp` and `tearDown` mark each test's
+   start and end, named from `TestHandle.current.name`
+   (`package:test_api/hooks.dart`); spans and episodes are marks inside
+   the same recording. Frames between tests belong to no test. Metrics
+   are computed from the frames between marks after the last test
+   ([0005](decisions/0005-m5-attach-findings.md)).
 6. **Test runners:** plain `integration_test` is the primary target. Patrol
    should work unchanged because `PatrolBinding` extends
-   `IntegrationTestWidgetsFlutterBinding`. **(open, M5: verified.)**
+   `IntegrationTestWidgetsFlutterBinding`. **(open, adoption plan after
+   M11: verified, where a production app's runner is known; moved from M5
+   by [0005](decisions/0005-m5-attach-findings.md).)**
 7. **Data determinism is the app's job.** Flows run against the app's own
    fakes (for example, a socket client replaying recorded frames at the
    transport layer, so decoding and state merging still run for real).
@@ -253,12 +294,38 @@ or the hitch ratio ([0001](decisions/0001-metric-definitions.md)).
    vary a lot between repetitions, and marks the flow unstable.
 8. **Test code shares the UI thread.** Finders, expectations and gesture
    dispatch run between frames, so inside a span they can cost frames that
-   are counted as the app's. On the S24, `enterText` cost 2 to 3 ms of
-   UI time per keystroke, and the sample's clean Search screen lost
-   about 4.5% of frames while typing
-   ([0004](decisions/0004-m4-sample-findings.md)). **(open, M5: measure
-   the harness's cost and keep test steps outside spans where
-   possible.)**
+   are counted as the app's. Each step was run 50 times, 100 ms apart, in
+   a 5 s span of its own, in 5 runs per phone
+   ([0005](decisions/0005-m5-attach-findings.md)). The ms columns are each
+   call's elapsed time on a stopwatch, not UI time: an async call's time
+   can include a frame drawn while it waits.
+
+   | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
+   | --- | --- | --- | --- | --- | --- |
+   | Finders, `expect`, `tester.widget` | Still | 0.5 to 0.6 | 0 | 0.3 | 0 |
+   | Finders, `expect`, `tester.widget` | Feed | 1.1 to 1.9 | 0 | 1.1 to 1.8 | 0 |
+   | `tap`, `drag` | Still | 2.0 to 2.2 | 0 to 1 | 1.5 to 1.7 | 0 |
+   | `tap`, `drag` | Feed | 6.1 to 6.2 | 0 to 6, up to 27 missed vsyncs | 5.4 | 0 |
+   | `enterText`, one keystroke | Still | 2.5 | 0 to 1 | 1.3 | 0 |
+   | `enterText`, one keystroke | Search | 10.8 | 23 to 49 | 5.2 | 1 to 2 |
+
+   Empty spans lost 0 or 1 janky frame a run on the S24 and none on the
+   iPhone. On Search each keystroke also runs the app's search, so that
+   row is mostly the app's response to typing (inferred from the still
+   screen). A span holds only its flow:
+   - Inside go the flow's own gestures and typing, and the pumps that
+     wait for them.
+   - Setup goes before the span, and checks of the result after it.
+     Inside, they add frames that are not the flow, which dilute its
+     rates (section 5).
+   - A finder the flow needs, such as the target of
+     `scrollUntilVisible`, may stay inside: at 10 calls a second, finders
+     and expectations lost no more frames than an empty span on either
+     phone.
+
+   A span with gestures carries their cost. Base and head run the same
+   test code, so comparisons stand, but a clean span on the S24 does not
+   read 0.
 9. **Recording is cheap; metrics come later.** While recording, the
    recorder only stores timings and the refresh rates it reads. Metrics are
    computed after recording stops, so they never cost a measured frame.
@@ -330,7 +397,13 @@ same physical unit in the same session, interleaved.
 - Each batch of runs starts with one warm-up run that is not counted. On
   the S24, the first clean runs of a batch lost up to about 4 points more
   of their frames than later ones
-  ([0004](decisions/0004-m4-sample-findings.md)).
+  ([0004](decisions/0004-m4-sample-findings.md)). Until M6's rate
+  mismatch exists, the warm-up must draw at 114 Hz or more in every test
+  of 11 frames or more, or the batch stops: a capped screen reads as an
+  app losing half its frames. A shorter test has fewer than the 10 vsync
+  gaps 0001 asks of a slice; the S24 draws its first few launch frames at
+  60 Hz
+  ([0005](decisions/0005-m5-attach-findings.md)).
 - On Android the runner checks before each run that the phone is not
   thermally throttled, the battery is at 38 °C or less, power saving is
   off, Stay awake covers the charger in use, and at least 2 GB of memory
@@ -348,10 +421,13 @@ same physical unit in the same session, interleaved.
   ProMotion held 120 Hz, even while nothing changed on screen. With Limit
   Frame Rate on, `Display.refreshRate` still reported 120 Hz while the
   screen ran at 60 Hz, so only a rate mismatch flags a capped or slower
-  screen ([0002](decisions/0002-m2-recorder-findings.md)).
+  screen ([0002](decisions/0002-m2-recorder-findings.md)). Runs go over
+  the USB cable, never Wi-Fi debugging: both runs that fell back to
+  Wi-Fi failed ([0005](decisions/0005-m5-attach-findings.md)). On iOS no
+  runner stops the previous app yet, so it is stopped by hand.
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
-  Flutter 3.47.5's app template sets it to true, so the sample app can reach
+  Flutter 3.47.6's app template sets it to true, so the sample app can reach
   120 Hz.
 
 ### 7.5 Build rules
@@ -362,12 +438,12 @@ same physical unit in the same session, interleaved.
   (`packages/flutter_tools/lib/src/drive/drive_service.dart`, `stop()`); on
   an iPhone signed by a personal developer account, the phone then asks to
   trust the developer again before every run. The flag also leaves the
-  app running in the foreground, animating, so on Android the probe and
-  overlay runners (`tool/m4/run_probe.sh`, `run_overlay.sh`) stop it before
-  the next run. The ordinary tests' runner does not, since it measures no
-  frames. `flutter drive` does not drive release builds, so release
-  runs are launched directly. Xcode stays closed during iOS runs, or the
-  launch goes through it and stalls.
+  app running in the foreground, animating, so on Android every runner
+  that records frames stops it before the next run: the M4 probe and
+  overlay runners and, since the ordinary tests record frames, M5's
+  `tool/m5/run_tests.sh`. `flutter drive` does not drive release builds,
+  so release runs are launched directly. Xcode stays closed during iOS
+  runs, or the launch goes through it and stalls.
 - Same Flutter SDK and flavour as the release build; only the data layer is
   faked.
 - Third-party SDKs (analytics, crash reporting, APM) stay initialised: their
@@ -457,8 +533,8 @@ window on `main`.)**
 
 | Package | Role | Dependencies |
 | --- | --- | --- |
-| `butterscope` | Recorder, metrics, report | Flutter only. Safe to ship in an app later. |
-| `butterscope_test` | One-line attach, spans, episodes | `butterscope`, `flutter_test`, `integration_test`. A dev dependency. |
+| `butterscope` | Recorder, metrics, report, episode split, `ButterscopeRouteObserver` | Flutter only. Safe to ship in an app later; the observer does nothing outside a run. |
+| `butterscope_test` | One-line attach, spans, activity for episodes | `butterscope`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.6), for the running test's name. A dev dependency. |
 | `butterscope_cli` | `collect`, `judge` | Pure Dart; host only. |
 | `butterscope_sample` | Proof app with ordinary tests and planted regressions | Not shipped. |
 
@@ -466,7 +542,7 @@ window on `main`.)**
 - **Lints:** [very_good_analysis](https://pub.dev/packages/very_good_analysis)
   11.x, as a dev dependency of every package; one shared
   `analysis_options.yaml` at the root.
-- **Toolchain:** Flutter 3.47.5 (Dart 3.13.4), pinned in `.fvmrc`; CI reads the
+- **Toolchain:** Flutter 3.47.6 (Dart 3.13.5), pinned in `.fvmrc`; CI reads the
   same file.
 - **CI gate:** branch protection requires one check, `required`, which passes
   only when every other CI job succeeded. Each new job is added to its
