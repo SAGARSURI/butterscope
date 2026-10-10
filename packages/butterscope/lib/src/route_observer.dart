@@ -21,31 +21,28 @@ typedef PageListener = void Function(String? page, {required bool first});
 ///
 /// It belongs on the app's root navigator only: a run hears one page at a
 /// time, so the pages of nested navigators would interleave. The
-/// navigator's first page starts no episode. That is read from the
+/// navigator's first page starts no episode. What it knows is kept for the
 /// navigator, so an app may create the observer in `build`: one that
-/// replaces another on a rebuild hears the next page as a change.
+/// replaces another on a rebuild carries on from the page on top.
 class ButterscopeRouteObserver extends NavigatorObserver {
   /// Gets each change of page while a run records. `butterscope_test` sets
   /// it when it starts recording and clears it when it stops.
   static PageListener? listener;
 
-  Route<dynamic>? _page;
+  /// The page each navigator last showed, kept for the navigator rather
+  /// than the observer, so an observer that replaces another on a rebuild
+  /// still knows the page on top.
+  static final _pages = Expando<Route<dynamic>>();
 
   // Flutter 3.47.6 calls this once the navigator's history settles, with
   // the route now on top (`widgets/navigator.dart`, `_flushHistoryUpdates`).
   @override
   void didChangeTop(Route<dynamic> topRoute, Route<dynamic>? previousTopRoute) {
-    if (topRoute is! PageRoute || identical(topRoute, _page)) return;
-    // A page is no change when nothing was on top before it. Nor is it
-    // when this observer, replacing another on a rebuild, has heard no page
-    // yet and a dialog or menu has just closed: the page left on top is
-    // the one shown before it opened.
-    final first =
-        previousTopRoute == null ||
-        (_page == null &&
-            previousTopRoute is! PageRoute &&
-            !previousTopRoute.isActive);
-    _page = topRoute;
-    listener?.call(topRoute.settings.name, first: first);
+    final navigator = this.navigator;
+    if (topRoute is! PageRoute || navigator == null) return;
+    if (identical(topRoute, _pages[navigator])) return;
+    _pages[navigator] = topRoute;
+    // Nothing was on top before the navigator's first page.
+    listener?.call(topRoute.settings.name, first: previousTopRoute == null);
   }
 }
