@@ -296,7 +296,9 @@ cause rather than set a threshold
    dispatch run between frames, so inside a span they can cost frames that
    are counted as the app's. Each step was run 50 times, 100 ms apart, in
    a 5 s span of its own, in 5 runs per phone
-   ([0005](decisions/0005-m5-attach-findings.md)):
+   ([0005](decisions/0005-m5-attach-findings.md)). The ms columns are each
+   call's elapsed time on a stopwatch, not UI time: an async call's time
+   can include a frame drawn while it waits.
 
    | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
    | --- | --- | --- | --- | --- | --- |

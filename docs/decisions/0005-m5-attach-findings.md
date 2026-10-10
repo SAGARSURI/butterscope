@@ -67,7 +67,9 @@ What the runs showed:
   first episode, so the margin is about 17 ms.
 - **Reading the tree costs no more frames than an empty span; gestures
   cost some on a real screen; typing costs the most.** Each step ran 50
-  times, 100 ms apart, in a 5 s span of its own, in 5 runs per phone:
+  times, 100 ms apart, in a 5 s span of its own, in 5 runs per phone. The
+  ms columns are each call's elapsed time on a stopwatch, not UI time: an
+  async call's time can include a frame drawn while it waits.
 
   | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
   | --- | --- | --- | --- | --- | --- |
@@ -202,9 +204,9 @@ What the runs showed:
   per-flow budgets from spans, against each flow's own clean span on the
   same phone, as DESIGN section 9 already requires.
 - Every span with gestures carries their cost. On the S24 a real screen's
-  tap or drag cost 6 ms of UI time and, in some runs, missed vsyncs. Base
-  and head run the same test code, so a comparison stands, but a clean
-  span on the S24 does not read 0.
+  tap or drag took 6 ms a call and, in some runs, cost missed vsyncs.
+  Base and head run the same test code, so a comparison stands, but a
+  clean span on the S24 does not read 0.
 - A span around typing measures the app's response to each keystroke as
   much as the keystroke. That is what a person typing would cause, so it
   stays inside the flow.
