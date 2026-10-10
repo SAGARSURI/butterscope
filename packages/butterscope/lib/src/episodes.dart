@@ -105,13 +105,15 @@ Activity? _leadingInput(int at, List<Activity> counted, int quiet) {
   return lead != null && at - lead.end.micros < quiet ? lead : null;
 }
 
-/// The latest of [starts] at or before [at], in µs. [starts] holds one,
-/// the test's start.
+/// The latest of [starts] at or before [at], in µs. [starts] begins with
+/// the test's start, the earliest, which stands for any [at] before it: an
+/// input that began before the test belongs to its first episode.
 int _latestStart(int at, List<FrameMark> starts) {
-  return [
-    for (final start in starts)
-      if (start.micros <= at) start.micros,
-  ].reduce(math.max);
+  return starts.fold(
+    starts.first.micros,
+    (latest, start) =>
+        start.micros <= at ? math.max(latest, start.micros) : latest,
+  );
 }
 
 /// The marks between [test]'s episodes, in order: its start, each of
