@@ -7,7 +7,9 @@
 #
 # A build is "clean" or a plant such as "raster_clip". With none named, it
 # runs the clean build and then each plant in lib/src/plants/plant.dart
-# that names a screen. RUNS=10 runs each build ten times.
+# that names a screen. RUNS=10 runs each build ten times. TARGET names
+# another test file to run in place of integration_test/app_test.dart,
+# such as integration_test/m5_harness_test.dart.
 #
 # The tests now record frames, so the runs keep outside work out as M4's
 # probe runs did (decision record 0004, decision 3): one clean warm-up run
@@ -19,7 +21,8 @@
 # of this to the Mac: keep Low Power Mode and Limit Frame Rate off, close
 # other apps and let the phone cool between batches.
 #
-# Each run's transcript and table go to build/m5_tests/<device-id>/. A run
+# Each run's transcript and table go to build/m5_tests/<device-id>/, or
+# build/m5_tests/<device-id>/<target>/ for another TARGET. A run
 # passes when every test passed and its report is whole. Exits 1 when any
 # run fails.
 set -uo pipefail
@@ -32,6 +35,7 @@ device=$1
 shift
 runs=${RUNS:-1}
 warmup=${WARMUP:-on}
+target=${TARGET:-integration_test/app_test.dart}
 
 cd "$(dirname "$0")/../.." || exit 1
 # shellcheck source=../android_ready.sh
@@ -53,6 +57,9 @@ if command -v adb >/dev/null && adb devices | grep -q "^$device[[:space:]]"; the
 fi
 
 out=build/m5_tests/$device
+if [ "$target" != integration_test/app_test.dart ]; then
+  out=$out/$(basename "$target" .dart)
+fi
 mkdir -p "$out"
 
 # Runs the tests once: run <plant define> <name> [--min-hz <hertz>].
@@ -69,7 +76,7 @@ run() {
   fi
   fvm flutter drive --profile --no-dds --keep-app-running \
     --driver=test_driver/integration_test.dart \
-    --target=integration_test/app_test.dart \
+    --target="$target" \
     --dart-define=BUTTERSCOPE_PLANT="$define" \
     -d "$device" >>"$log" 2>&1
   local drove=$?
