@@ -283,10 +283,10 @@ cause rather than set a threshold
    are computed from the frames between marks after the last test
    ([0005](decisions/0005-m5-attach-findings.md)).
 6. **Test runners:** plain `integration_test` is the primary target. Patrol
-   should work unchanged because `PatrolBinding` extends
-   `IntegrationTestWidgetsFlutterBinding`. **(open, adoption plan after
-   M11: verified, where a production app's runner is known; moved from M5
-   by [0005](decisions/0005-m5-attach-findings.md).)**
+   should work unchanged, since Patrol documents `PatrolBinding` as
+   extending `IntegrationTestWidgetsFlutterBinding`. **(open, adoption
+   plan after M11: verified, where a production app's runner is known;
+   moved from M5 by [0005](decisions/0005-m5-attach-findings.md).)**
 7. **Data determinism is the app's job.** Flows run against the app's own
    fakes (for example, a socket client replaying recorded frames at the
    transport layer, so decoding and state merging still run for real).
@@ -295,14 +295,14 @@ cause rather than set a threshold
 8. **Test code shares the UI thread.** Finders, expectations and gesture
    dispatch run between frames, so inside a span they can cost frames that
    are counted as the app's. Each step was run 50 times, 100 ms apart, in
-   a 5 s span of its own, in 5 runs per phone
+   a 5 s span of its own, in 5 runs per phone, with semantics off
    ([0005](decisions/0005-m5-attach-findings.md)). The ms columns are each
    call's elapsed time on a stopwatch, not UI time: an async call's time
    can include a frame drawn while it waits.
 
    | Step | Screen | S24 median ms | S24 janky per span | iPhone median ms | iPhone janky per span |
    | --- | --- | --- | --- | --- | --- |
-   | Finders, `expect`, `tester.widget` | Still | 0.5 to 0.6 | 0 | 0.3 | 0 |
+   | Finders, `expect`, `tester.widget` | Still | 0.5 to 0.6 | 0 | 0.3 to 0.4 | 0 |
    | Finders, `expect`, `tester.widget` | Feed | 1.1 to 1.9 | 0 | 1.1 to 1.8 | 0 |
    | `tap`, `drag` | Still | 2.0 to 2.2 | 0 to 1 | 1.5 to 1.7 | 0 |
    | `tap`, `drag` | Feed | 6.1 to 6.2 | 0 to 6, up to 27 missed vsyncs | 5.4 | 0 |

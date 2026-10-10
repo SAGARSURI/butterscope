@@ -49,13 +49,14 @@ void attachButterscope() {
 /// here is printed before the driver stops reading the device's output.
 ///
 /// It sets [EditableText.debugDeterministicCursor], so a focused text
-/// field's cursor stops blinking. On iOS the cursor fades with an animation
-/// that restarts from a zero-length timer (`_onCursorTick` in
-/// `editable_text.dart`, Flutter 3.47.6). Under `benchmarkLive` a pump only
-/// waits while frames keep running, so `pumpAndSettle` almost never lands
-/// in that gap and a test that types waits until its timeout. Without
-/// Butterscope, each pump draws one frame and checks right after it, so
-/// the gap is found and the test settles.
+/// field's cursor stops blinking. A Material text field on iOS, and a
+/// Cupertino one anywhere, fades its cursor with an animation that restarts
+/// from a zero-length timer (`_onCursorTick` in `editable_text.dart`,
+/// Flutter 3.47.6). Under `benchmarkLive` a pump draws nothing and only
+/// waits, so `pumpAndSettle` checks at an arbitrary moment, almost never in
+/// that gap, and a test that types does not settle. Without Butterscope,
+/// each pump draws one frame and checks right after it, before the timer
+/// fires, so the gap is found and the test settles.
 void attachTo(
   LiveTestWidgetsFlutterBinding binding,
   FrameSource source,
@@ -71,7 +72,8 @@ void attachTo(
     activity.start(run);
   });
   // The test's full name, group names included, from test_api's public
-  // hook: flutter_test keeps the description it is given private.
+  // hook: flutter_test's `WidgetTester.testDescription` has no group names
+  // and is set only after `setUp` runs.
   setUp(() => run.testStarted(TestHandle.current.name));
   tearDown(run.testEnded);
   tearDownAll(() async {
