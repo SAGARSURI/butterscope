@@ -13,10 +13,10 @@ packages:
     dependency: transitive
     description:
       name: analytica
-      sha256: "0dc752f3895321fdedbc56822b0218a86380682f33a24d14a0bf80d1fd8dc909"
+      sha256: e4ffe0792f2b2701cddc36a5b589ae3e8e42c5863611c1ca3c5d06839347766e
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.3"
+    version: "0.1.4"
   analyzer:
     dependency: transitive
     description:
@@ -157,10 +157,10 @@ packages:
     dependency: "direct dev"
     description:
       name: dedupe
-      sha256: "30e92045675c17050d849d5f6b2c19f8426a83e2ca42f54d4abfaa4ba9782517"
+      sha256: "1c7de885a079e7cd02587e5f9c89ff4dfb69fc85af405b5a2e31248f6c1b14c4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.1.0"
+    version: "0.1.1"
   fake_async:
     dependency: transitive
     description:

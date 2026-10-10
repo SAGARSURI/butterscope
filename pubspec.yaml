@@ -10,7 +10,7 @@ dev_dependencies:
   # pubspec.lock pins everything they depend on, so their findings change
   # only when this file or the lock does. Dependabot proposes new releases.
   cognitive_complexity: 0.2.5
-  dedupe: 0.1.0
+  dedupe: 0.1.1
   # Pins Melos for everyone and for CI: a globally activated Melos hands over
   # to this version.
   melos: ^8.9.0
