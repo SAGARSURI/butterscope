@@ -18,11 +18,13 @@ public class ButterscopePlugin: NSObject, FlutterPlugin {
       return
     }
     let info = ProcessInfo.processInfo
+    // Read once, so the two thermal fields always agree.
+    let thermal = info.thermalState
     result([
       "model": hardwareIdentifier(),
       "osVersion": "iOS \(UIDevice.current.systemVersion)",
-      "thermal": thermalName(info.thermalState),
-      "thermalNominal": info.thermalState == .nominal,
+      "thermal": thermalName(thermal),
+      "thermalNominal": thermal == .nominal,
       "lowPower": info.isLowPowerModeEnabled,
     ])
   }

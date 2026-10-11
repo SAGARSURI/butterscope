@@ -81,6 +81,24 @@ void main() {
       const ChannelDeviceStateSource().read(),
       throwsA(isA<FormatException>()),
     );
+
+    // A thermal field left out is a broken reply, not an unknown state.
+    for (final missing in ['thermal', 'thermalNominal']) {
+      answer(
+        (_) => {
+          'model': 'iPhone18,1',
+          'osVersion': 'iOS 26.1',
+          'thermal': null,
+          'thermalNominal': null,
+          'lowPower': false,
+        }..remove(missing),
+      );
+      await expectLater(
+        const ChannelDeviceStateSource().read(),
+        throwsA(isA<FormatException>()),
+        reason: 'without $missing',
+      );
+    }
   });
 
   test('fails when the app was built without the plugin', () async {

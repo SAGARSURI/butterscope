@@ -16,11 +16,12 @@ final class DeviceState {
   });
 
   /// Reads the map the plugin sends. Throws a [FormatException] when a
-  /// field is missing or of the wrong type.
+  /// field is missing or of the wrong type. A thermal field the OS cannot
+  /// report is sent as `null`, never left out.
   factory fromMap(Map<Object?, Object?> map) {
     T field<T>(String key) {
       final value = map[key];
-      if (value is T) return value;
+      if (map.containsKey(key) && value is T) return value;
       throw FormatException('Device state field "$key" is $value.');
     }
 
