@@ -108,4 +108,74 @@ void main() {
       expect(observeRefreshRate(allJanky, budget), isNull);
     });
   });
+
+  group('judgeRateSlices', () {
+    test('cuts a steady part into one-second slices with no mismatch', () {
+      // 300 gaps of 8333 µs: frame k's vsync is k × 8333 µs. Slice 0 holds
+      // frames 0 to 120 (120 × 8333 = 999 960), slice 1 frames 121 to 240
+      // (240 × 8333 = 1 999 920), slice 2 frames 241 to 299; frame 300 is
+      // last and has no gap after it. So 121, 120 and 59 gaps.
+      final frames = framesWithGaps(List.filled(300, 8333));
+      final slices = judgeRateSlices(frames, FrameBudget(120));
+      expect([for (final s in slices) s.index], [0, 1, 2]);
+      expect([for (final s in slices) s.gapCount], [121, 120, 59]);
+      for (final slice in slices) {
+        // 1 000 000 ÷ 8333 = 120.005 Hz, 0.004% off.
+        expect(slice.observedRefreshRate, closeTo(120.005, 0.001));
+        expect(slice.declaredRefreshRate, 120);
+        expect(slice.isMismatch, isFalse);
+      }
+    });
+
+    test('flags the second in which the screen dropped to 60 Hz', () {
+      // Frames 0 to 120 at 8333 µs fill slice 0; frame 120's vsync is
+      // 999 960 and its gap, 16 667 µs, is the first at 60 Hz. Slice 0 has
+      // 120 gaps of 8333 and that one, so its mode stays 120 Hz. Frames 121
+      // to 180 sit at 999 960 + j × 16 667 for j = 1 to 60, the last at
+      // 1 999 980, so slice 1 holds them and the 59 gaps after 121 to 179:
+      // 1 000 000 ÷ 16 667 = 59.999 Hz, 50% under the declared 120.
+      final gaps = [...List.filled(120, 8333), ...List.filled(60, 16667)];
+      final slices = judgeRateSlices(framesWithGaps(gaps), FrameBudget(120));
+      expect([for (final s in slices) s.gapCount], [121, 59]);
+      expect(slices[0].isMismatch, isFalse);
+      expect(slices[1].isMismatch, isTrue);
+      expect(slices[1].observedRefreshRate, closeTo(59.999, 0.001));
+    });
+
+    test('judges a slice only from 10 gaps, which take 11 frames', () {
+      final budget = FrameBudget(60);
+      final nine = framesWithGaps(List.filled(9, 16667));
+      expect(judgeRateSlices(nine, budget), isEmpty);
+      final eleven = framesWithGaps(List.filled(10, 16667));
+      final ten = judgeRateSlices(eleven, budget);
+      expect(ten.single.gapCount, 10);
+    });
+
+    test('judges nothing when every frame is janky', () {
+      // Builds of 30 ms are over the 16.67 ms budget, so no gap qualifies.
+      final frames = framesWithGaps(
+        List.filled(60, 33333),
+        builds: List.filled(61, 30000),
+      );
+      expect(judgeRateSlices(frames, FrameBudget(60)), isEmpty);
+      expect(judgeRateSlices(const [], FrameBudget(60)), isEmpty);
+    });
+
+    test('flags a rate more than 5% off the declared one, not exactly 5%', () {
+      RateSlice at(double observed) {
+        return RateSlice(
+          index: 0,
+          gapCount: 10,
+          observedRefreshRate: observed,
+          declaredRefreshRate: 100,
+        );
+      }
+
+      // 5% of 100 Hz is 5 Hz: 95 and 105 are on the edge and pass.
+      expect(at(95).isMismatch, isFalse);
+      expect(at(105).isMismatch, isFalse);
+      expect(at(94.9).isMismatch, isTrue);
+      expect(at(105.1).isMismatch, isTrue);
+    });
+  });
 }

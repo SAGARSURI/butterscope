@@ -44,6 +44,11 @@ final class RunReport {
   /// metrics; M6's guards make it `INVALID`. A rate that is not finite is
   /// written as `null`, because JSON has no NaN or infinity.
   ///
+  /// Its metrics include the rate-mismatch check: how many one-second
+  /// slices had enough gaps to judge, and each mismatched slice as
+  /// `[second, gaps, observedHz]`. No slice judged means the part was not
+  /// checked.
+  ///
   /// The activity and page changes go in too, as lists of
   /// `[kind, startFrame, startMicros, endFrame, endMicros]` and
   /// `[frame, micros, page, cuts]`, so a reader can split the tests again
@@ -108,6 +113,11 @@ String get _buildMode {
 Map<String, Object?> _gateJson(WindowMetrics metrics) {
   return {
     'observedHz': metrics.observedRefreshRate,
+    'rateSlicesJudged': metrics.rateSlices.length,
+    'rateMismatches': [
+      for (final slice in metrics.rateMismatches)
+        [slice.index, slice.gapCount, slice.observedRefreshRate],
+    ],
     'hitchRatio': metrics.hitchRatio,
     'hitchMs': metrics.hitchMillis,
     'renderingMs': metrics.renderingMillis,

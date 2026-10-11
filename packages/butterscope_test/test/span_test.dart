@@ -52,9 +52,11 @@ void main() {
     expect(test['jankyRate'], 1 / 7);
 
     // A span carries the same metrics as a test: every gate metric and
-    // every diagnostic in DESIGN section 5.
+    // every diagnostic in DESIGN section 5. The 19 gate metrics come with
+    // the 2 rate-mismatch fields; 4 frames are too few to judge a slice.
     expect(scroll.keys, unorderedEquals(test.keys));
-    expect(scroll.keys, hasLength(19));
+    expect(scroll.keys, hasLength(21));
+    expect(scroll['rateSlicesJudged'], 0);
     final diagnostics = parts[0]['diagnostics']! as Map<String, Object?>;
     expect(
       diagnostics.keys,

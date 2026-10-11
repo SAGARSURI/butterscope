@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:butterscope/src/classified_frame.dart';
 import 'package:butterscope/src/frame_budget.dart';
 import 'package:butterscope/src/frame_sample.dart';
@@ -29,15 +31,105 @@ const double _tolerance = 0.05;
 /// Returns `null` when no gap qualifies, for example with fewer than two
 /// frames or no smooth frame. See `docs/decisions/0001-metric-definitions.md`.
 double? observeRefreshRate(List<FrameSample> frames, FrameBudget budget) {
-  final gaps = <int>[];
+  return _modeRate([
+    for (final (_, gap) in _qualifyingGaps(frames, budget)) gap,
+  ]);
+}
+
+/// A slice is judged only with at least this many qualifying gaps (0002,
+/// decision 4).
+const int _minimumSliceGaps = 10;
+
+/// A slice whose rate is further than this fraction from the declared rate
+/// is a mismatch (0001, item 6).
+const double _mismatchTolerance = 0.05;
+
+/// One second of a part's frames whose observed rate could be judged.
+final class RateSlice {
+  /// Creates a slice, for example in a test.
+  const new({
+    required this.index,
+    required this.gapCount,
+    required this.observedRefreshRate,
+    required this.declaredRefreshRate,
+  });
+
+  /// Which second of the part this is: slice `i` holds the frames whose
+  /// vsync came `i` to `i + 1` seconds after the part's first frame's.
+  final int index;
+
+  /// How many qualifying gaps the slice holds: 10 or more.
+  final int gapCount;
+
+  /// The rate the slice's frames were drawn at, in hertz.
+  final double observedRefreshRate;
+
+  /// The rate the part was judged at: the declared rate that set its budget.
+  final double declaredRefreshRate;
+
+  /// Whether the observed rate differs from the declared one by more than
+  /// 5%: a **rate mismatch**. A flag, never a reason to void the part
+  /// (`docs/DESIGN.md` section 4).
+  bool get isMismatch {
+    final difference = (observedRefreshRate - declaredRefreshRate).abs();
+    return difference > declaredRefreshRate * _mismatchTolerance;
+  }
+}
+
+/// The one-second slices of [frames] whose observed rate can be judged
+/// against [budget]'s declared rate, in order.
+///
+/// One mode over a whole part hides a drop in part of it, so the frames
+/// are cut into consecutive one-second slices from the first frame's
+/// `vsyncStart`, the last one shorter. Each gap belongs to the slice of the
+/// frame it follows, and only gaps between [frames] count, so a slice's 10
+/// gaps take 11 frames. Gaps qualify as for [observeRefreshRate], and a
+/// slice with fewer than 10 is left out. A frame reported with a vsync
+/// before the first frame's counts in the first slice. See
+/// `docs/decisions/0001-metric-definitions.md`, item 6.
+List<RateSlice> judgeRateSlices(List<FrameSample> frames, FrameBudget budget) {
+  if (frames.isEmpty) return const [];
+  final first = frames.first.vsyncStartMicros;
+  final bySlice = <int, List<int>>{};
+  for (final (vsync, gap) in _qualifyingGaps(frames, budget)) {
+    final index = math.max(0, (vsync - first) ~/ _sliceMicros);
+    (bySlice[index] ??= []).add(gap);
+  }
+  return [
+    for (final MapEntry(key: index, value: gaps) in bySlice.entries)
+      if (gaps.length >= _minimumSliceGaps)
+        RateSlice(
+          index: index,
+          gapCount: gaps.length,
+          observedRefreshRate: _modeRate(gaps)!,
+          declaredRefreshRate: budget.refreshRate,
+        ),
+  ]..sort((a, b) => a.index.compareTo(b.index));
+}
+
+const int _sliceMicros = Duration.microsecondsPerSecond;
+
+/// Each qualifying gap, with the vsync of the frame it follows: the gap
+/// from a smooth frame's vsync to the next frame's, above 0 and under
+/// 100 ms, in the order of [frames].
+Iterable<(int, int)> _qualifyingGaps(
+  List<FrameSample> frames,
+  FrameBudget budget,
+) sync* {
   for (var i = 0; i + 1 < frames.length; i++) {
     final frame = ClassifiedFrame(frames[i], budget);
     if (frame.frameClass != FrameClass.smooth) continue;
-    final gap = frames[i + 1].vsyncStartMicros - frames[i].vsyncStartMicros;
-    if (gap > 0 && gap < _freezeMicros) gaps.add(gap);
+    final vsync = frames[i].vsyncStartMicros;
+    final gap = frames[i + 1].vsyncStartMicros - vsync;
+    if (gap > 0 && gap < _freezeMicros) yield (vsync, gap);
   }
-  if (gaps.isEmpty) return null;
-  gaps.sort();
+}
+
+/// The rate of the most common gap in [unsorted], or `null` when it is
+/// empty.
+double? _modeRate(List<int> unsorted) {
+  if (unsorted.isEmpty) return null;
+  final gaps = [...unsorted]..sort();
 
   // For each gap, find the gaps within the tolerance of it. The sorted list
   // lets two indexes slide forward: [low, high) is the current group.
