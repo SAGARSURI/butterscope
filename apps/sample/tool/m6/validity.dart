@@ -24,13 +24,19 @@ List<List<Object?>> mismatchesOf(Map<String, Object?> part) {
 
 /// For a clean run: the run and every span are valid, and no part flags a
 /// rate mismatch. [voidSpans] names spans that should be void, each by
-/// the one guard given.
+/// the one guard given; each must be in the report.
 List<String> notClean(
   Map<String, Object?> json, {
   Map<String, String> voidSpans = const {},
 }) {
+  final spans = {
+    for (final part in partsOf(json))
+      if (part['kind'] == 'span') part['name'],
+  };
   return [
     for (final guard in runReasons(json)) 'The run is void: $guard',
+    for (final name in voidSpans.keys)
+      if (!spans.contains(name)) 'Span $name is not in the report',
     for (final part in partsOf(json)) ..._spanProblems(part, voidSpans),
     for (final part in partsOf(json))
       if (mismatchesOf(part) case final slices when slices.isNotEmpty)

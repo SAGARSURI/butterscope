@@ -71,6 +71,16 @@ void main() {
         'Span empty should be void by x alone, not []',
       ]);
     });
+
+    test('names a span it should check that the report lacks', () {
+      expect(
+        notClean(
+          report([span('feed scroll')]),
+          voidSpans: {'empty': 'tooFewVsyncs'},
+        ),
+        ['Span empty is not in the report'],
+      );
+    });
   });
 
   group('notVoidedBy', () {

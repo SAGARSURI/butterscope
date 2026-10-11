@@ -71,16 +71,17 @@ mkdir -p "$out"
 # Stops the sample app on an iPhone, if it is running. devicectl lists
 # processes by executable path, and every Flutter app's executable is
 # .../Runner.app/Runner, so the sample's process is the one inside the
-# bundle installed under its bundle identifier.
+# bundle installed under its bundle identifier. Returns 1, saying why,
+# when the phone cannot be read or the app does not stop.
 ios_stop() {
-  local apps processes pid
+  local apps processes pid status=0
   apps=$(mktemp)
   processes=$(mktemp)
-  xcrun devicectl device info apps --device "$device" \
-    --json-output "$apps" >/dev/null 2>&1
-  xcrun devicectl device info processes --device "$device" \
-    --json-output "$processes" >/dev/null 2>&1
-  pid=$(python3 -c '
+  if ! xcrun devicectl device info apps --device "$device" \
+    --json-output "$apps" >/dev/null 2>&1 ||
+    ! xcrun devicectl device info processes --device "$device" \
+      --json-output "$processes" >/dev/null 2>&1 ||
+    ! pid=$(python3 -c '
 import json, sys
 bundles = [
     app["url"] for app in json.load(open(sys.argv[1]))["result"]["apps"]
@@ -89,11 +90,16 @@ bundles = [
 for p in json.load(open(sys.argv[2]))["result"]["runningProcesses"]:
     if any(p.get("executable", "").startswith(url) for url in bundles):
         print(p["processIdentifier"])
-' "$apps" "$processes" 2>/dev/null)
+' "$apps" "$processes"); then
+    echo "STOP: could not list the iPhone's apps and processes."
+    status=1
+  elif [ -n "$pid" ] && ! xcrun devicectl device process terminate \
+    --device "$device" --pid "$pid" >/dev/null; then
+    echo "STOP: could not stop the sample app (pid $pid) on the iPhone."
+    status=1
+  fi
   rm -f "$apps" "$processes"
-  [ -z "$pid" ] && return 0
-  xcrun devicectl device process terminate --device "$device" \
-    --pid "$pid" >/dev/null
+  return "$status"
 }
 
 # Runs <target> once as <name>, with the reader's options after them.
@@ -113,7 +119,8 @@ run() {
     fi
     adb -s "$device" logcat -c
   else
-    ios_stop
+    ios_stop | tee -a "$log"
+    [ "${PIPESTATUS[0]}" -eq 0 ] || return 2
   fi
   # Empty arrays are written ${a[@]+"${a[@]}"}, which macOS's bash 3.2
   # accepts under set -u.

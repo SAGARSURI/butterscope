@@ -75,7 +75,18 @@ android_ready() {
 # `app:remote` is named by its app. App names go only to the run's log
 # under build/, which is never committed.
 android_big_apps() {
-  local big
+  local packages meminfo big
+  # Read both first: a failed read must stop the batch, not pass as no
+  # large apps.
+  packages=$(adb -s "$device" shell pm list packages -3) &&
+    meminfo=$(adb -s "$device" shell dumpsys meminfo) || {
+    echo "STOP: could not read the phone's apps or memory."
+    return 1
+  }
+  if ! grep -q '^Total PSS by process:' <<<"$meminfo"; then
+    echo "STOP: dumpsys meminfo has no PSS by process."
+    return 1
+  fi
   big=$(awk '
     FNR == NR { third[$0] = 1; next }
     /^Total PSS by process:/ { inside = 1; next }
@@ -86,9 +97,9 @@ android_big_apps() {
       if ((name in third) && kb + 0 > 300 * 1024)
         printf "%s (%d MB)\n", name, kb / 1024
     }' \
-    <(adb -s "$device" shell pm list packages -3 | tr -d '\r' |
-      sed 's/^package://' | grep -vx dev.butterscope.butterscope_sample) \
-    <(adb -s "$device" shell dumpsys meminfo | tr -d '\r'))
+    <(tr -d '\r' <<<"$packages" | sed 's/^package://' |
+      grep -vx dev.butterscope.butterscope_sample) \
+    <(tr -d '\r' <<<"$meminfo"))
   if [ -n "$big" ]; then
     echo "STOP: close these apps on the phone, each over 300 MB:"
     echo "$big" | sed 's/^/  /'

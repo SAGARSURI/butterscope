@@ -1,6 +1,8 @@
 // M6's guard checks that need a test file of their own. Run it with:
 //
-//   TARGET=integration_test/m6_guards_test.dart tool/m6/run_tests.sh <id>
+//   VOID_SPANS='empty=tooFewVsyncs' \
+//     TARGET=integration_test/m6_guards_test.dart \
+//     tool/m6/run_tests.sh <id> guards
 //
 // By default the run is valid: one span with semantics on, as testWidgets
 // leaves it, one with it off, and an empty span, which is void for lasting
