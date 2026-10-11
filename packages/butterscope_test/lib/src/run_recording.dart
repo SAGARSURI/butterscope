@@ -10,16 +10,18 @@ import 'package:butterscope_test/src/activity_source.dart';
 /// the recorder's own callback, a mark per frame with input, and a mark per
 /// change of other activity (`docs/DESIGN.md` section 6.9).
 final class RunRecording implements ActivityListener {
-  /// Creates a recording that reads frames through [_recorder].
-  new(this._recorder);
+  /// Creates a recording that reads frames through [_recorder] and asks
+  /// [_semanticsOn] at each span's marks whether semantics is on.
+  new(this._recorder, this._semanticsOn);
 
   final FrameRecorder _recorder;
+  final bool Function() _semanticsOn;
   final List<MarkedPart> _parts = [];
   final Set<String> _spanNames = {};
   final List<Activity> _activities = [];
   final List<PageChange> _pages = [];
   (String, FrameMark)? _test;
-  String? _span;
+  _OpenSpan? _span;
   Activity? _input;
   FrameMark? _animationStart;
 
@@ -32,10 +34,20 @@ final class RunRecording implements ActivityListener {
   /// Marks the end of the test that started last.
   ///
   /// Frames between one test's end and the next one's start, such as
-  /// teardown, belong to no test.
+  /// teardown, belong to no test. A span still open, such as one whose
+  /// test timed out, ends here and is void, so it cannot block the spans
+  /// of later tests.
   void testEnded() {
+    final end = _recorder.mark();
     if (_test case (final name, final start)) {
-      _parts.add(MarkedPart(PartKind.test, name, start, _recorder.mark()));
+      if (_span case final open?) {
+        _closeSpan(
+          open,
+          end,
+          failures: [GuardFailure(Guard.openAtTestEnd, 'end of $name')],
+        );
+      }
+      _parts.add(MarkedPart(PartKind.test, name, start, end));
     }
     _test = null;
   }
@@ -52,24 +64,47 @@ final class RunRecording implements ActivityListener {
       throw StateError('span("$name") was called outside a test.');
     }
     if (_span case final outer?) {
-      throw StateError('span("$name") was called inside span("$outer").');
+      throw StateError(
+        'span("$name") was called inside span("${outer.name}").',
+      );
     }
     if (!_spanNames.add(name)) {
       throw ArgumentError.value(name, 'name', 'is already a span in this run');
     }
-    final start = _recorder.mark();
-    _span = name;
+    final open = _OpenSpan(name, _recorder.mark(), semanticsOn: _semanticsOn());
+    _span = open;
     try {
       return await body();
     } finally {
-      // Cleared even when the closing mark throws, so one failed read
-      // does not make every later span look nested.
-      try {
-        _parts.add(MarkedPart(PartKind.span, name, start, _recorder.mark()));
-      } finally {
-        _span = null;
+      // Its test's end closed it already when the test ended first.
+      if (identical(_span, open)) {
+        // Cleared even when the closing mark throws, so one failed read
+        // does not make every later span look nested.
+        try {
+          _closeSpan(open, _recorder.mark());
+        } finally {
+          _span = null;
+        }
       }
     }
+  }
+
+  void _closeSpan(
+    _OpenSpan open,
+    FrameMark end, {
+    List<GuardFailure> failures = const [],
+  }) {
+    _span = null;
+    _parts.add(
+      MarkedPart(
+        PartKind.span,
+        open.name,
+        open.start,
+        end,
+        semantics: (atStart: open.semanticsOn, atEnd: _semanticsOn()),
+        failures: failures,
+      ),
+    );
   }
 
   @override
@@ -107,9 +142,14 @@ final class RunRecording implements ActivityListener {
     _pages.add(PageChange(_recorder.mark(), page, cuts: !first));
   }
 
-  /// Stops recording and reports the run, each test split into episodes
+  /// Stops recording and reports the run as measured on [identity], with
+  /// the run guards that [failures] lists, each test split into episodes
   /// by [rule] and listed before it.
-  Future<RunReport> finish({EpisodeRule rule = EpisodeRule.inputOnly}) async {
+  Future<RunReport> finish({
+    required RunIdentity identity,
+    List<GuardFailure> failures = const [],
+    EpisodeRule rule = EpisodeRule.inputOnly,
+  }) async {
     // Activity still open at the end closes there.
     if (_input case final input?) _activities.add(input);
     animating(animating: false);
@@ -129,8 +169,21 @@ final class RunRecording implements ActivityListener {
     return RunReport(
       window,
       List.unmodifiable(parts),
+      identity: identity,
+      failures: failures,
       activities: List.unmodifiable(_activities),
       pages: List.unmodifiable(_pages),
     );
   }
+}
+
+/// A span that has started and not ended yet.
+final class _OpenSpan {
+  new(this.name, this.start, {required this.semanticsOn});
+
+  final String name;
+  final FrameMark start;
+
+  /// Whether semantics was on at its start.
+  final bool semanticsOn;
 }

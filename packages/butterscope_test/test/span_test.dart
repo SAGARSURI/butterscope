@@ -76,7 +76,13 @@ void main() {
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  attachTo(binding, source, FakeActivitySource(), ReportWriter(printed.add));
+  attachTo(
+    binding,
+    source,
+    FakeActivitySource(),
+    FakeGuardReader(),
+    ReportWriter(printed.add),
+  );
 
   setUpAll(() async {
     await expectLater(span('outside', () async {}), throwsStateError);

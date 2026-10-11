@@ -1,5 +1,7 @@
 // Pure Dart, with no Flutter import, so host tools can use it too.
 
+import 'package:butterscope/src/guards.dart';
+
 /// A point inside a recording: the frame begun most recently when it was
 /// taken, the refresh rate the screen declared then, and the time.
 final class FrameMark {
@@ -37,8 +39,19 @@ enum PartKind {
 /// One part of a run, between two marks of its recording.
 final class MarkedPart {
   /// Creates a part named [name] of [kind], from [start] to [end]. An
-  /// episode names its [test] and the [page] on top when it ended.
-  const new(this.kind, this.name, this.start, this.end, {this.test, this.page});
+  /// episode names its [test] and the [page] on top when it ended. A span
+  /// says whether [semantics] was on at its start and end, and lists the
+  /// [failures] its recording saw.
+  const new(
+    this.kind,
+    this.name,
+    this.start,
+    this.end, {
+    this.test,
+    this.page,
+    this.semantics,
+    this.failures = const [],
+  });
 
   /// What sort of part this is.
   final PartKind kind;
@@ -53,6 +66,17 @@ final class MarkedPart {
   /// The route name of the page on top when an episode ended, when the app
   /// has a `ButterscopeRouteObserver` and the route has a name.
   final String? page;
+
+  /// For a span, whether semantics was on at its start and at its end.
+  ///
+  /// Recorded, never a guard in M6: a span with semantics on also measures
+  /// building the semantics tree (`docs/DESIGN.md` section 7.2).
+  final ({bool atStart, bool atEnd})? semantics;
+
+  /// Guards the part failed while it was recorded, such as a span still
+  /// open when its test ended. Guards judged from its frames are added
+  /// when the report is built.
+  final List<GuardFailure> failures;
 
   /// The mark at its start. Its frames begin after this mark's frame.
   final FrameMark start;

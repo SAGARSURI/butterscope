@@ -58,6 +58,17 @@ BSCOPE-REPORT 7 3 3 }
       expect(report.unusable(minHz: 114), isEmpty);
     });
 
+    test('reads the build mode from the identity block M6 added', () {
+      final report = reportOf({
+        'identity': {'buildMode': 'debug'},
+        'frames': 120,
+        'flushTimedOut': false,
+        'parts': [testPart(119.6)],
+      });
+
+      expect(report.unusable(), ['Built in debug mode, not profile']);
+    });
+
     test('rejects a report that measured nothing', () {
       final report = reportOf({
         'buildMode': 'profile',

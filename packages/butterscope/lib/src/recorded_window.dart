@@ -68,9 +68,28 @@ final class RecordedWindow {
   List<FrameSample> samplesBetween(FrameMark start, FrameMark end) {
     return [
       for (final sample in samples)
-        if (sample.frameNumber > start.frameNumber &&
-            sample.frameNumber <= end.frameNumber)
-          sample,
+        if (_isBetween(sample, start, end)) sample,
     ];
+  }
+
+  /// The declared-rate reads taken between the first and the last timing
+  /// of the frames from [start] to [end], as [samplesBetween] picks them.
+  ///
+  /// A read is placed by how many timings had arrived, so this holds the
+  /// reads taken after the part's first timing and before any timing that
+  /// came after its last.
+  Iterable<RefreshRateRead> readsBetween(FrameMark start, FrameMark end) {
+    bool inPart(FrameSample sample) => _isBetween(sample, start, end);
+    final first = samples.indexWhere(inPart);
+    if (first < 0) return const [];
+    final afterLast = samples.lastIndexWhere(inPart) + 1;
+    return refreshRateReads.where(
+      (read) => read.afterSamples > first && read.afterSamples <= afterLast,
+    );
+  }
+
+  static bool _isBetween(FrameSample sample, FrameMark start, FrameMark end) {
+    return sample.frameNumber > start.frameNumber &&
+        sample.frameNumber <= end.frameNumber;
   }
 }

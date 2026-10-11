@@ -74,7 +74,13 @@ void main() {
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
-  attachTo(binding, source, activity, ReportWriter(printed.add));
+  attachTo(
+    binding,
+    source,
+    activity,
+    FakeGuardReader(),
+    ReportWriter(printed.add),
+  );
 
   test('a test with no activity is one episode', () {
     source.render(50);

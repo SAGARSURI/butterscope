@@ -1,6 +1,8 @@
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_test/src/activity_source.dart';
+import 'package:butterscope_test/src/guard_reader.dart';
 import 'package:butterscope_test/src/report_writer.dart';
+import 'package:butterscope_test/src/run_guards.dart';
 import 'package:butterscope_test/src/run_recording.dart';
 import 'package:flutter/foundation.dart' show debugPrintSynchronously;
 import 'package:flutter/widgets.dart' show EditableText;
@@ -23,6 +25,10 @@ RunRecording? _run;
 /// report after the last test. With a [ButterscopeRouteObserver] in the
 /// app, a change of page splits an episode too and tags it.
 ///
+/// The report says whether the run and each span can be trusted, and what
+/// the run was measured on (`docs/DESIGN.md` section 7). The app's commit
+/// goes in with `--dart-define=BUTTERSCOPE_APP_COMMIT=<sha>`.
+///
 /// Calling it again in the same run does nothing, so a file that runs other
 /// files' `main`s, each of which attaches, still records one run.
 void attachButterscope() {
@@ -33,13 +39,19 @@ void attachButterscope() {
     binding,
     EngineFrameSource(),
     EngineActivitySource(),
+    BindingGuardReader(binding, const ChannelDeviceStateSource()),
     ReportWriter(debugPrintSynchronously),
   );
 }
 
-/// Attaches to [binding], reading frames from [source] and activity from
-/// [activity], and printing the report with [writer]. [attachButterscope]
-/// passes the real ones.
+const String _appCommit = String.fromEnvironment(
+  'BUTTERSCOPE_APP_COMMIT',
+  defaultValue: 'unknown',
+);
+
+/// Attaches to [binding], reading frames from [source], activity from
+/// [activity] and the guards from [guards], and printing the report with
+/// [writer]. [attachButterscope] passes the real ones.
 ///
 /// The binding must be created before this runs. It registers a
 /// `tearDownAll` that tells the driver the run is over
@@ -61,24 +73,42 @@ void attachTo(
   LiveTestWidgetsFlutterBinding binding,
   FrameSource source,
   ActivitySource activity,
+  GuardReader guards,
   ReportWriter writer,
 ) {
   if (_run != null) return;
   binding.framePolicy = LiveTestWidgetsFlutterBindingFramePolicy.benchmarkLive;
   EditableText.debugDeterministicCursor = true;
-  final run = _run = RunRecording(FrameRecorder(source));
-  setUpAll(() {
+  final run = _run = RunRecording(
+    FrameRecorder(source),
+    () => guards.semanticsOn,
+  );
+  final checks = RunGuards(guards, appCommit: _appCommit);
+  setUpAll(() async {
+    await checks.atRunStart();
     run.start();
     activity.start(run);
   });
   // The test's full name, group names included, from test_api's public
   // hook: flutter_test's `WidgetTester.testDescription` has no group names
-  // and is set only after `setUp` runs.
-  setUp(() => run.testStarted(TestHandle.current.name));
-  tearDown(run.testEnded);
+  // and is set only after `setUp` runs. The guards are read before the
+  // test's start mark and after its end mark, outside its frames.
+  setUp(() async {
+    final name = TestHandle.current.name;
+    await checks.atTestStart(name);
+    run.testStarted(name);
+  });
+  tearDown(() {
+    run.testEnded();
+    checks.atTestEnd(TestHandle.current.name);
+  });
   tearDownAll(() async {
     activity.stop();
-    final report = await run.finish();
+    await checks.atRunEnd();
+    final report = await run.finish(
+      identity: checks.identity,
+      failures: checks.failures,
+    );
     final runId = DateTime.now().microsecondsSinceEpoch;
     writer.write(report.toJson(), runId: runId);
   });

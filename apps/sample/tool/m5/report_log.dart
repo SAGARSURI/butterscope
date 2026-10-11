@@ -26,6 +26,16 @@ class LoggedReport {
   /// What is wrong with it, as messages for people.
   final List<String> problems;
 
+  /// The build mode: in the identity block since M6, and at the top level
+  /// in M5's reports.
+  Object? get buildMode {
+    final json = this.json;
+    return switch (json?['identity']) {
+      {'buildMode': final mode} => mode,
+      _ => json?['buildMode'],
+    };
+  }
+
   /// The report's parts, such as tests and spans, as maps.
   List<Map<String, Object?>> get parts {
     final list = json?['parts'] as List<Object?>? ?? const [];
@@ -53,8 +63,7 @@ class LoggedReport {
         if (part['kind'] == 'span' && part['metrics'] == null)
           'Span ${part['name']} has no metrics',
       if (json['flushTimedOut'] == true) 'A flush timed out',
-      if (json['buildMode'] != 'profile')
-        'Built in ${json['buildMode']} mode, not profile',
+      if (buildMode != 'profile') 'Built in $buildMode mode, not profile',
       if (minHz != null && rated.isEmpty)
         'No test drew $rateFrames frames, enough to check its rate',
       if (minHz != null)

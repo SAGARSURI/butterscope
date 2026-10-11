@@ -25,7 +25,20 @@ void main() {
     ];
 
     expect(report['schema'], 0);
-    expect(report['buildMode'], 'debug');
+    // A clean phone, as the fake reader starts.
+    expect(report['valid'], isTrue);
+    expect(report['reasons'], isEmpty);
+    expect(report['identity'], {
+      'model': 'samsung SM-S921B',
+      'osVersion': 'Android 16 (API 36)',
+      'buildMode': 'profile',
+      'thermalAtStart': 'none',
+      'flutterVersion': '3.47.6',
+      'engineRevision': 'abc123',
+      'appCommit': 'unknown',
+      'textScale': 1.0,
+      'locale': 'en-GB',
+    });
     expect(
       [for (final test in tests) test['name']],
       [
@@ -65,10 +78,17 @@ void main() {
     binding,
     source,
     FakeActivitySource(),
+    FakeGuardReader(),
     ReportWriter(printed.add, chunkLength: 100),
   );
   // A second attach, as from another file's main, changes nothing.
-  attachTo(binding, source, FakeActivitySource(), ReportWriter(printed.add));
+  attachTo(
+    binding,
+    source,
+    FakeActivitySource(),
+    FakeGuardReader(),
+    ReportWriter(printed.add),
+  );
 
   test('the frame policy is benchmarkLive', () {
     expect(

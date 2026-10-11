@@ -31,7 +31,7 @@ void main(List<String> args) {
     if (json == null) continue;
     stdout
       ..writeln(
-        '#### Run ${report.runId}: ${json['buildMode']}, '
+        '#### Run ${report.runId}: ${report.buildMode}, '
         '${json['frames']} frames, flush ${json['flushMicros']} µs',
       )
       ..writeln()
