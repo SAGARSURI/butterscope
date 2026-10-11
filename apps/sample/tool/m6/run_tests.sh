@@ -67,19 +67,28 @@ out=build/m6_tests/$device
 mkdir -p "$out"
 
 # Stops the sample app on an iPhone, if it is running. devicectl lists
-# processes by executable path; the sample's is .../Runner.app/Runner.
+# processes by executable path, and every Flutter app's executable is
+# .../Runner.app/Runner, so the sample's process is the one inside the
+# bundle installed under its bundle identifier.
 ios_stop() {
-  local json pid
-  json=$(mktemp)
+  local apps processes pid
+  apps=$(mktemp)
+  processes=$(mktemp)
+  xcrun devicectl device info apps --device "$device" \
+    --json-output "$apps" >/dev/null 2>&1
   xcrun devicectl device info processes --device "$device" \
-    --json-output "$json" >/dev/null 2>&1
+    --json-output "$processes" >/dev/null 2>&1
   pid=$(python3 -c '
 import json, sys
-for p in json.load(open(sys.argv[1]))["result"]["runningProcesses"]:
-    if p.get("executable", "").endswith("/Runner.app/Runner"):
+bundles = [
+    app["url"] for app in json.load(open(sys.argv[1]))["result"]["apps"]
+    if app.get("bundleIdentifier") == "dev.butterscope.butterscopeSample"
+]
+for p in json.load(open(sys.argv[2]))["result"]["runningProcesses"]:
+    if any(p.get("executable", "").startswith(url) for url in bundles):
         print(p["processIdentifier"])
-' "$json" 2>/dev/null)
-  rm -f "$json"
+' "$apps" "$processes" 2>/dev/null)
+  rm -f "$apps" "$processes"
   [ -z "$pid" ] && return 0
   xcrun devicectl device process terminate --device "$device" \
     --pid "$pid" >/dev/null
