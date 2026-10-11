@@ -103,6 +103,36 @@ BSCOPE-REPORT 7 3 3 }
         'The run is void: [[thermal, run start, fair]]',
         'span tap is void: [[tooFewVsyncs, span, 3.0]]',
       ]);
+      // Allowing thermal passes the run, and the span void by its own
+      // guard still fails it.
+      expect(report.unusable(allow: {'thermal'}), [
+        'span tap is void: [[tooFewVsyncs, span, 3.0]]',
+      ]);
+    });
+
+    test('rejects a run void by a guard not allowed, or by none', () {
+      Map<String, Object?> voidBy(List<Object?> reasons) => {
+        'identity': {'buildMode': 'profile'},
+        'valid': false,
+        'reasons': reasons,
+        'frames': 120,
+        'flushTimedOut': false,
+        'parts': [testPart(119.6)],
+      };
+
+      final mixed = reportOf(
+        voidBy([
+          ['thermal', 'run start', 'fair'],
+          ['lowPower', 'run end', 'true'],
+        ]),
+      );
+      const mixedVoid =
+          'The run is void: '
+          '[[thermal, run start, fair], [lowPower, run end, true]]';
+      expect(mixed.unusable(allow: {'thermal'}), [mixedVoid]);
+      expect(reportOf(voidBy([])).unusable(allow: {'thermal'}), [
+        'The run is void: []',
+      ]);
     });
 
     test('rejects a report that measured nothing', () {

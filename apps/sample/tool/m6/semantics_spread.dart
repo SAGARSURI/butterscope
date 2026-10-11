@@ -52,14 +52,27 @@ Map<String, List<double>> spanValues(
   return values;
 }
 
-/// Why [json] cannot join the runs with semantics [on]: the run or a span
-/// is void, or a span's semantics read otherwise at its start or end.
-List<String> semanticsProblems(Map<String, Object?> json, {required bool on}) {
+/// Why [json] cannot join the runs with semantics [on]: the run is void by
+/// a guard outside [allow], a span is void by its own guard, or a span's
+/// semantics read otherwise at its start or end. [allow] names guards that
+/// may void the run, such as `thermal` while the iPhone reads "fair" on its
+/// cable; a void run voids every span without a span reason
+/// (run_report.dart), so those spans still count.
+List<String> semanticsProblems(
+  Map<String, Object?> json, {
+  required bool on,
+  Set<String> allow = const {},
+}) {
+  final runValid = json['valid'] == true;
   return [
-    for (final guard in runReasons(json)) 'The run is void: $guard',
+    if (!runValid && runReasons(json).isEmpty)
+      'The run is void with no reason given',
+    for (final guard in runReasons(json))
+      if (!allow.contains(guard)) 'The run is void: $guard',
     for (final part in partsOf(json))
       if (part['kind'] == 'span') ...[
-        if (part['valid'] != true) 'Span ${part['name']} is void',
+        if (part['valid'] != true && (runValid || _hasReasons(part)))
+          'Span ${part['name']} is void',
         if (!_reads(part['semantics'], on: on))
           'Span ${part['name']} read semantics ${part['semantics']}, not $on',
       ],
@@ -103,5 +116,8 @@ bool _reads(Object? semantics, {required bool on}) =>
     semantics is List &&
     semantics.length == 2 &&
     semantics.every((read) => read == on);
+
+bool _hasReasons(Map<String, Object?> part) =>
+    (part['reasons'] as List<Object?>? ?? const []).isNotEmpty;
 
 String _fixed(double value) => value.toStringAsFixed(value < 1 ? 4 : 2);

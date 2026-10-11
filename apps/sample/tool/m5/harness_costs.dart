@@ -24,20 +24,24 @@ const String emptyAfter = 'empty after';
 ///
 /// The run cannot be counted when the log does not hold exactly one
 /// report, the report is unusable (see [LoggedReport.unusable]), or a
-/// step's span lacks its [harnessCalls] call times. The report is null
+/// step's span lacks its [harnessCalls] call times. [allow] names guards
+/// that may void the run (see [LoggedReport.unusable]). The report is null
 /// whenever there is a problem.
 ({
   Map<String, Object?>? report,
   Map<String, List<int>> calls,
   List<String> problems,
 })
-readRun(String log) {
+readRun(String log, {Set<String> allow = const {}}) {
   final found = readReports(log);
   final calls = readCallTimes(log);
   final json = found.length == 1 ? found.single.json : null;
   final problems = [
     if (found.length != 1) 'Expected one report, found ${found.length}',
-    for (final report in found) ...[...report.problems, ...report.unusable()],
+    for (final report in found) ...[
+      ...report.problems,
+      ...report.unusable(allow: allow),
+    ],
     if (json != null) ...missingCalls(json, calls),
   ];
   return (

@@ -1,7 +1,10 @@
 // Prints what integration_test/m5_harness_test.dart measured on one phone,
 // from its saved device logs:
 //
-//   fvm dart run tool/m5/read_harness.dart <log> ...
+//   fvm dart run tool/m5/read_harness.dart [--allow <guard>] <log> ...
+//
+// `--allow thermal` counts runs void by that guard alone, as for an iPhone
+// that read "fair" on its cable.
 //
 // One row per span: each step's own time per call over all the runs, and
 // the janky frames and missed vsyncs of its span in each run, beside the
@@ -12,15 +15,24 @@ import 'dart:io';
 
 import 'harness_costs.dart';
 
-void main(List<String> logs) {
+void main(List<String> args) {
+  final allow = <String>{};
+  final logs = <String>[];
+  for (var i = 0; i < args.length; i++) {
+    if (args[i] == '--allow' && i + 1 < args.length) {
+      allow.add(args[++i]);
+    } else {
+      logs.add(args[i]);
+    }
+  }
   if (logs.isEmpty) {
-    stderr.writeln('Usage: read_harness.dart <log> ...');
+    stderr.writeln('Usage: read_harness.dart [--allow <guard>] <log> ...');
     exit(64);
   }
   final reports = <Map<String, Object?>>[];
   final calls = <String, List<int>>{};
   for (final log in logs) {
-    final run = readRun(File(log).readAsStringSync());
+    final run = readRun(File(log).readAsStringSync(), allow: allow);
     final report = run.report;
     if (report == null) {
       for (final problem in run.problems) {

@@ -93,6 +93,35 @@ void main() {
         'Span feed scroll read semantics [true, false], not true',
       ]);
     });
+
+    test('counts a run void by an allowed guard, not a span of its own', () {
+      // The writer marks every span of a void run invalid with no span
+      // reason, as feed scroll here; detail open names its own guard.
+      final json = report(
+        [
+          span('detail open', valid: false),
+          {...span('feed scroll'), 'valid': false},
+        ],
+        reasons: [
+          ['thermal', 'run end', 'fair'],
+        ],
+      );
+
+      expect(semanticsProblems(json, on: true, allow: {'thermal'}), [
+        'Span detail open is void',
+      ]);
+    });
+
+    test('names a void run that gives no reason', () {
+      final json = {
+        ...report([span('feed scroll')]),
+        'valid': false,
+      };
+
+      expect(semanticsProblems(json, on: true), [
+        'The run is void with no reason given',
+      ]);
+    });
   });
 
   test('spreadTable puts on and off side by side, and a missing side', () {

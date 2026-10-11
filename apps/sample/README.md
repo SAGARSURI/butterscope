@@ -81,7 +81,9 @@ The script's header lists the other options. Logs go to
 
 `tool/m6/compare_semantics.dart` compares runs with semantics on, as
 `testWidgets` leaves it, against runs with it off: each span's median and
-spread per metric.
+spread per metric. It and `tool/m5/read_harness.dart` take `--allow
+thermal` to count runs void by that guard alone, as on an iPhone that reads
+"fair" on its cable.
 
 ### Probe
 

@@ -4,11 +4,14 @@
 //
 //   fvm dart run tool/m6/compare_semantics.dart --on <log> ... --off <log> ...
 //
+// Add `--allow <guard> ...` to count runs void by those guards alone, such
+// as `--allow thermal` for an iPhone that read "fair" on its cable.
+//
 // Prints, per metric, each span's median and spread (largest value less
 // smallest) over the runs with semantics on and over those with it off.
 // Exits 1 when a run cannot be counted: its log does not hold exactly one
-// whole report, the run or a span is void, or a span read semantics
-// otherwise than its group says.
+// whole report, the run is void by a guard not allowed, a span is void by
+// its own guard, or a span read semantics otherwise than its group says.
 
 import 'dart:io';
 
@@ -18,6 +21,7 @@ import 'semantics_spread.dart';
 void main(List<String> args) {
   final on = <String>[];
   final off = <String>[];
+  final allow = <String>[];
   var group = <String>[];
   for (final arg in args) {
     switch (arg) {
@@ -25,13 +29,16 @@ void main(List<String> args) {
         group = on;
       case '--off':
         group = off;
+      case '--allow':
+        group = allow;
       default:
         group.add(arg);
     }
   }
   if (on.isEmpty || off.isEmpty) {
     stderr.writeln(
-      'Usage: compare_semantics.dart --on <log> ... --off <log> ...',
+      'Usage: compare_semantics.dart --on <log> ... --off <log> ... '
+      '[--allow <guard> ...]',
     );
     exit(64);
   }
@@ -48,7 +55,8 @@ void main(List<String> args) {
           ...report.problems,
           ...report.incomplete(),
         ],
-        if (json != null) ...semanticsProblems(json, on: on),
+        if (json != null)
+          ...semanticsProblems(json, on: on, allow: allow.toSet()),
       ];
       problems.addAll([for (final problem in runProblems) '$log: $problem']);
       if (runProblems.isEmpty && json != null) reports.add(json);
