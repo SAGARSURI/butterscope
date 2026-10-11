@@ -55,7 +55,7 @@ class LoggedReport {
       for (final part in parts)
         if (part['kind'] == 'span' && part['metrics'] == null)
           'Span ${part['name']} has no metrics',
-      if (json['flushTimedOut'] == true) 'A flush timed out',
+      if (json['flushTimedOut'] == true) flushTimedOut,
     ];
   }
 
@@ -89,6 +89,9 @@ class LoggedReport {
     ];
   }
 }
+
+/// The problem [LoggedReport.incomplete] gives a timed-out flush.
+const String flushTimedOut = 'A flush timed out';
 
 /// The fewest frames a test needs before the warm-up checks its rate.
 ///

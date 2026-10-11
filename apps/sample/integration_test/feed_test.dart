@@ -32,6 +32,10 @@ void main() {
           ),
         );
       });
+      // scrollUntilVisible ends with a jump that is laid out only in the
+      // next frame; until then the card's tap point can sit under the
+      // navigation bar, as it did on the iPhone with Larger Text.
+      await tester.pumpAndSettle();
       final title = tester
           .widget<Text>(
             find.descendant(of: card, matching: find.textContaining('No. 40')),
