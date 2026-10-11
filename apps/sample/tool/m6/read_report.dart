@@ -4,13 +4,14 @@
 // run was set up to show:
 //
 //   fvm dart run tool/m6/read_report.dart <log> [--expect <what>]
-//       [--void-span <name>=<guard> ...]
+//       [--void-span <name>=<guard> ...] [--allow <guard> ...]
 //
 // <what> is `clean` (the default: the run and every span valid, no
 // mismatch), `flagged` (every part with a judged slice flags a mismatch,
 // for a screen forced below its rate), or a guard's name such as
-// `lowPower` (the run void by that guard alone). --void-span names a span
-// a clean run should void, and by which guard.
+// `lowPower` (the run void by that guard). --void-span names a span a
+// clean run should void, and by which guard. --allow names a guard that
+// may also void the run, such as `thermal` while an iPhone reads "fair".
 //
 // Exits 1 when the report is missing, unreadable or incomplete, or does
 // not show what it should.
@@ -21,25 +22,21 @@ import '../m5/report_log.dart';
 import 'validity.dart';
 
 void main(List<String> args) {
-  if (args.isEmpty) {
-    stderr.writeln(
-      'Usage: read_report.dart <log> [--expect <what>] '
-      '[--void-span <name>=<guard> ...]',
-    );
-    exit(64);
-  }
+  // Options come in pairs after the log.
+  if (args.isEmpty || args.length.isEven) _usage();
   var expect = 'clean';
   final voidSpans = <String, String>{};
-  for (var i = 1; i + 1 < args.length; i += 2) {
-    switch (args[i]) {
-      case '--expect':
+  final allow = <String>{};
+  for (var i = 1; i < args.length; i += 2) {
+    switch ((args[i], args[i + 1].split('='))) {
+      case ('--expect', _):
         expect = args[i + 1];
-      case '--void-span':
-        final [name, guard] = args[i + 1].split('=');
+      case ('--void-span', [final name, final guard]):
         voidSpans[name] = guard;
+      case ('--allow', _):
+        allow.add(args[i + 1]);
       default:
-        stderr.writeln('Unknown option ${args[i]}');
-        exit(64);
+        _usage();
     }
   }
 
@@ -55,15 +52,23 @@ void main(List<String> args) {
     problems
       ..addAll(unexpectedIncomplete(report.incomplete(), expect))
       ..addAll(switch (expect) {
-        'clean' => notClean(json, voidSpans: voidSpans),
-        'flagged' => notFlagged(json),
-        final guard => notVoidedBy(json, guard),
+        'clean' => notClean(json, voidSpans: voidSpans, allow: allow),
+        'flagged' => notFlagged(json, allow: allow),
+        final guard => notVoidedBy(json, guard, allow: allow),
       });
   }
   for (final problem in problems) {
     stdout.writeln('PROBLEM: $problem');
   }
   exit(problems.isEmpty ? 0 : 1);
+}
+
+Never _usage() {
+  stderr.writeln(
+    'Usage: read_report.dart <log> [--expect <what>] '
+    '[--void-span <name>=<guard> ...] [--allow <guard> ...]',
+  );
+  exit(64);
 }
 
 void _print(String runId, Map<String, Object?> json) {

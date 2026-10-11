@@ -15,6 +15,9 @@
 #                   such as `lowPower`. See tool/m6/read_report.dart.
 #   VOID_SPANS=...  spans a clean run should void, as `name=guard`,
 #                   separated by `;`.
+#   ALLOW=...       guards that may also void a run, warm-up included,
+#                   separated by `;`, such as `thermal` while an iPhone
+#                   reads "fair" on its cable.
 #   FORCE=...       passed to the app as BUTTERSCOPE_FORCE.
 #   MODE=debug      builds in debug mode, to force the build-mode guard.
 #   READY=off       skips the Android readiness checks, for a run that
@@ -31,8 +34,10 @@
 # each run the previous run's app is stopped: on Android with
 # `am force-stop`, on iOS with `devicectl`, since `--keep-app-running`
 # leaves it animating. On Android, tool/android_ready.sh then checks the
-# phone. iOS reports none of that to the Mac: keep Low Power Mode and Limit
-# Frame Rate off, close other apps and let the phone cool between batches.
+# phone. iOS has no such check before a run: the report itself reads Low
+# Power Mode and the thermal state, and Limit Frame Rate shows only as a
+# rate mismatch, so a warm-up that meets any of them stops the batch.
+# Close other apps first.
 # The batch stops if Xcode is open, since flutter drive then launches the
 # app through Xcode, and those launches hung waiting on it (2026-10-04).
 #
@@ -74,7 +79,7 @@ mkdir -p "$out"
 # bundle installed under its bundle identifier. Returns 1, saying why,
 # when the phone cannot be read or the app does not stop.
 ios_stop() {
-  local apps processes pid status=0
+  local apps processes pid p status=0
   apps=$(mktemp)
   processes=$(mktemp)
   if ! xcrun devicectl device info apps --device "$device" \
@@ -93,13 +98,49 @@ for p in json.load(open(sys.argv[2]))["result"]["runningProcesses"]:
 ' "$apps" "$processes"); then
     echo "STOP: could not list the iPhone's apps and processes."
     status=1
-  elif [ -n "$pid" ] && ! xcrun devicectl device process terminate \
-    --device "$device" --pid "$pid" >/dev/null; then
-    echo "STOP: could not stop the sample app (pid $pid) on the iPhone."
-    status=1
+  else
+    for p in $pid; do
+      xcrun devicectl device process terminate --device "$device" \
+        --pid "$p" >/dev/null && continue
+      echo "STOP: could not stop the sample app (pid $p) on the iPhone."
+      status=1
+    done
   fi
   rm -f "$apps" "$processes"
   return "$status"
+}
+
+# Waits while flutter drive (<pid>) runs. When the app has not started a
+# minute after flutter's own warning that the VM service was not
+# discovered (lib/src/ios/devices.dart in the pinned tool), stops flutter
+# drive and returns 1.
+# On 2026-10-11 a phone that had dropped trust in the developer
+# certificate hung there with no end; the warning alone is not a failure.
+watch_launch() {
+  local pid=$1 log=$2 waited=0
+  while kill -0 "$pid" 2>/dev/null; do
+    if grep -q 'Dart VM Service was not discovered' "$log"; then
+      waited=$((waited + 5))
+    fi
+    if [ "$waited" -gt 60 ]; then
+      stop_tree "$pid"
+      echo "STOP: the app did not start. Unlock the phone, quit Xcode and"
+      echo "check the developer is trusted in Settings > General > VPN &"
+      echo "Device Management, then run again."
+      return 1
+    fi
+    sleep 5
+  done
+}
+
+# Stops <pid> and every process under it: fvm runs flutter, which runs
+# the tool in dart.
+stop_tree() {
+  local child
+  for child in $(pgrep -P "$1"); do
+    stop_tree "$child"
+  done
+  kill "$1" 2>/dev/null
 }
 
 # Runs <target> once as <name>, with the reader's options after them.
@@ -131,7 +172,10 @@ run() {
     --target="$run_target" \
     --dart-define=BUTTERSCOPE_APP_COMMIT="$commit" \
     --dart-define=BUTTERSCOPE_FORCE="${FORCE:-}" \
-    -d "$device" >>"$log" 2>&1
+    -d "$device" >>"$log" 2>&1 &
+  local drive=$!
+  watch_launch "$drive" "$log" || return 2
+  wait "$drive"
   local drove=$?
   $android && adb -s "$device" logcat -d -s flutter >>"$log"
   fvm dart run tool/m6/read_report.dart "$log" "$@" | tee "$out/$name.txt"
@@ -147,17 +191,30 @@ if ! $android && pgrep -x Xcode >/dev/null; then
   exit 1
 fi
 
+allowed=()
+IFS=';' read -ra guards <<<"${ALLOW:-}"
+for guard in ${guards[@]+"${guards[@]}"}; do
+  allowed+=(--allow "$guard")
+done
+
 if [ "$warmup" = on ]; then
   echo "== warm-up: clean app_test.dart, not counted"
-  if ! (mode=profile FORCE= run integration_test/app_test.dart warmup); then
-    echo "STOP: the warm-up was void or flagged a rate mismatch. Check"
-    echo "Limit Frame Rate, power saving, the refresh rate setting and the"
-    echo "phone's temperature, then run again."
-    exit 1
-  fi
+  (mode=profile FORCE= run integration_test/app_test.dart warmup \
+    ${allowed[@]+"${allowed[@]}"})
+  case $? in
+    0) ;;
+    # The phone was not ready; the check above says why.
+    2) exit 1 ;;
+    *)
+      echo "STOP: the warm-up failed, was void or flagged a rate mismatch."
+      echo "Check Limit Frame Rate, power saving, the refresh rate setting"
+      echo "and the phone's temperature, then run again."
+      exit 1
+      ;;
+  esac
 fi
 
-options=(--expect "$expect")
+options=(--expect "$expect" ${allowed[@]+"${allowed[@]}"})
 IFS=';' read -ra spans <<<"${VOID_SPANS:-}"
 for span in ${spans[@]+"${spans[@]}"}; do
   options+=(--void-span "$span")

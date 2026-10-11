@@ -24,17 +24,20 @@ List<List<Object?>> mismatchesOf(Map<String, Object?> part) {
 
 /// For a clean run: the run and every span are valid, and no part flags a
 /// rate mismatch. [voidSpans] names spans that should be void, each by
-/// the one guard given; each must be in the report.
+/// the one guard given; each must be in the report. [allow] names guards
+/// that may void the run on top of what it was set up to show, such as
+/// `thermal` while the iPhone reads "fair" on its cable.
 List<String> notClean(
   Map<String, Object?> json, {
   Map<String, String> voidSpans = const {},
+  Set<String> allow = const {},
 }) {
   final spans = {
     for (final part in partsOf(json))
       if (part['kind'] == 'span') part['name'],
   };
   return [
-    for (final guard in runReasons(json)) 'The run is void: $guard',
+    ..._runProblems(json, allow),
     for (final name in voidSpans.keys)
       if (!spans.contains(name)) 'Span $name is not in the report',
     for (final part in partsOf(json)) ..._spanProblems(part, voidSpans),
@@ -44,13 +47,16 @@ List<String> notClean(
   ];
 }
 
-/// For a run forced to fail [guard]: the run is void by it alone.
-List<String> notVoidedBy(Map<String, Object?> json, String guard) {
-  final reasons = runReasons(json);
+/// For a run forced to fail [guard]: the run is void by it, and by no
+/// other guard but those in [allow].
+List<String> notVoidedBy(
+  Map<String, Object?> json,
+  String guard, {
+  Set<String> allow = const {},
+}) {
   return [
-    if (!reasons.contains(guard)) 'The run is not void by $guard',
-    for (final other in reasons)
-      if (other != guard) 'The run is also void by $other',
+    if (!runReasons(json).contains(guard)) 'The run is not void by $guard',
+    ..._runProblems(json, {...allow, guard}),
   ];
 }
 
@@ -66,18 +72,36 @@ List<String> unexpectedIncomplete(List<String> incomplete, String expect) {
   ];
 }
 
-/// For a screen forced below its declared rate: at least one part is
-/// judged, and every part with a judged slice flags a mismatch.
-List<String> notFlagged(Map<String, Object?> json) {
+/// For a screen forced below its declared rate: no guard but those in
+/// [allow] voids the run, at least one part is judged, and every part
+/// with a judged slice flags a mismatch. Low Power Mode also caps the
+/// iPhone at 60 Hz, so a run void by it does not count as flagged.
+List<String> notFlagged(
+  Map<String, Object?> json, {
+  Set<String> allow = const {},
+}) {
   final judged = [
     for (final part in partsOf(json))
       if (_slicesJudged(part) > 0) part,
   ];
   return [
+    ..._runProblems(json, allow),
     if (judged.isEmpty) 'No part had a slice to judge',
     for (final part in judged)
       if (mismatchesOf(part).isEmpty)
         '${part['kind']} ${part['name']} flags no mismatch',
+  ];
+}
+
+/// The run's guards outside [allow], and a run marked void with no guard
+/// named.
+List<String> _runProblems(Map<String, Object?> json, Set<String> allow) {
+  final reasons = runReasons(json);
+  return [
+    if (json['valid'] != true && reasons.isEmpty)
+      'The run is void with no reason given',
+    for (final guard in reasons)
+      if (!allow.contains(guard)) 'The run is void: $guard',
   ];
 }
 
@@ -90,6 +114,9 @@ Iterable<String> _spanProblems(
   final reasons = _guards(part['reasons']);
   final expected = voidSpans[name];
   if (expected == null) {
+    if (part['valid'] == false && reasons.isEmpty) {
+      yield 'Span $name is void with no reason given';
+    }
     for (final guard in reasons) {
       yield 'Span $name is void: $guard';
     }

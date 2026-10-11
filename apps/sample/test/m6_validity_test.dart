@@ -72,6 +72,31 @@ void main() {
       ]);
     });
 
+    test('names a run or span marked void with no reason', () {
+      final json = {
+        'valid': false,
+        'reasons': <Object?>[],
+        'parts': [
+          {...span('scroll'), 'valid': false},
+        ],
+      };
+      expect(notClean(json), [
+        'The run is void with no reason given',
+        'Span scroll is void with no reason given',
+      ]);
+    });
+
+    test('accepts a run void only by an allowed guard', () {
+      final json = report(
+        [span('scroll')],
+        reasons: [
+          ['thermal', 'run start', 'fair'],
+        ],
+      );
+      expect(notClean(json, allow: {'thermal'}), isEmpty);
+      expect(notClean(json), ['The run is void: thermal']);
+    });
+
     test('names a span it should check that the report lacks', () {
       expect(
         notClean(
@@ -103,9 +128,20 @@ void main() {
       );
       expect(notVoidedBy(json, 'thermal'), [
         'The run is not void by thermal',
-        'The run is also void by lowPower',
+        'The run is void: lowPower',
       ]);
     });
+  });
+
+  test('notVoidedBy accepts an allowed guard beside the forced one', () {
+    final json = report(
+      [span('scroll')],
+      reasons: [
+        ['thermal', 'run start', 'fair'],
+        ['lowPower', 'run start'],
+      ],
+    );
+    expect(notVoidedBy(json, 'lowPower', allow: {'thermal'}), isEmpty);
   });
 
   group('notFlagged', () {
@@ -120,6 +156,28 @@ void main() {
         span('tap', slices: 0),
       ]);
       expect(notFlagged(json), isEmpty);
+    });
+
+    test('names a guard that voids the run, unless allowed', () {
+      // Low Power Mode caps the iPhone at 60 Hz too, so a Limit Frame Rate
+      // run with it on flags every part and must still fail.
+      final json = report(
+        [
+          span(
+            'scroll',
+            mismatches: [
+              [0, 59, 60.0],
+            ],
+          ),
+        ],
+        reasons: [
+          ['lowPower', 'run start'],
+          ['thermal', 'run start', 'fair'],
+        ],
+      );
+      expect(notFlagged(json, allow: {'thermal'}), [
+        'The run is void: lowPower',
+      ]);
     });
 
     test('names a judged part that flags nothing, or no judged part', () {
