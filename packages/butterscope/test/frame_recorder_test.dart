@@ -287,14 +287,17 @@ void main() {
       expect([for (final read in reads) read.afterSamples], [0, 1, 1, 1]);
     });
 
-    test('take the time from the frame source', () async {
+    test('take the time from the frame source, and give it the read', () async {
       final frames = recorder()..start();
       source.nowMicros = 41667;
       final mark = frames.mark();
+      source.nowMicros = 50000;
       final window = frames.stop();
 
       expect(mark.micros, 41667);
-      await window;
+      final reads = (await window).refreshRateReads;
+      // Start, the mark, the stop.
+      expect([for (final read in reads) read.micros], [0, 41667, 50000]);
     });
 
     test('cannot be taken outside a window', () async {

@@ -5,6 +5,7 @@ import 'dart:ui';
 
 import 'package:butterscope/butterscope.dart';
 import 'package:butterscope_test/src/activity_source.dart';
+import 'package:butterscope_test/src/guard_reader.dart';
 import 'package:butterscope_test/src/report_writer.dart';
 
 /// A frame source the tests advance by hand.
@@ -79,6 +80,45 @@ class FakeActivitySource implements ActivitySource {
   void pageShown(String? page, {bool first = false}) {
     _listener?.pageShown(page, first: first);
   }
+}
+
+/// A guard reader the tests set by hand. It starts as a clean phone in
+/// profile mode.
+class FakeGuardReader implements GuardReader {
+  @override
+  String buildMode = 'profile';
+
+  @override
+  bool benchmarkLive = true;
+
+  @override
+  bool animationsOff = false;
+
+  @override
+  double textScale = 1;
+
+  @override
+  String locale = 'en-GB';
+
+  @override
+  bool semanticsOn = false;
+
+  /// What [readDevice] returns; `null` reads as a missing plugin.
+  DeviceState? device = const DeviceState(
+    model: 'samsung SM-S921B',
+    osVersion: 'Android 16 (API 36)',
+    thermal: 'none',
+    thermalNominal: true,
+    lowPower: false,
+  );
+
+  @override
+  ({String? version, String? engineRevision}) get flutter {
+    return (version: '3.47.6', engineRevision: 'abc123');
+  }
+
+  @override
+  Future<DeviceState?> readDevice() async => device;
 }
 
 /// Joins the printed chunks of the one run in [lines] and decodes it.

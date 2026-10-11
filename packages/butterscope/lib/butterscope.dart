@@ -10,7 +10,9 @@
 /// episodes are tagged with the page on top. M6 adds the rate-mismatch
 /// check, which judges each second of a span or episode against the rate
 /// the screen declared, and a small native plugin that reads the phone's
-/// thermal state, power saving, model and OS version for the guards.
+/// thermal state, power saving, model and OS version for the guards, and
+/// the guards themselves: the report says whether its run and each span
+/// can be trusted, and stamps what the run was measured on.
 /// See `docs/DESIGN.md` at the repository root.
 library;
 
@@ -23,11 +25,13 @@ export 'package:butterscope/src/frame_budget.dart';
 export 'package:butterscope/src/frame_recorder.dart';
 export 'package:butterscope/src/frame_sample.dart';
 export 'package:butterscope/src/frame_source.dart';
+export 'package:butterscope/src/guards.dart';
 export 'package:butterscope/src/marks.dart';
 export 'package:butterscope/src/missed_vsyncs.dart';
 export 'package:butterscope/src/percentile.dart';
 export 'package:butterscope/src/recorded_window.dart';
 export 'package:butterscope/src/refresh_rate.dart';
 export 'package:butterscope/src/route_observer.dart';
+export 'package:butterscope/src/run_identity.dart';
 export 'package:butterscope/src/run_report.dart';
 export 'package:butterscope/src/window_metrics.dart';

@@ -5,8 +5,8 @@ import 'package:butterscope/src/marks.dart';
 /// sequence of a window.
 final class RefreshRateRead {
   /// Creates a read of [hertz], taken after [afterSamples] of the window's
-  /// samples had been reported.
-  const new({required this.hertz, required this.afterSamples});
+  /// samples had been reported, at [micros].
+  const new({required this.hertz, required this.afterSamples, this.micros});
 
   /// The rate the screen declared, as read. It is stored as read, even when
   /// it is 0 or not finite; the guards judge it later.
@@ -15,6 +15,11 @@ final class RefreshRateRead {
   /// How many of the window's samples were reported before this read. The
   /// read sits after them, and before any sample reported later.
   final int afterSamples;
+
+  /// When the read was taken, in microseconds on the clock [FrameMark]s
+  /// use, or null when the log it was read back from did not say, as M2's
+  /// logs do not.
+  final int? micros;
 }
 
 /// Everything a recorder stored for one window, before any metric is
@@ -72,5 +77,19 @@ final class RecordedWindow {
             sample.frameNumber <= end.frameNumber)
           sample,
     ];
+  }
+
+  /// The declared-rate reads taken from [start] to [end] by the clock:
+  /// the reads at both marks, and on each batch of timings that arrived
+  /// between them.
+  ///
+  /// A read after [end] is left out, even when no timing arrived between
+  /// the two, so a rate change after a part never reaches it. A read with
+  /// no time is left out.
+  Iterable<RefreshRateRead> readsBetween(FrameMark start, FrameMark end) {
+    return refreshRateReads.where((read) {
+      final micros = read.micros;
+      return micros != null && micros >= start.micros && micros <= end.micros;
+    });
   }
 }
