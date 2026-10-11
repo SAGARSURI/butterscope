@@ -73,22 +73,31 @@ void main() {
     });
 
     test('names a run or span marked void with no reason', () {
-      final json = {
-        'valid': false,
-        'reasons': <Object?>[],
-        'parts': [
-          {...span('scroll'), 'valid': false},
-        ],
-      };
-      expect(notClean(json), [
-        'The run is void with no reason given',
-        'Span scroll is void with no reason given',
-      ]);
+      expect(
+        notClean({
+          'valid': false,
+          'reasons': <Object?>[],
+          'parts': <Object?>[],
+        }),
+        ['The run is void with no reason given'],
+      );
+      expect(
+        notClean(
+          report([
+            {...span('scroll'), 'valid': false},
+          ]),
+        ),
+        ['Span scroll is void with no reason given'],
+      );
     });
 
     test('accepts a run void only by an allowed guard', () {
+      // A void run's spans are void too, with no reason of their own, as
+      // run_report.dart writes them.
       final json = report(
-        [span('scroll')],
+        [
+          {...span('scroll'), 'valid': false},
+        ],
         reasons: [
           ['thermal', 'run start', 'fair'],
         ],

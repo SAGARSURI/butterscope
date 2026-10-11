@@ -40,7 +40,8 @@ List<String> notClean(
     ..._runProblems(json, allow),
     for (final name in voidSpans.keys)
       if (!spans.contains(name)) 'Span $name is not in the report',
-    for (final part in partsOf(json)) ..._spanProblems(part, voidSpans),
+    for (final part in partsOf(json))
+      ..._spanProblems(part, voidSpans, runValid: json['valid'] == true),
     for (final part in partsOf(json))
       if (mismatchesOf(part) case final slices when slices.isNotEmpty)
         '${part['kind']} ${part['name']} flags a rate mismatch: $slices',
@@ -107,14 +108,17 @@ List<String> _runProblems(Map<String, Object?> json, Set<String> allow) {
 
 Iterable<String> _spanProblems(
   Map<String, Object?> part,
-  Map<String, String> voidSpans,
-) sync* {
+  Map<String, String> voidSpans, {
+  required bool runValid,
+}) sync* {
   if (part['kind'] != 'span') return;
   final name = part['name'];
   final reasons = _guards(part['reasons']);
   final expected = voidSpans[name];
   if (expected == null) {
-    if (part['valid'] == false && reasons.isEmpty) {
+    // A void run voids every span without naming a span reason
+    // (run_report.dart), so only a valid run leaves this unexplained.
+    if (runValid && part['valid'] == false && reasons.isEmpty) {
       yield 'Span $name is void with no reason given';
     }
     for (final guard in reasons) {

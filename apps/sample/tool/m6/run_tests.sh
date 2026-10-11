@@ -110,19 +110,29 @@ for p in json.load(open(sys.argv[2]))["result"]["runningProcesses"]:
   return "$status"
 }
 
-# Waits while flutter drive (<pid>) runs. When the app has not started a
-# minute after flutter's own warning that the VM service was not
-# discovered (lib/src/ios/devices.dart in the pinned tool), stops flutter
-# drive and returns 1.
-# On 2026-10-11 a phone that had dropped trust in the developer
-# certificate hung there with no end; the warning alone is not a failure.
+# Waits while flutter drive (<pid>) runs. After flutter's warning that
+# the VM service was not discovered (lib/src/ios/devices.dart in the
+# pinned tool), stops flutter drive and returns 1 when the log then stays
+# quiet for two minutes. The app's own `flutter:` lines reach the log
+# only once flutter drive connects to it (drive/drive_service.dart), so
+# one after the warning ends the watch. On 2026-10-11 a phone that had
+# dropped trust in the developer certificate hung there with no end.
 watch_launch() {
-  local pid=$1 log=$2 waited=0
+  local pid=$1 log=$2 quiet=0 size last=
   while kill -0 "$pid" 2>/dev/null; do
     if grep -q 'Dart VM Service was not discovered' "$log"; then
-      waited=$((waited + 5))
+      awk '/^flutter: / && warned { found = 1 }
+        /Dart VM Service was not discovered/ { warned = 1 }
+        END { exit !found }' "$log" && return 0
+      size=$(wc -c <"$log")
+      if [ "$size" = "$last" ]; then
+        quiet=$((quiet + 5))
+      else
+        quiet=0
+        last=$size
+      fi
     fi
-    if [ "$waited" -gt 60 ]; then
+    if [ "$quiet" -ge 120 ]; then
       stop_tree "$pid"
       echo "STOP: the app did not start. Unlock the phone, quit Xcode and"
       echo "check the developer is trusted in Settings > General > VPN &"
