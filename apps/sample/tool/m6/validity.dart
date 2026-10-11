@@ -4,6 +4,8 @@
 /// when the report shows what it should.
 library;
 
+import '../m5/report_log.dart' show flushTimedOut;
+
 /// The guards that voided the run, by name.
 List<String> runReasons(Map<String, Object?> json) => _guards(json['reasons']);
 
@@ -43,6 +45,18 @@ List<String> notVoidedBy(Map<String, Object?> json, String guard) {
     if (!reasons.contains(guard)) 'The run is not void by $guard',
     for (final other in reasons)
       if (other != guard) 'The run is also void by $other',
+  ];
+}
+
+/// The [incomplete] problems a run set up to show [expect] should not
+/// have: all of them, but for a timed-out flush in a run forced to leave
+/// the frame policy. Off `benchmarkLive`, the frame the recording ends on
+/// can wait for a timing until the flush gives up, as on the S24 on
+/// 2026-10-11; that run is void whatever its frames say.
+List<String> unexpectedIncomplete(List<String> incomplete, String expect) {
+  return [
+    for (final problem in incomplete)
+      if (expect != 'framePolicy' || problem != flushTimedOut) problem,
   ];
 }
 

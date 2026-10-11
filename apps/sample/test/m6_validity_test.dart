@@ -121,4 +121,14 @@ void main() {
       ]);
     });
   });
+
+  test('unexpectedIncomplete lets a frame-policy run time out its flush', () {
+    const problems = ['A flush timed out', 'The report holds no tests'];
+
+    expect(unexpectedIncomplete(problems, 'framePolicy'), [
+      'The report holds no tests',
+    ]);
+    expect(unexpectedIncomplete(problems, 'lowPower'), problems);
+    expect(unexpectedIncomplete(problems, 'clean'), problems);
+  });
 }

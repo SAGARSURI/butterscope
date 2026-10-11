@@ -53,7 +53,7 @@ void main(List<String> args) {
     if (json == null) continue;
     _print(report.runId, json);
     problems
-      ..addAll(report.incomplete())
+      ..addAll(unexpectedIncomplete(report.incomplete(), expect))
       ..addAll(switch (expect) {
         'clean' => notClean(json, voidSpans: voidSpans),
         'flagged' => notFlagged(json),
