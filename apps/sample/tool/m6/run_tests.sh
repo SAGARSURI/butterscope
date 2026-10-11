@@ -33,6 +33,8 @@
 # leaves it animating. On Android, tool/android_ready.sh then checks the
 # phone. iOS reports none of that to the Mac: keep Low Power Mode and Limit
 # Frame Rate off, close other apps and let the phone cool between batches.
+# The batch stops if Xcode is open, since flutter drive then launches the
+# app through Xcode, and those launches hung waiting on it (2026-10-04).
 #
 # Transcripts and tables go to build/m6_tests/<device-id>/. Exits 1 when
 # any run fails.
@@ -132,6 +134,11 @@ run() {
     return 1
   fi
 }
+
+if ! $android && pgrep -x Xcode >/dev/null; then
+  echo "STOP: quit Xcode, then run again."
+  exit 1
+fi
 
 if [ "$warmup" = on ]; then
   echo "== warm-up: clean app_test.dart, not counted"
