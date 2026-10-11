@@ -19,6 +19,9 @@
 #                   separated by `;`, such as `thermal` while an iPhone
 #                   reads "fair" on its cable.
 #   FORCE=...       passed to the app as BUTTERSCOPE_FORCE.
+#   SEMANTICS=on    passed to the app as BUTTERSCOPE_SEMANTICS (default
+#                   off), which M2's and M4's probes and M5's harness read;
+#                   ordinary tests leave semantics on, as testWidgets does.
 #   MODE=debug      builds in debug mode, to force the build-mode guard.
 #   READY=off       skips the Android readiness checks, for a run that
 #                   forces power saving or a thermal state on purpose.
@@ -182,6 +185,7 @@ run() {
     --target="$run_target" \
     --dart-define=BUTTERSCOPE_APP_COMMIT="$commit" \
     --dart-define=BUTTERSCOPE_FORCE="${FORCE:-}" \
+    --dart-define=BUTTERSCOPE_SEMANTICS="${SEMANTICS:-off}" \
     -d "$device" >>"$log" 2>&1 &
   local drive=$!
   watch_launch "$drive" "$log" || return 2

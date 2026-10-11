@@ -1,0 +1,76 @@
+// Compares app_test.dart's spans run with semantics on, as testWidgets
+// leaves it, against the same spans run with it off, from saved device
+// logs on one phone:
+//
+//   fvm dart run tool/m6/compare_semantics.dart --on <log> ... --off <log> ...
+//
+// Prints, per metric, each span's median and spread (largest value less
+// smallest) over the runs with semantics on and over those with it off.
+// Exits 1 when a run cannot be counted: its log does not hold exactly one
+// whole report, the run or a span is void, or a span read semantics
+// otherwise than its group says.
+
+import 'dart:io';
+
+import '../m5/report_log.dart';
+import 'semantics_spread.dart';
+
+void main(List<String> args) {
+  final on = <String>[];
+  final off = <String>[];
+  var group = <String>[];
+  for (final arg in args) {
+    switch (arg) {
+      case '--on':
+        group = on;
+      case '--off':
+        group = off;
+      default:
+        group.add(arg);
+    }
+  }
+  if (on.isEmpty || off.isEmpty) {
+    stderr.writeln(
+      'Usage: compare_semantics.dart --on <log> ... --off <log> ...',
+    );
+    exit(64);
+  }
+
+  final problems = <String>[];
+  List<Map<String, Object?>> read(List<String> logs, {required bool on}) {
+    final reports = <Map<String, Object?>>[];
+    for (final log in logs) {
+      final found = readReports(File(log).readAsStringSync());
+      final json = found.length == 1 ? found.single.json : null;
+      final runProblems = [
+        if (found.length != 1) 'Expected one report, found ${found.length}',
+        for (final report in found) ...[
+          ...report.problems,
+          ...report.incomplete(),
+        ],
+        if (json != null) ...semanticsProblems(json, on: on),
+      ];
+      problems.addAll([for (final problem in runProblems) '$log: $problem']);
+      if (runProblems.isEmpty && json != null) reports.add(json);
+    }
+    return reports;
+  }
+
+  final onReports = read(on, on: true);
+  final offReports = read(off, on: false);
+  for (final problem in problems) {
+    stdout.writeln('PROBLEM: $problem');
+  }
+  if (problems.isNotEmpty) exit(1);
+  for (final metric in comparedMetrics) {
+    stdout
+      ..writeln(
+        spreadTable(
+          metric,
+          spanValues(onReports, metric),
+          spanValues(offReports, metric),
+        ),
+      )
+      ..writeln();
+  }
+}

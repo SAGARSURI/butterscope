@@ -79,6 +79,10 @@ RUNS=3 tool/m6/run_tests.sh <device-id> clean
 The script's header lists the other options. Logs go to
 `build/m6_tests/<device-id>/`.
 
+`tool/m6/compare_semantics.dart` compares runs with semantics on, as
+`testWidgets` leaves it, against runs with it off: each span's median and
+spread per metric.
+
 ### Probe
 
 `integration_test/m4_probe_test.dart` measures how much each plant costs its

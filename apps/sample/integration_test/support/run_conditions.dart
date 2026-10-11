@@ -15,8 +15,8 @@ String get buildMode {
 ///
 /// `testWidgets` turns semantics on unless told otherwise, and semantics
 /// cost frames: DESIGN.md keeps it open (M6) whether observed tests turn it
-/// off or record it with the flow. The probes default to off, so a run
-/// measures the screen, and record which one they ran with.
+/// off or record it with the flow. The probes and M5's harness default to
+/// off, so a run measures the screen, and record which one they ran with.
 bool semanticsFromEnvironment() {
   const value = String.fromEnvironment(
     'BUTTERSCOPE_SEMANTICS',
