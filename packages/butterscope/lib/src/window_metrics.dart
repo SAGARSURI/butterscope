@@ -58,6 +58,7 @@ final class WindowMetrics {
       hitchMillis: hitchMillis,
       renderingMillis: frames.length * budget.millis + hitchMillis,
       observedRefreshRate: observeRefreshRate(frames, budget),
+      rateSlices: judgeRateSlices(frames, budget),
     );
   }
 
@@ -80,6 +81,7 @@ final class WindowMetrics {
     required this.hitchMillis,
     required this.renderingMillis,
     required this.observedRefreshRate,
+    required this.rateSlices,
   });
 
   /// The budget the frames were judged against.
@@ -150,6 +152,22 @@ final class WindowMetrics {
   /// It equals the screen's refresh rate while frames run back to back,
   /// which they always do during a test under `benchmarkLive`.
   final double? observedRefreshRate;
+
+  /// The window's one-second slices with enough gaps to judge their rate,
+  /// in order. See [judgeRateSlices].
+  ///
+  /// Empty when no slice could be judged: the window was not checked for a
+  /// rate mismatch, which is not the same as having none.
+  final List<RateSlice> rateSlices;
+
+  /// The slices whose observed rate is more than 5% off the declared one.
+  ///
+  /// Only this catches a screen slower than it declares: the window is
+  /// still judged with its declared budget, and the frames the screen never
+  /// drew count as missed vsyncs (`docs/DESIGN.md` section 4).
+  Iterable<RateSlice> get rateMismatches {
+    return rateSlices.where((slice) => slice.isMismatch);
+  }
 
   /// Janky frames as a share of all frames, from 0 to 1.
   double? get jankyRate => _share(jankyCount);

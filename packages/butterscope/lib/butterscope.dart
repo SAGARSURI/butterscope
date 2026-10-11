@@ -7,7 +7,9 @@
 /// phone for the engine to measure. M5 adds marks, which split one
 /// recording into tests, spans and episodes, the diagnostic metrics, and
 /// `ButterscopeRouteObserver`, which an app adds to its navigator so that
-/// episodes are tagged with the page on top.
+/// episodes are tagged with the page on top. M6 adds the rate-mismatch
+/// check, which judges each second of a span or episode against the rate
+/// the screen declared.
 /// See `docs/DESIGN.md` at the repository root.
 library;
 
