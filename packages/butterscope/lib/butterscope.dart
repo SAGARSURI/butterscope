@@ -9,12 +9,14 @@
 /// `ButterscopeRouteObserver`, which an app adds to its navigator so that
 /// episodes are tagged with the page on top. M6 adds the rate-mismatch
 /// check, which judges each second of a span or episode against the rate
-/// the screen declared.
+/// the screen declared, and a small native plugin that reads the phone's
+/// thermal state, power saving, model and OS version for the guards.
 /// See `docs/DESIGN.md` at the repository root.
 library;
 
 export 'package:butterscope/src/activity.dart';
 export 'package:butterscope/src/classified_frame.dart';
+export 'package:butterscope/src/device_state.dart';
 export 'package:butterscope/src/diagnostic_metrics.dart';
 export 'package:butterscope/src/episodes.dart';
 export 'package:butterscope/src/frame_budget.dart';

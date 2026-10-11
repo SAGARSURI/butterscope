@@ -16,3 +16,14 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
   very_good_analysis: ^11.0.0
+
+# The native reads of thermal state, power saving, model and OS version
+# (lib/src/device_state.dart). No third-party code.
+flutter:
+  plugin:
+    platforms:
+      android:
+        package: dev.butterscope.butterscope
+        pluginClass: ButterscopePlugin
+      ios:
+        pluginClass: ButterscopePlugin
