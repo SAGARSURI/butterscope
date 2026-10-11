@@ -69,6 +69,42 @@ BSCOPE-REPORT 7 3 3 }
       expect(report.unusable(), ['Built in debug mode, not profile']);
     });
 
+    test('rejects a void run and a void span from M6, with the reasons', () {
+      final report = reportOf({
+        'identity': {'buildMode': 'profile'},
+        'valid': false,
+        'reasons': [
+          ['thermal', 'run start', 'fair'],
+        ],
+        'frames': 120,
+        'flushTimedOut': false,
+        'parts': [
+          testPart(119.6),
+          {
+            'kind': 'span',
+            'name': 'scroll',
+            'valid': false,
+            'reasons': <Object?>[],
+            'metrics': <String, Object?>{},
+          },
+          {
+            'kind': 'span',
+            'name': 'tap',
+            'valid': false,
+            'reasons': [
+              ['tooFewVsyncs', 'span', '3.0'],
+            ],
+            'metrics': <String, Object?>{},
+          },
+        ],
+      });
+
+      expect(report.unusable(), [
+        'The run is void: [[thermal, run start, fair]]',
+        'span tap is void: [[tooFewVsyncs, span, 3.0]]',
+      ]);
+    });
+
     test('rejects a report that measured nothing', () {
       final report = reportOf({
         'buildMode': 'profile',

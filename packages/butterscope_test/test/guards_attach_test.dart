@@ -16,7 +16,9 @@ void main() {
   final printed = <String>[];
   final source = FakeFrameSource();
   final reader = FakeGuardReader();
-  final never = Completer<void>();
+  // The stuck span's body, which finishes only during a later span, as
+  // timed-out work can.
+  final stuckBody = Completer<void>();
 
   tearDownAll(() {
     final report = reportIn(printed);
@@ -45,9 +47,16 @@ void main() {
     expect(spans['stuck']!['reasons'], [
       ['openAtTestEnd', 'end of a span still open when its test ends'],
     ]);
-    // The stuck span holds its test's frames up to the test's end.
+    // The stuck span holds its test's frames up to the test's end, and its
+    // body finishing later neither adds it again nor closes the later span.
     expect(spans['stuck']!['frames'], 12);
+    final names = [
+      for (final part in report['parts']! as List<Object?>)
+        if (part case {'kind': 'span', 'name': final String name}) name,
+    ];
+    expect(names.where((name) => name == 'stuck'), hasLength(1));
     expect(spans['after']!['reasons'], isEmpty);
+    expect(spans['after']!['frames'], 12);
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();
@@ -73,12 +82,18 @@ void main() {
 
   testWidgets('a span still open when its test ends', (tester) async {
     // As when a test times out: its span's body never completes.
-    unawaited(span('stuck', () => never.future));
+    unawaited(span('stuck', () => stuckBody.future));
     source.render(12);
   });
 
   testWidgets('a later span is not blocked by it', (tester) async {
-    await span('after', () async => source.render(12));
+    await span('after', () async {
+      source.render(6);
+      stuckBody.complete();
+      // Lets the stuck span's body return while this span is open.
+      await Future<void>.delayed(Duration.zero);
+      source.render(6);
+    });
   });
 
   testWidgets('a test that leaves the frame policy', (tester) async {

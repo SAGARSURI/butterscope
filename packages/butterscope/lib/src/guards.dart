@@ -79,8 +79,7 @@ final class GuardFailure {
 }
 
 /// Whether the declared rate moved more than 5% from [part]'s start
-/// within it: at its end mark, or in a read taken between its first and
-/// last timings.
+/// within it: at its end mark, or in a read taken while it was open.
 ///
 /// A rate that is not finite counts as moved.
 bool declaredRateChanged(MarkedPart part, RecordedWindow window) {

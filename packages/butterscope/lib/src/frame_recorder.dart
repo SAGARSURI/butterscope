@@ -67,7 +67,13 @@ final class FrameRecorder {
     _lastReportedFrame = startFrame;
     _endFrame = null;
     _samples = [];
-    _rateReads = [RefreshRateRead(hertz: startRate, afterSamples: 0)];
+    _rateReads = [
+      RefreshRateRead(
+        hertz: startRate,
+        afterSamples: 0,
+        micros: _source.nowMicros,
+      ),
+    ];
     _flushed = Completer<bool>();
     _callbackStopwatch
       ..stop()
@@ -140,10 +146,13 @@ final class FrameRecorder {
       throw StateError('The recorder is not recording.');
     }
     final frameNumber = _source.currentFrameNumber;
+    // The mark and its read share one time, so the read falls inside any
+    // part the mark opens or closes.
+    final micros = _source.nowMicros;
     return FrameMark(
       frameNumber: frameNumber,
-      declaredRefreshRate: _readRefreshRate(),
-      micros: _source.nowMicros,
+      declaredRefreshRate: _readRefreshRate(micros),
+      micros: micros,
     );
   }
 
@@ -167,10 +176,14 @@ final class FrameRecorder {
     if (!_flushed.isCompleted) _flushed.complete(false);
   }
 
-  double _readRefreshRate() {
+  double _readRefreshRate([int? micros]) {
     final hertz = _source.declaredRefreshRate;
     _rateReads.add(
-      RefreshRateRead(hertz: hertz, afterSamples: _samples.length),
+      RefreshRateRead(
+        hertz: hertz,
+        afterSamples: _samples.length,
+        micros: micros ?? _source.nowMicros,
+      ),
     );
     return hertz;
   }

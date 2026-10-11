@@ -168,9 +168,13 @@ Map<String, Object?> _spanJson(
   required bool rateChanged,
   required bool runValid,
 }) {
+  // Rendering time is summed from a fractional budget, so a whole count can
+  // come out a hair under: 2 frames and 9 missed vsyncs at 119.88 Hz give
+  // 10.999999999999998. Rounding to a millionth of a vsync, under 10 ns,
+  // puts it back without moving a real span across the line.
   final elapsedVsyncs = metrics == null
       ? null
-      : metrics.renderingMillis / metrics.budget.millis;
+      : (metrics.renderingMillis / metrics.budget.millis * 1e6).round() / 1e6;
   final failures = [
     ...part.failures,
     if (rateChanged)

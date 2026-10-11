@@ -2,8 +2,8 @@ import 'package:butterscope/butterscope.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  // Frames 1 to 6, 8000 µs apart. The part holds frames 3 and 4: the 3rd
-  // and 4th timings, at indices 2 and 3.
+  // Frames 1 to 6, 8000 µs apart. The part holds frames 3 and 4, and is
+  // open from 16 000 µs to 32 000 µs.
   RecordedWindow windowWith(List<RefreshRateRead> reads) {
     return RecordedWindow(
       startFrameNumber: 0,
@@ -28,25 +28,26 @@ void main() {
     return MarkedPart(
       PartKind.span,
       'scroll',
-      const FrameMark(frameNumber: 2, declaredRefreshRate: 125, micros: 0),
-      FrameMark(frameNumber: 4, declaredRefreshRate: endHz, micros: 0),
+      const FrameMark(frameNumber: 2, declaredRefreshRate: 125, micros: 16000),
+      FrameMark(frameNumber: 4, declaredRefreshRate: endHz, micros: 32000),
     );
   }
 
   group('declaredRateChanged', () {
-    test('sees a read between the span’s first and last timings', () {
-      // After 3 timings: the part's first had arrived, its last had not.
+    test('sees a read taken while the span was open', () {
       final window = windowWith(const [
-        RefreshRateRead(hertz: 60, afterSamples: 3),
+        RefreshRateRead(hertz: 60, afterSamples: 3, micros: 24000),
       ]);
       expect(declaredRateChanged(partEndingAt(125), window), isTrue);
     });
 
-    test('ignores reads taken before or after the span’s timings', () {
-      // After 2 timings, none of the part's; after 5, one past its last.
+    test('ignores reads taken before or after the span, or with no time', () {
+      // The read after the span came before any later timing, so it sits
+      // after the part's last timing, as a read inside the part could.
       final window = windowWith(const [
-        RefreshRateRead(hertz: 60, afterSamples: 2),
-        RefreshRateRead(hertz: 60, afterSamples: 5),
+        RefreshRateRead(hertz: 60, afterSamples: 2, micros: 15999),
+        RefreshRateRead(hertz: 60, afterSamples: 4, micros: 32001),
+        RefreshRateRead(hertz: 60, afterSamples: 3),
       ]);
       expect(declaredRateChanged(partEndingAt(125), window), isFalse);
     });

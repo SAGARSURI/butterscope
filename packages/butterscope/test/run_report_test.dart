@@ -257,6 +257,41 @@ void main() {
       expect(onlyPart(enough)['valid'], isTrue);
     });
 
+    test('a span of exactly 11 vsyncs at 119.88 Hz is valid', () {
+      // B = 1 000 000 / 119.88 = 8341.67 µs. Frames 83 417 µs apart are 10
+      // intervals, so 9 missed vsyncs: 2 frames + 9 = 11, which the
+      // fractional budget sums to 10.999999999999998 unrounded.
+      final window = RecordedWindow(
+        startFrameNumber: 0,
+        endFrameNumber: 2,
+        samples: [
+          for (final (number, micros) in [(1, 0), (2, 83417)])
+            FrameSample(
+              vsyncStartMicros: micros,
+              buildMicros: 2000,
+              rasterMicros: 2000,
+              frameNumber: number,
+            ),
+        ],
+        refreshRateReads: const [],
+        flushTimedOut: false,
+        flushMicros: 0,
+        callbackMicros: 0,
+      );
+      final report = RunReport(window, [
+        const MarkedPart(
+          PartKind.span,
+          'span',
+          FrameMark(frameNumber: 0, declaredRefreshRate: 119.88, micros: 0),
+          FrameMark(frameNumber: 2, declaredRefreshRate: 119.88, micros: 0),
+        ),
+      ], identity: identity).toJson();
+
+      final span = onlyPart(report);
+      expect((span['metrics']! as Map<String, Object?>)['missedVsyncs'], 9);
+      expect(span['reasons'], isEmpty);
+    });
+
     test('a span whose declared rate moved is void', () {
       final report = RunReport(windowAt(twelve), [
         partOf(PartKind.span, 12, endHz: 60),

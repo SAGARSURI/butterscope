@@ -42,19 +42,12 @@ class LoggedReport {
     return [for (final part in list) part! as Map<String, Object?>];
   }
 
-  /// Why the decoded report cannot be used for M5's runs: it holds no
-  /// frames or no tests, a span has no metrics, a flush timed out, or it
-  /// was not built in profile mode. With [minHz], also each test of at
-  /// least [rateFrames] frames that drew below it or has no observed rate,
-  /// or no test that long. Empty when it can be used, or when it did not
-  /// decode (then [problems] says why).
-  List<String> unusable({double? minHz}) {
+  /// Why the decoded report is not whole: it holds no frames or no tests,
+  /// a span has no metrics, or a flush timed out. Empty when it is whole,
+  /// or when it did not decode (then [problems] says why).
+  List<String> incomplete() {
     final json = this.json;
     if (json == null) return const [];
-    final rated = [
-      for (final part in parts)
-        if (part['kind'] == 'test' && _frames(part) >= rateFrames) part,
-    ];
     return [
       if (json['frames'] == 0) 'The report holds no frames',
       if (!parts.any((part) => part['kind'] == 'test'))
@@ -63,7 +56,32 @@ class LoggedReport {
         if (part['kind'] == 'span' && part['metrics'] == null)
           'Span ${part['name']} has no metrics',
       if (json['flushTimedOut'] == true) 'A flush timed out',
+    ];
+  }
+
+  /// Why the decoded report cannot be used for M5's runs: it is
+  /// [incomplete], it was not built in profile mode, or since M6 the run
+  /// or a span is void for a reason of its own. With [minHz], also each
+  /// test of at least [rateFrames] frames that drew below it or has no
+  /// observed rate, or no test that long. Empty when it can be used, or
+  /// when it did not decode (then [problems] says why).
+  ///
+  /// M5's reports carry no validity, so a missing `valid` passes.
+  List<String> unusable({double? minHz}) {
+    final json = this.json;
+    if (json == null) return const [];
+    final rated = [
+      for (final part in parts)
+        if (part['kind'] == 'test' && _frames(part) >= rateFrames) part,
+    ];
+    return [
+      ...incomplete(),
       if (buildMode != 'profile') 'Built in $buildMode mode, not profile',
+      if (json['valid'] == false) 'The run is void: ${json['reasons']}',
+      // A void run voids its spans too, without naming a reason of theirs.
+      for (final part in parts)
+        if (part['reasons'] case [_, ...] && final reasons)
+          '${part['kind']} ${part['name']} is void: $reasons',
       if (minHz != null && rated.isEmpty)
         'No test drew $rateFrames frames, enough to check its rate',
       if (minHz != null)
