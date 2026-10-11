@@ -1,13 +1,14 @@
-# Sourced by the device runners in tool/m4 and tool/m5, from the sample
-# app's root, with $device set to the phone's id.
+# Sourced by the device runners in tool/m4, tool/m5 and tool/m6, from the
+# sample app's root, with $device set to the phone's id.
 
-# Android only. Fails when power saving is on, Stay awake is off or less
-# than 2 GB of memory is free, since other apps' work would land in the
-# window. Free memory is not waited on: the S24 has sat at 2.7 to 2.9 GB
-# for 10 minutes without rising, while its clean runs stayed steady at 3.1
-# to 3.4 GB. Waits up to 10 minutes for the phone to cool: thermal status
-# 0 (no throttling) and the battery at 38 °C or less. Prints the phone's
-# state, which goes in the batch's transcript.
+# Android only. Fails when power saving is on, Stay awake is off, a
+# third-party app holds more than 300 MB, or less than 2 GB of memory is
+# free, since other apps' work would land in the window. Free memory is
+# not waited on: the S24 has sat at 2.7 to 2.9 GB for 10 minutes without
+# rising, while its clean runs stayed steady at 3.1 to 3.4 GB. Waits up to
+# 10 minutes for the phone to cool: thermal status 0 (no throttling) and
+# the battery at 38 °C or less. Prints the phone's state, which goes in
+# the batch's transcript.
 android_ready() {
   local power awake thermal battery tenths level mem load waited=0
   # `--keep-app-running` leaves the last run's app animating in the
@@ -28,6 +29,7 @@ android_ready() {
       "plugged in (mStayOn is ${awake:-missing})."
     return 1
   fi
+  android_big_apps || return 1
   while :; do
     thermal=$(adb -s "$device" shell dumpsys thermalservice |
       sed -n 's/^Thermal Status: //p' | tr -d '\r')
@@ -63,4 +65,33 @@ android_ready() {
   load=$(adb -s "$device" shell cat /proc/loadavg | cut -d ' ' -f 1)
   echo "  phone: thermal status $thermal, battery $((tenths / 10)) °C" \
     "at ${level}%, ${mem} MB free, load ${load:-unknown}"
+}
+
+# Fails when a third-party app other than the sample holds more than
+# 300 MB. On 2026-10-10 a trading app left running in the background held
+# about 812 MB on the S24 and raised clean Search and Inbox loss, while
+# free memory still read 2.7 GB, above the 2 GB stop. Sizes are each
+# process's PSS from `dumpsys meminfo`; a service process such as
+# `app:remote` is named by its app. App names go only to the run's log
+# under build/, which is never committed.
+android_big_apps() {
+  local big
+  big=$(awk '
+    FNR == NR { third[$0] = 1; next }
+    /^Total PSS by process:/ { inside = 1; next }
+    inside && /^[[:space:]]*$/ { inside = 0 }
+    inside && /K: / {
+      kb = $1; sub(/K:$/, "", kb); gsub(/,/, "", kb)
+      name = $2; sub(/:.*/, "", name)
+      if ((name in third) && kb + 0 > 300 * 1024)
+        printf "%s (%d MB)\n", name, kb / 1024
+    }' \
+    <(adb -s "$device" shell pm list packages -3 | tr -d '\r' |
+      sed 's/^package://' | grep -vx dev.butterscope.butterscope_sample) \
+    <(adb -s "$device" shell dumpsys meminfo | tr -d '\r'))
+  if [ -n "$big" ]; then
+    echo "STOP: close these apps on the phone, each over 300 MB:"
+    echo "$big" | sed 's/^/  /'
+    return 1
+  fi
 }

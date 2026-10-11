@@ -66,6 +66,19 @@ no plant. M2's calibration plants are left out unless named, because no
 ordinary test opens the calibration screen. Logs go to
 `build/m4_tests/<device-id>/`.
 
+Since M6 each report says whether the run and each span can be trusted.
+This runs the tests and checks the report shows what the batch was set up
+to show, clean by default:
+
+```sh
+RUNS=3 tool/m6/run_tests.sh <device-id> clean
+```
+
+`EXPECT=<guard>` checks a run forced to fail one guard, such as
+`EXPECT=lowPower`, and `EXPECT=flagged` a screen forced below its rate.
+The script's header lists the other options. Logs go to
+`build/m6_tests/<device-id>/`.
+
 ### Probe
 
 `integration_test/m4_probe_test.dart` measures how much each plant costs its
