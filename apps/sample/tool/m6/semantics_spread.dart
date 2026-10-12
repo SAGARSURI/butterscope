@@ -53,8 +53,10 @@ Map<String, List<double>> spanValues(
 }
 
 /// Why [json] cannot join the runs with semantics [on]: the run is void by
-/// a guard outside [allow], a span is void by its own guard, or a span's
-/// semantics read otherwise at its start or end. [allow] names guards that
+/// a guard outside [allow], a span is void by its own guard, a span's
+/// semantics read otherwise at its start or end, or a part flags a rate
+/// mismatch, since a screen held below its declared rate (the iPhone's
+/// Limit Frame Rate) loses frames that would read as a semantics cost. [allow] names guards that
 /// may void the run, such as `thermal` while the iPhone reads "fair" on its
 /// cable; a void run voids every span without a span reason
 /// (run_report.dart), so those spans still count.
@@ -76,6 +78,9 @@ List<String> semanticsProblems(
         if (!_reads(part['semantics'], on: on))
           'Span ${part['name']} read semantics ${part['semantics']}, not $on',
       ],
+    for (final part in partsOf(json))
+      if (mismatchesOf(part) case final slices when slices.isNotEmpty)
+        '${part['kind']} ${part['name']} flags a rate mismatch: $slices',
   ];
 }
 

@@ -122,6 +122,25 @@ void main() {
         'The run is void with no reason given',
       ]);
     });
+
+    test('names a part that flags a rate mismatch', () {
+      // A screen held at 60 Hz under a declared 120 Hz, as the iPhone's
+      // Limit Frame Rate does: the span is valid but flags the slice.
+      final json = report([
+        span(
+          'feed scroll',
+          metrics: {
+            'rateMismatches': [
+              [0, 60, 60.0],
+            ],
+          },
+        ),
+      ]);
+
+      expect(semanticsProblems(json, on: true), [
+        'span feed scroll flags a rate mismatch: [[0, 60, 60.0]]',
+      ]);
+    });
   });
 
   test('spreadTable puts on and off side by side, and a missing side', () {

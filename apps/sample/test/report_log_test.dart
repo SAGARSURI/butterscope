@@ -135,6 +135,24 @@ BSCOPE-REPORT 7 3 3 }
       ]);
     });
 
+    test('reports a void run whose reasons are malformed, not crash', () {
+      Map<String, Object?> voidBy(Object? reasons) => {
+        'identity': {'buildMode': 'profile'},
+        'valid': false,
+        'reasons': reasons,
+        'frames': 120,
+        'flushTimedOut': false,
+        'parts': [testPart(119.6)],
+      };
+
+      expect(reportOf(voidBy([<Object?>[]])).unusable(allow: {'thermal'}), [
+        'The run is void: [[]]',
+      ]);
+      expect(reportOf(voidBy('thermal')).unusable(allow: {'thermal'}), [
+        'The run is void: thermal',
+      ]);
+    });
+
     test('rejects a report that measured nothing', () {
       final report = reportOf({
         'buildMode': 'profile',

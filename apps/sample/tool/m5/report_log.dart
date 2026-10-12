@@ -94,11 +94,15 @@ class LoggedReport {
 }
 
 /// Whether [reasons], a void run's `[guard, where, value]` list, names at
-/// least one guard and only guards in [allow].
+/// least one guard and only guards in [allow]. A list of any other shape
+/// is not, so the run is reported as void with what it holds.
 bool _voidOnlyBy(Object? reasons, Set<String> allow) {
-  final list = reasons as List<Object?>? ?? const [];
-  return list.isNotEmpty &&
-      list.every((reason) => allow.contains((reason! as List<Object?>).first));
+  return reasons is List<Object?> &&
+      reasons.isNotEmpty &&
+      reasons.every(
+        (reason) =>
+            reason is List<Object?> && allow.contains(reason.firstOrNull),
+      );
 }
 
 /// The problem [LoggedReport.incomplete] gives a timed-out flush.
