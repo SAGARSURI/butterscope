@@ -11,6 +11,15 @@
 //
 // Each call's own time, from a Stopwatch, is printed as a BSCOPE-HARNESS
 // line after its screen's spans, for tool/m5/read_harness.dart.
+//
+// Semantics are off, as in M5, unless the run passes
+// --dart-define=BUTTERSCOPE_SEMANTICS=on. M6 measures the steps with it on,
+// as an ordinary test leaves it:
+//
+//   TARGET=integration_test/m5_harness_test.dart RUNS=5 SEMANTICS=on \
+//     tool/m6/run_tests.sh <device-id> harness-semantics-on
+//   fvm dart run tool/m5/read_harness.dart \
+//     build/m6_tests/<device-id>/harness-semantics-on-*.log
 
 import 'package:butterscope_sample/src/calibration_screen.dart';
 import 'package:butterscope_sample/src/plants/plant.dart';
@@ -23,6 +32,7 @@ import 'package:integration_test/integration_test.dart';
 import '../tool/m5/harness_costs.dart'
     show emptyAfter, emptyBefore, harnessCalls, harnessTag;
 import 'support/app.dart';
+import 'support/run_conditions.dart';
 import 'support/screen_tour.dart' show phrase;
 
 /// The time from one call's start to the next.
@@ -111,11 +121,12 @@ Step keystrokes(WidgetTester tester, Finder field) {
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
   attachButterscope();
+  final semantics = semanticsFromEnvironment();
 
   const pad = Key('harness-pad');
   const field = Key('harness-field');
 
-  testWidgets('still screen', semanticsEnabled: false, (tester) async {
+  testWidgets('still screen', semanticsEnabled: semantics, (tester) async {
     tester.testTextInput.register();
     final phase = ValueNotifier(CalibrationPhase.still);
     addTearDown(phase.dispose);
@@ -154,7 +165,7 @@ void main() {
     );
   });
 
-  testWidgets('feed', semanticsEnabled: false, (tester) async {
+  testWidgets('feed', semanticsEnabled: semantics, (tester) async {
     await launchApp(tester);
     // The bar's title does nothing when tapped or dragged.
     final title = find.descendant(
@@ -174,7 +185,7 @@ void main() {
     );
   });
 
-  testWidgets('search typing', semanticsEnabled: false, (tester) async {
+  testWidgets('search typing', semanticsEnabled: semantics, (tester) async {
     await launchApp(tester);
     await openTab(tester, 'Search');
 

@@ -66,8 +66,10 @@ class LoggedReport {
   /// observed rate, or no test that long. Empty when it can be used, or
   /// when it did not decode (then [problems] says why).
   ///
-  /// M5's reports carry no validity, so a missing `valid` passes.
-  List<String> unusable({double? minHz}) {
+  /// M5's reports carry no validity, so a missing `valid` passes. [allow]
+  /// names guards that may void the run, such as `thermal` while the
+  /// iPhone reads "fair" on its cable; a run void by those alone passes.
+  List<String> unusable({double? minHz, Set<String> allow = const {}}) {
     final json = this.json;
     if (json == null) return const [];
     final rated = [
@@ -77,7 +79,8 @@ class LoggedReport {
     return [
       ...incomplete(),
       if (buildMode != 'profile') 'Built in $buildMode mode, not profile',
-      if (json['valid'] == false) 'The run is void: ${json['reasons']}',
+      if (json['valid'] == false && !_voidOnlyBy(json['reasons'], allow))
+        'The run is void: ${json['reasons']}',
       // A void run voids its spans too, without naming a reason of theirs.
       for (final part in parts)
         if (part['reasons'] case [_, ...] && final reasons)
@@ -88,6 +91,18 @@ class LoggedReport {
         for (final part in rated) ?_lowRate(part, minHz),
     ];
   }
+}
+
+/// Whether [reasons], a void run's `[guard, where, value]` list, names at
+/// least one guard and only guards in [allow]. A list of any other shape
+/// is not, so the run is reported as void with what it holds.
+bool _voidOnlyBy(Object? reasons, Set<String> allow) {
+  return reasons is List<Object?> &&
+      reasons.isNotEmpty &&
+      reasons.every(
+        (reason) =>
+            reason is List<Object?> && allow.contains(reason.firstOrNull),
+      );
 }
 
 /// The problem [LoggedReport.incomplete] gives a timed-out flush.
