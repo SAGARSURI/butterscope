@@ -16,8 +16,9 @@
 #   VOID_SPANS=...  spans a clean run should void, as `name=guard`,
 #                   separated by `;`.
 #   ALLOW=...       guards that may also void a run, warm-up included,
-#                   separated by `;`, such as `thermal` while an iPhone
-#                   reads "fair" on its cable.
+#                   separated by `;`, such as `thermal` for M6's iPhone
+#                   runs at "fair", which voided a run until decision
+#                   record 0007.
 #   FORCE=...       passed to the app as BUTTERSCOPE_FORCE.
 #   SEMANTICS=on    passed to the app as BUTTERSCOPE_SEMANTICS (default
 #                   off), which M2's and M4's probes and M5's harness read;

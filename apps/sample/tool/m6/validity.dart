@@ -26,7 +26,8 @@ List<List<Object?>> mismatchesOf(Map<String, Object?> part) {
 /// rate mismatch. [voidSpans] names spans that should be void, each by
 /// the one guard given; each must be in the report. [allow] names guards
 /// that may void the run on top of what it was set up to show, such as
-/// `thermal` while the iPhone reads "fair" on its cable.
+/// `thermal` for M6's iPhone runs at "fair", which voided a run until
+/// decision record 0007.
 List<String> notClean(
   Map<String, Object?> json, {
   Map<String, String> voidSpans = const {},

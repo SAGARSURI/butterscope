@@ -57,9 +57,10 @@ Map<String, List<double>> spanValues(
 /// semantics read otherwise at its start or end, or a part flags a rate
 /// mismatch, since a screen held below its declared rate (the iPhone's
 /// Limit Frame Rate) loses frames that would read as a semantics cost.
-/// [allow] names guards that may void the run, such as `thermal` while the
-/// iPhone reads "fair" on its cable; a void run voids every span without a
-/// span reason (run_report.dart), so those spans still count.
+/// [allow] names guards that may void the run, such as `thermal` for M6's
+/// iPhone runs at "fair" (void until decision record 0007); a void run
+/// voids every span without a span reason (run_report.dart), so those
+/// spans still count.
 List<String> semanticsProblems(
   Map<String, Object?> json, {
   required bool on,

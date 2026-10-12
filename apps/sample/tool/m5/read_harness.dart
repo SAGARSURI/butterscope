@@ -3,8 +3,8 @@
 //
 //   fvm dart run tool/m5/read_harness.dart [--allow <guard>] <log> ...
 //
-// `--allow thermal` counts runs void by that guard alone, as for an iPhone
-// that read "fair" on its cable.
+// `--allow thermal` counts runs void by that guard alone, as for M6's
+// iPhone runs at "fair", which voided a run until decision record 0007.
 //
 // One row per span: each step's own time per call over all the runs, and
 // the janky frames and missed vsyncs of its span in each run, beside the
