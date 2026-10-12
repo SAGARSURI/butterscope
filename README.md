@@ -34,6 +34,7 @@ The full set of rules is in [docs/DESIGN.md](docs/DESIGN.md).
 | Path | What it is |
 | --- | --- |
 | `packages/butterscope` | Runtime core: frame recorder, metrics, report. Depends on Flutter only. |
+| `packages/butterscope_report` | The lines a report is printed as, and how a host reads them back. Pure Dart, shared by the phone and the CLI. |
 | `packages/butterscope_test` | The one-line attach for integration tests. A dev dependency. |
 | `tools/butterscope_cli` | Host CLI: `collect` results from a device or farm log, `judge` them against a baseline. |
 | `apps/sample` | A domain-neutral sample app with ordinary integration tests, used to prove the framework. |

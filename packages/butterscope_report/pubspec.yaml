@@ -1,0 +1,21 @@
+name: butterscope_report
+description: The lines a Butterscope report is printed as, and how a host reads them back.
+version: 0.0.1
+publish_to: none
+resolution: workspace
+
+environment:
+  sdk: ^3.13.0
+
+# For @immutable on the value classes that define ==.
+dependencies:
+  meta: ^1.19.0
+
+# Tests run with flutter_test, which the workspace already resolves: the
+# `test` package would pull in an older analyzer than the code-health tools
+# use, since flutter_test pins test_api. Only a dev dependency, so the
+# package itself stays pure Dart.
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  very_good_analysis: ^11.0.0

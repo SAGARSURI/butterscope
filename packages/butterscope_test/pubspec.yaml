@@ -11,6 +11,8 @@ environment:
 dependencies:
   butterscope:
     path: ../butterscope
+  butterscope_report:
+    path: ../butterscope_report
   flutter:
     sdk: flutter
   flutter_test:
