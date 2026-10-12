@@ -107,6 +107,8 @@ v1 does not say whether each test passed: test_api 0.7.12, which Flutter
 | `valid`, `reasons` | spans | Its verdict and its own failed guards. |
 | `semantics` | spans | `[atStart, atEnd]`: whether semantics was on. |
 
+A part holds only the fields its kind is listed with.
+
 `metrics` holds the metrics of decision record 0001 against the budget
 `B` its start declared: `observedHz`, `rateSlicesJudged`,
 `rateMismatches` (each `[second, gaps, observedHz]`), `hitchRatio`,

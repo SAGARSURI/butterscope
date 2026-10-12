@@ -74,7 +74,7 @@ List<SchemaProblem> checkReport(Object? report) {
     'issues': final List<Object?> issues,
   }) {
     for (final (i, issue) in issues.indexed) {
-      if (issue case [final int part, ...] when part >= length) {
+      if (issue case [final int part, ...] when part < 0 || part >= length) {
         problems.add(SchemaProblem('issues[$i][0]', 'names no part'));
       }
     }
@@ -250,29 +250,47 @@ final _Shape _diagnostics = _object(
   },
 );
 
-final _Shape _part = _object(
-  {
-    'kind': _oneOf(const {'test', 'span', 'episode'}),
-    'name': _string,
-    'startFrame': _int,
-    'endFrame': _int,
-    'startMicros': _int,
-    'endMicros': _int,
-    'declaredHz': _numberOrNull,
-    'declaredHzAtEnd': _numberOrNull,
-    'frames': _int,
-    'diagnostics': _diagnostics,
-  },
-  optional: {
-    'test': _string,
-    'page': _string,
-    'metrics': _metrics,
-    'declaredRateChanged': _bool,
-    'valid': _bool,
-    'reasons': _listOf(_reason),
-    'semantics': _tuple([_bool, _bool]),
-  },
-);
+/// The fields every part has.
+final Map<String, _Shape> _partFields = {
+  'kind': _oneOf(const {'test', 'span', 'episode'}),
+  'name': _string,
+  'startFrame': _int,
+  'endFrame': _int,
+  'startMicros': _int,
+  'endMicros': _int,
+  'declaredHz': _numberOrNull,
+  'declaredHzAtEnd': _numberOrNull,
+  'frames': _int,
+  'diagnostics': _diagnostics,
+};
+
+/// Each kind of part's own fields: a span's verdict, an episode's test.
+final Map<String, _Shape> _partsByKind = {
+  'test': _object(_partFields, optional: {'metrics': _metrics}),
+  'span': _object(
+    {..._partFields, 'valid': _bool, 'reasons': _listOf(_reason)},
+    optional: {
+      'metrics': _metrics,
+      'semantics': _tuple([_bool, _bool]),
+    },
+  ),
+  'episode': _object(
+    {..._partFields, 'test': _string},
+    optional: {
+      'metrics': _metrics,
+      'page': _string,
+      'declaredRateChanged': _bool,
+    },
+  ),
+};
+
+/// A part, checked against the fields of its kind. A part of no known
+/// kind is checked against the fields every part has, which names its
+/// kind as the problem.
+void _part(Object? value, String path, List<SchemaProblem> problems) {
+  final kind = value is Map<String, Object?> ? value['kind'] : null;
+  (_partsByKind[kind] ?? _object(_partFields))(value, path, problems);
+}
 
 final _Shape _issue = _tuple([
   _int,

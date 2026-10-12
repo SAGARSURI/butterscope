@@ -138,6 +138,39 @@ void main() {
     ]);
   });
 
+  test('refuses an issue with a negative part index', () {
+    final report = valid();
+    ((report['issues']! as List<Object?>).single! as List<Object?>)[0] = -1;
+
+    expect(checkReport(report), [
+      const SchemaProblem('issues[0][0]', 'names no part'),
+    ]);
+  });
+
+  test('wants a verdict on every span', () {
+    final report = valid();
+    firstPart(report)
+      ..remove('valid')
+      ..remove('reasons');
+
+    expect(checkReport(report), [
+      const SchemaProblem('parts[0].valid', 'missing'),
+      const SchemaProblem('parts[0].reasons', 'missing'),
+    ]);
+  });
+
+  test("wants an episode's test, and no verdict on it", () {
+    final report = valid();
+    firstPart(report)['kind'] = 'episode';
+
+    expect(checkReport(report), [
+      const SchemaProblem('parts[0].test', 'missing'),
+      const SchemaProblem('parts[0].valid', 'not in schema v1'),
+      const SchemaProblem('parts[0].reasons', 'not in schema v1'),
+      const SchemaProblem('parts[0].semantics', 'not in schema v1'),
+    ]);
+  });
+
   test('gives one problem for another schema version', () {
     expect(checkReport({'schema': 0, 'frames': 34}), [
       const SchemaProblem('schema', 'expected 1, got 0'),
