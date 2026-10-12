@@ -28,6 +28,7 @@ dev_dependencies:
 
 workspace:
   - packages/butterscope
+  - packages/butterscope_report
   - packages/butterscope_test
   - tools/butterscope_cli
   - apps/sample

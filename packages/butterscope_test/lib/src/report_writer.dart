@@ -1,5 +1,6 @@
 import 'dart:convert';
-import 'dart:math' as math;
+
+import 'package:butterscope_report/butterscope_report.dart' show chunk;
 
 /// The tag that starts every report line.
 const String reportTag = 'BSCOPE-REPORT';
@@ -11,7 +12,9 @@ const String reportTag = 'BSCOPE-REPORT';
 /// split into chunks of at most [chunkLength] characters, each on a line:
 /// `BSCOPE-REPORT <run id> <index> <count> <chunk>`, with the index counted
 /// from 1. A reader joins the chunks of one run id in index order and knows
-/// from the count whether any went missing. M7 freezes this format.
+/// from the count whether any went missing. A chunk never splits a
+/// surrogate pair ([chunk]). M7 replaces this format with
+/// `butterscope_report`'s lines.
 final class ReportWriter {
   /// Creates a writer that prints each line with [_emit].
   ///
@@ -30,27 +33,9 @@ final class ReportWriter {
 
   /// Prints [json] as the report of the run identified by [runId].
   void write(Object? json, {required int runId}) {
-    final chunks = _chunks(jsonEncode(json));
+    final chunks = chunk(jsonEncode(json), chunkLength);
     for (var i = 0; i < chunks.length; i++) {
       _emit('$reportTag $runId ${i + 1} ${chunks.length} ${chunks[i]}');
     }
-  }
-
-  /// Splits [text] into chunks of at most [chunkLength] code units. A cut
-  /// that would fall inside a surrogate pair (before a low surrogate,
-  /// 0xDC00 to 0xDFFF) moves back one, so no chunk holds half a character
-  /// a log could mangle.
-  List<String> _chunks(String text) {
-    final chunks = <String>[];
-    var start = 0;
-    while (start < text.length) {
-      var end = math.min(start + chunkLength, text.length);
-      final next = end < text.length ? text.codeUnitAt(end) : 0;
-      final splitsPair = next >= 0xDC00 && next <= 0xDFFF;
-      if (splitsPair && end - start > 1) end--;
-      chunks.add(text.substring(start, end));
-      start = end;
-    }
-    return chunks;
   }
 }
