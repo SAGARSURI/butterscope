@@ -380,7 +380,7 @@ cost no measured frame. A void run voids every span in it
 | Animations | `SemanticsBinding.disableAnimations`, which `WidgetsBinding` mixes in; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Run | Both must be false. |
 | Text scale | `PlatformDispatcher.textScaleFactor`, at each test's start | Run | Stamped in the identity at the run's start; a later read that differs is `INVALID`. |
 | Locale | `PlatformDispatcher.locale`, at each test's start | Run | As text scale. |
-| Too few vsyncs | Frames drawn plus vsyncs missed, per span | Span | Fewer than 11, the frames one rate slice needs, is `INVALID`. Missed vsyncs count, so a span that janks badly is not voided for drawing few frames. |
+| Too few vsyncs | The span's rendering time ÷ `B`: frames drawn, plus missed vsyncs and late frames' overrun as a share of `B` | Span | Fewer than 11, the frames one rate slice needs, is `INVALID`. Hitch time counts, so a span that janks badly is not voided for drawing few frames. |
 | Span left open | A span still open when its test ends | Span | `INVALID`. |
 | Thermal | Android `PowerManager` thermal status (Android 10+); iOS `ProcessInfo.thermalState`; both through `butterscope`'s own plugin | Run | On Android any status but `none` is `INVALID`; on iOS `serious` or `critical`. A phone that cannot say is `INVALID`. iOS `fair` is valid and recorded in the identity: an iPhone reads it within minutes on its cable, and runs at `fair` lost about as many frames as at nominal. On Android the runner waits for a cool phone before each run (section 7.4), and a void run is retried (section 7.1). |
 | Low-power mode | Android `PowerManager.isPowerSaveMode()`; iOS `ProcessInfo.isLowPowerModeEnabled`; through the plugin | Run | Must be off. |
@@ -435,7 +435,9 @@ same physical unit in the same session, interleaved.
   ([0004](decisions/0004-m4-sample-findings.md)). The warm-up must be
   `VALID` and flag no rate mismatch, or the batch stops: a capped screen
   reads as an app losing half its frames
-  ([0007](decisions/0007-m6-guard-findings.md)). The S24 draws its first
+  ([0007](decisions/0007-m6-guard-findings.md)). Only a guard the batch
+  allows (the runner's `ALLOW`) may void it, as it may void a counted
+  run. The S24 draws its first
   few launch frames at 60 Hz, too few gaps for a slice to judge
   ([0005](decisions/0005-m5-attach-findings.md)).
 - On Android the runner checks before each run that the phone is not

@@ -158,7 +158,7 @@ What the Flutter source showed:
    | `deviceState` | The plugin could not be reached | Run |
    | `declaredRate` | A declared rate of 0 or not finite anywhere in the recording (0001 item 7) | Run |
    | `declaredRateChange` | A declared rate inside a span more than 5% from its start | Span |
-   | `tooFewVsyncs` | A span lasting fewer than 11 vsyncs: frames drawn plus vsyncs missed | Span |
+   | `tooFewVsyncs` | A span whose rendering time (0001) lasts fewer than 11 vsyncs: frames drawn, plus its hitch time in vsyncs | Span |
    | `openAtTestEnd` | A span still open when its test ends | Span |
 
    Each failure is named with where it was seen and, when it says more,
@@ -167,8 +167,10 @@ What the Flutter source showed:
    question 3). The run's start stamps them; a later read that differs
    voids the run. Runs with different values are not comparable.
 5. **A span must last 11 vsyncs** (plan question 4): the frames one rate
-   slice needs for its 10 gaps. Missed vsyncs count, so a span that
-   janks badly is not voided for drawing few frames.
+   slice needs for its 10 gaps. The count is the span's rendering time
+   divided by `B`: frames drawn, plus missed vsyncs, plus late frames'
+   overrun as a share of `B`. So a span that janks badly is not voided
+   for drawing few frames, and the count can be fractional.
 6. **The identity** (DESIGN 7.3) is the device model, OS version, build
    mode, thermal state at the run's start, Flutter version and engine
    revision, app commit, text scale, locale and the report schema
@@ -180,7 +182,8 @@ What the Flutter source showed:
    only" becomes "no third-party dependencies".
 8. **The runner's checks** (DESIGN 7.4):
    - The warm-up must be VALID and flag no rate mismatch. This replaces
-     M5's rule that it draw at 114 Hz or more.
+     M5's rule that it draw at 114 Hz or more. A guard the batch names
+     in `ALLOW` may void the warm-up too, as it may void a counted run.
    - On Android the runner also stops when a third-party app holds more
      than 300 MB (plan question 6). On 2026-10-10 a trading app left in
      the background held about 812 MB and raised the S24's clean Search
