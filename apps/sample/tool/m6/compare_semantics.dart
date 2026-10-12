@@ -4,8 +4,9 @@
 //
 //   fvm dart run tool/m6/compare_semantics.dart --on <log> ... --off <log> ...
 //
-// Add `--allow <guard> ...` to count runs void by those guards alone, such
-// as `--allow thermal` for an iPhone that read "fair" on its cable.
+// Add `--allow <guard>`, once per guard, to count runs void by those guards
+// alone, such as `--allow thermal` for an iPhone that read "fair" on its
+// cable.
 //
 // Prints, per metric, each span's median and spread (largest value less
 // smallest) over the runs with semantics on and over those with it off.
@@ -21,27 +22,23 @@ import 'semantics_spread.dart';
 void main(List<String> args) {
   final on = <String>[];
   final off = <String>[];
-  final allow = <String>[];
-  var group = <String>[];
-  for (final arg in args) {
-    switch (arg) {
+  final allow = <String>{};
+  List<String>? group;
+  for (var i = 0; i < args.length; i++) {
+    switch (args[i]) {
       case '--on':
         group = on;
       case '--off':
         group = off;
-      case '--allow':
-        group = allow;
+      case '--allow' when i + 1 < args.length:
+        allow.add(args[++i]);
+      case final log when group != null && !log.startsWith('--'):
+        group.add(log);
       default:
-        group.add(arg);
+        _usage();
     }
   }
-  if (on.isEmpty || off.isEmpty) {
-    stderr.writeln(
-      'Usage: compare_semantics.dart --on <log> ... --off <log> ... '
-      '[--allow <guard> ...]',
-    );
-    exit(64);
-  }
+  if (on.isEmpty || off.isEmpty) _usage();
 
   final problems = <String>[];
   List<Map<String, Object?>> read(List<String> logs, {required bool on}) {
@@ -55,8 +52,7 @@ void main(List<String> args) {
           ...report.problems,
           ...report.incomplete(),
         ],
-        if (json != null)
-          ...semanticsProblems(json, on: on, allow: allow.toSet()),
+        if (json != null) ...semanticsProblems(json, on: on, allow: allow),
       ];
       problems.addAll([for (final problem in runProblems) '$log: $problem']);
       if (runProblems.isEmpty && json != null) reports.add(json);
@@ -81,4 +77,12 @@ void main(List<String> args) {
       )
       ..writeln();
   }
+}
+
+Never _usage() {
+  stderr.writeln(
+    'Usage: compare_semantics.dart --on <log> ... --off <log> ... '
+    '[--allow <guard>] ...',
+  );
+  exit(64);
 }

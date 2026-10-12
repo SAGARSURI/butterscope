@@ -19,16 +19,16 @@ void main(List<String> args) {
   final allow = <String>{};
   final logs = <String>[];
   for (var i = 0; i < args.length; i++) {
-    if (args[i] == '--allow' && i + 1 < args.length) {
-      allow.add(args[++i]);
-    } else {
-      logs.add(args[i]);
+    switch (args[i]) {
+      case '--allow' when i + 1 < args.length:
+        allow.add(args[++i]);
+      case final log when !log.startsWith('--'):
+        logs.add(log);
+      default:
+        _usage();
     }
   }
-  if (logs.isEmpty) {
-    stderr.writeln('Usage: read_harness.dart [--allow <guard>] <log> ...');
-    exit(64);
-  }
+  if (logs.isEmpty) _usage();
   final reports = <Map<String, Object?>>[];
   final calls = <String, List<int>>{};
   for (final log in logs) {
@@ -49,4 +49,9 @@ void main(List<String> args) {
     ..writeln('#### Harness cost over ${logs.length} runs')
     ..writeln()
     ..writeln(costTable(spanCosts(reports, calls)));
+}
+
+Never _usage() {
+  stderr.writeln('Usage: read_harness.dart [--allow <guard>] <log> ...');
+  exit(64);
 }
