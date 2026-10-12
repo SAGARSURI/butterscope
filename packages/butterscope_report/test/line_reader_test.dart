@@ -95,6 +95,20 @@ void main() {
     ]);
   });
 
+  test('names a line with a mangled count as a bad checksum', () {
+    // The CRC covers the header, so 2/4 read as 2/9 fails it: the count
+    // stays 4 and no line 5 to 9 is listed missing.
+    final log = [...whole]..[2] = reportLines[1].replaceFirst('2/4', '2/9');
+
+    expect(readOne(log).problems, [
+      const LineProblem(
+        ProblemKind.badChecksum,
+        lines: LineKind.report,
+        index: 2,
+      ),
+    ]);
+  });
+
   test('takes the whole copy when another copy is mangled', () {
     expect(readOne([mangle(reportLines[1]), ...whole]).isWhole, isTrue);
   });
@@ -103,6 +117,8 @@ void main() {
     final other = LineWriter(42, chunkLength: 10).report({'other': 1});
     final run = readOne([...whole, other.first]);
 
+    // Neither copy can be trusted, so there is no report.
+    expect(run.report, isNull);
     expect(
       run.problems,
       contains(
@@ -120,6 +136,7 @@ void main() {
     final other = LineWriter(42).report({'x': 1}).single;
     final run = readOne([...whole, other]);
 
+    expect(run.report, isNull);
     expect(
       run.problems,
       contains(
@@ -130,6 +147,24 @@ void main() {
         ),
       ),
     );
+  });
+
+  test('drops a disputed frames line as a gap', () {
+    // A second whole line 2/3 with other frames: neither copy is used.
+    final other = LineWriter(42).frames([
+      for (var i = 0; i < 60; i++) [-i],
+    ])[1];
+    final run = readOne([...whole, other]);
+
+    expect(run.framesMissing, [const FrameGap(20, 20)]);
+    expect(run.frames, [...frames.take(20), ...frames.skip(40)]);
+    expect(run.problems, [
+      const LineProblem(
+        ProblemKind.conflictingLine,
+        lines: LineKind.frames,
+        index: 2,
+      ),
+    ]);
   });
 
   test('lists the frames a lost middle line held', () {
@@ -159,10 +194,9 @@ void main() {
   });
 
   test('names a frames line that is not a JSON array', () {
-    final bad = LineWriter(42)
-        .report({'x': 1})
-        .single
-        .replaceFirst('report', 'frames');
+    const payload = '{"x":1}';
+    final bad =
+        'BSCOPE 42 frames 1/1 ${crc32('42 frames 1/1 $payload')} $payload';
     final run = readOne([writer.start(), ...reportLines, bad]);
 
     expect(run.problems.single.kind, ProblemKind.badJson);
@@ -189,6 +223,17 @@ void main() {
     final run = readOne([...whole, 'BSCOPE 42 report 1of4 abc {}']);
 
     expect(run.problems.single.kind, ProblemKind.malformedLine);
+  });
+
+  test('names a line claiming more than maxLineCount lines', () {
+    // maxLineCount is 100,000, so 1/100001 is malformed, and no 100,000
+    // missing lines are listed.
+    const line = 'BSCOPE 42 frames 1/100001 00000000 []';
+    final run = readOne([...whole, line]);
+
+    expect(run.problems, [
+      const LineProblem(ProblemKind.malformedLine, detail: line),
+    ]);
   });
 
   test('lists a tagged line with no readable run id', () {

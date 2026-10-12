@@ -19,6 +19,14 @@ const int defaultChunkLength = 800;
 /// frames a line it dropped none (`docs/measurements/m2.md`).
 const int defaultFramesPerLine = 20;
 
+/// The most lines of one kind a run may have. A line that claims more is
+/// malformed, so no line can make a reader list more missing lines than
+/// this.
+///
+/// 100,000 `report` lines hold 80 MB of JSON; 100,000 `frames` lines hold
+/// 2,000,000 frames, over 4 hours at 120 Hz.
+const int maxLineCount = 100000;
+
 /// What a numbered line carries.
 enum LineKind {
   /// A chunk of the report's JSON, without its frames.
@@ -33,7 +41,9 @@ enum LineKind {
 ///
 /// A cut that would fall before a low surrogate (0xDC00 to 0xDFFF) moves
 /// back one, so no chunk holds half a character that a log could mangle.
-/// Throws a [RangeError] when [length] is below 1.
+/// When [length] is 1 it moves forward instead, so that chunk holds the
+/// whole pair, 2 code units. Throws a [RangeError] when [length] is below
+/// 1.
 List<String> chunk(String text, int length) {
   checkAtLeastOne(length, 'length');
   final chunks = <String>[];
@@ -41,10 +51,8 @@ List<String> chunk(String text, int length) {
   while (start < text.length) {
     var end = math.min(start + length, text.length);
     final cutsPair =
-        end < text.length &&
-        end - start > 1 &&
-        (text.codeUnitAt(end) & 0xFC00) == 0xDC00;
-    if (cutsPair) end--;
+        end < text.length && (text.codeUnitAt(end) & 0xFC00) == 0xDC00;
+    if (cutsPair) end += end - start > 1 ? -1 : 1;
     chunks.add(text.substring(start, end));
     start = end;
   }

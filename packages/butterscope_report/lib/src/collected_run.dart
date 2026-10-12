@@ -20,15 +20,16 @@ final class CollectedRun {
   final bool started;
 
   /// The decoded report, or `null` when any of its `report` lines is
-  /// missing or mangled, or the joined JSON does not decode.
+  /// missing, mangled or disputed, the lines disagree on their count, or
+  /// the joined JSON does not decode.
   final Object? report;
 
   /// The frames from every `frames` line that arrived whole, in order.
   final List<Object?> frames;
 
-  /// The frames the missing or mangled `frames` lines held. Empty when no
-  /// `frames` line arrived at all, since then their count is unknown: the
-  /// report says how many frames it should have.
+  /// The frames the missing, mangled or disputed `frames` lines held.
+  /// Empty when no `frames` line arrived at all, since then their count is
+  /// unknown: the report says how many frames it should have.
   final List<FrameGap> framesMissing;
 
   /// Everything wrong with its lines, in the order found.
@@ -72,18 +73,21 @@ enum ProblemKind {
   /// A numbered line never arrived.
   missingLine,
 
-  /// A numbered line arrived, but its payload does not match its CRC, and
-  /// no whole copy arrived.
+  /// A numbered line arrived, but it does not match its CRC, and no whole
+  /// copy arrived.
   badChecksum,
 
-  /// Two whole copies of one numbered line differ.
+  /// Two whole copies of one numbered line differ. Neither is used: the
+  /// line counts as lost.
   conflictingLine,
 
-  /// Lines of one kind disagree on how many there are.
+  /// Whole lines of one kind disagree on how many there are. For `report`
+  /// lines the report is dropped; `frames` lines are read up to the largest
+  /// count.
   countMismatch,
 
   /// A line starts with the tag and this run's id, but the rest cannot be
-  /// read.
+  /// read, or it claims more than [maxLineCount] lines.
   malformedLine,
 
   /// Every line arrived whole, but the payload is not the JSON expected:

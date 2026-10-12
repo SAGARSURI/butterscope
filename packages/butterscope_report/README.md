@@ -10,7 +10,7 @@ BSCOPE <runId> report <i>/<n> <crc> <json chunk>
 BSCOPE <runId> frames <i>/<n> <crc> <json array of up to 20 frames>
 ```
 
-`<crc>` is the CRC-32 of the line's payload, in 8 hex digits. A reader
-names every line that is missing, mangled or contradicted by another; it
-never drops one silently. The format is proposed until M7's gate freezes it
+`<crc>` is the CRC-32 of `<runId> <kind> <i>/<n> <payload>`, in 8 hex
+digits. A reader names every line that is missing, mangled or contradicted
+by another; it never drops one silently. The format is proposed until M7's gate freezes it
 (`docs/DESIGN.md` section 8).

@@ -19,8 +19,8 @@ BSCOPE <runId> frames <i>/<n> <crc> <json array of frames>
 | `start` | Printed before the first test. A run with a `start` line and no `report` line stopped before it reported. |
 | `report` | The report's JSON without its frames, cut into chunks of up to 800 characters. A cut never splits a surrogate pair. |
 | `frames` | 20 frames a line, the last line holding the rest, each line a JSON array of its own. |
-| `<i>/<n>` | The line's number, from 1, and how many lines of its kind there are. |
-| `<crc>` | CRC-32 (IEEE, as zlib) of the payload's UTF-8 bytes, in 8 lowercase hex digits. |
+| `<i>/<n>` | The line's number, from 1, and how many lines of its kind there are: at most 100,000. |
+| `<crc>` | CRC-32 (IEEE, as zlib), in 8 lowercase hex digits, of the UTF-8 bytes of `<runId> <kind> <i>/<n> <payload>`: the line after the tag, without the CRC. A mangled number fails it too. |
 
 Anything before `BSCOPE` on a log line is ignored, so logcat and syslog
 prefixes may stay.
@@ -29,19 +29,19 @@ prefixes may stay.
 
 A reader never drops a line silently. For each run it names:
 
-| Problem | When |
-| --- | --- |
-| `noReport` | Other lines of the run and no `report` line. |
-| `missingLine` | Line `i` of `n` never arrived. |
-| `badChecksum` | Line `i` arrived, its payload does not match its CRC, and no whole copy arrived. |
-| `conflictingLine` | Two whole copies of line `i` differ. Copies that agree count once. |
-| `countMismatch` | Lines of one kind disagree on `n`. |
-| `malformedLine` | The tag and run id are readable, the rest is not. |
-| `badJson` | Every report line arrived but the JSON does not decode, or a `frames` line is not an array. |
+| Problem | When | What it costs |
+| --- | --- | --- |
+| `noReport` | Other lines of the run and no `report` line. | The report. |
+| `missingLine` | Line `i` of `n` never arrived. | That line. |
+| `badChecksum` | Line `i` arrived, does not match its CRC, and no whole copy arrived. Its `n` counts only when no line of its kind arrived whole. | That line. |
+| `conflictingLine` | Two whole copies of line `i` differ. Copies that agree count once. | That line: neither copy is used. |
+| `countMismatch` | Whole lines of one kind disagree on `n`. | The report, for `report` lines. `frames` lines are read up to the largest `n`. |
+| `malformedLine` | The tag and run id are readable, the rest is not, or `n` is over 100,000. | That line. |
+| `badJson` | Every report line arrived but the JSON does not decode, or a `frames` line is not an array. | The report, or that line. |
 
-A missing or bad `report` line leaves the run without a report. A missing
-or bad `frames` line costs only its frames, listed as a gap from the first
-frame it held: 20 frames, or to the end of the run for the last line.
+Losing any `report` line loses the report. Losing a `frames` line costs
+only its frames, listed as a gap from the first frame it held: 20 frames,
+or to the end of the run for the last line.
 
 ## Fields
 

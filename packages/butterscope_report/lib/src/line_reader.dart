@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math' as math;
 
 import 'package:butterscope_report/src/collected_run.dart';
 import 'package:butterscope_report/src/crc32.dart';
@@ -70,7 +71,7 @@ final class _RunLines {
       problems.add(LineProblem(ProblemKind.malformedLine, detail: text));
       return;
     }
-    (header.kind == LineKind.report ? report : frames).add(header, problems);
+    (header.kind == LineKind.report ? report : frames).add(header);
   }
 
   CollectedRun finish(int runId, int framesPerLine) {
@@ -106,16 +107,26 @@ final class _RunLines {
 
 /// One numbered line's header and payload.
 final class _Header {
-  const new(this.kind, this.index, this.count, this.crc, this.payload);
+  const new(
+    this.kind,
+    this.index,
+    this.count,
+    this.payload, {
+    required this.isWhole,
+  });
 
   final LineKind kind;
   final int index;
   final int count;
-  final String crc;
   final String payload;
 
+  /// Whether the line matches its CRC. When it does not, [index] and
+  /// [count] may be mangled too.
+  final bool isWhole;
+
   /// Reads `<tag> <runId> <kind> <i>/<n> <crc> <payload>`, the payload
-  /// spaces and all, or returns `null` when any part cannot be read.
+  /// spaces and all, or returns `null` when any part cannot be read or the
+  /// line claims more than [maxLineCount] lines.
   static _Header? parse(List<String> fields) {
     if (fields.length < 6) return null;
     final kind = LineKind.values.asNameMap()[fields[2]];
@@ -126,7 +137,16 @@ final class _Header {
     if (index == null || count == null || index < 1 || index > count) {
       return null;
     }
-    return _Header(kind, index, count, fields[4], fields.skip(5).join(' '));
+    if (count > maxLineCount) return null;
+    final payload = fields.skip(5).join(' ');
+    final signed = '${fields[1]} ${fields[2]} ${fields[3]} $payload';
+    return _Header(
+      kind,
+      index,
+      count,
+      payload,
+      isWhole: crc32(signed) == fields[4],
+    );
   }
 }
 
@@ -135,53 +155,49 @@ final class _Numbered {
   new(this.kind);
 
   final LineKind kind;
-  final Map<int, String> _whole = {};
-  final Map<int, String> _mangled = {};
+
+  /// Each line's distinct whole payloads: more than one is a dispute.
+  final Map<int, Set<String>> _whole = {};
+  final Set<int> _mangled = {};
   final Set<int> _counts = {};
+  final Set<int> _mangledCounts = {};
 
-  bool get isEmpty => _counts.isEmpty;
+  bool get isEmpty => _counts.isEmpty && _mangledCounts.isEmpty;
 
-  /// How many lines of this kind there should be: the most any line
-  /// claimed, so a line that claims fewer cannot hide the rest.
+  /// How many lines of this kind there should be: the most any whole line
+  /// claimed, so a line that claims fewer cannot hide the rest. Only when
+  /// no line arrived whole, the most any mangled line claimed.
   int get count =>
-      _counts.fold(0, (most, count) => count > most ? count : most);
+      (_counts.isEmpty ? _mangledCounts : _counts).fold(0, math.max);
 
-  void add(_Header line, List<LineProblem> problems) {
-    _counts.add(line.count);
-    if (crc32(line.payload) != line.crc) {
-      _mangled[line.index] ??= line.payload;
+  void add(_Header line) {
+    if (!line.isWhole) {
+      _mangled.add(line.index);
+      _mangledCounts.add(line.count);
       return;
     }
-    final earlier = _whole.putIfAbsent(line.index, () => line.payload);
-    if (earlier != line.payload) {
-      problems.add(
-        LineProblem(
-          ProblemKind.conflictingLine,
-          lines: kind,
-          index: line.index,
-        ),
-      );
-    }
+    _counts.add(line.count);
+    (_whole[line.index] ??= {}).add(line.payload);
   }
 
   /// Line [index]'s payload, or `null` after adding to [problems] why it
-  /// has none.
+  /// has none: missing, mangled, or two whole copies that differ.
   String? payload(int index, List<LineProblem> problems) {
-    final whole = _whole[index];
-    if (whole != null) return whole;
-    problems.add(
-      LineProblem(
-        _mangled.containsKey(index)
-            ? ProblemKind.badChecksum
-            : ProblemKind.missingLine,
-        lines: kind,
-        index: index,
-      ),
-    );
+    final copies = _whole[index];
+    if (copies != null && copies.length == 1) return copies.single;
+    final ProblemKind problem;
+    if (copies != null) {
+      problem = ProblemKind.conflictingLine;
+    } else if (_mangled.contains(index)) {
+      problem = ProblemKind.badChecksum;
+    } else {
+      problem = ProblemKind.missingLine;
+    }
+    problems.add(LineProblem(problem, lines: kind, index: index));
     return null;
   }
 
-  /// Adds a problem to [problems] when lines disagree on their count.
+  /// Adds a problem to [problems] when whole lines disagree on their count.
   void checkCounts(List<LineProblem> problems) {
     if (_counts.length < 2) return;
     problems.add(
@@ -193,14 +209,16 @@ final class _Numbered {
     );
   }
 
-  /// Every payload joined in order, or `null` when there are none or any
-  /// is missing; each missing one goes in [problems].
+  /// Every payload joined in order, or `null` when there are none, any is
+  /// missing, or the lines disagree on their count; each line without a
+  /// payload goes in [problems].
   String? joined(List<LineProblem> problems) {
     if (isEmpty) return null;
     final payloads = [
       for (var index = 1; index <= count; index++) payload(index, problems),
     ];
-    return payloads.contains(null) ? null : payloads.join();
+    if (payloads.contains(null) || _counts.length > 1) return null;
+    return payloads.join();
   }
 }
 

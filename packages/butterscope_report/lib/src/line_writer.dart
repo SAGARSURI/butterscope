@@ -12,10 +12,12 @@ import 'package:butterscope_report/src/line_format.dart';
 /// BSCOPE <runId> frames <i>/<n> <crc> <json array of frames>
 /// ```
 ///
-/// `<i>` counts from 1 within its kind, and `<crc>` is [crc32] of the
-/// payload, so a reader knows which lines are missing and which arrived
-/// mangled. Frames have lines of their own: a lost frame line costs
-/// [framesPerLine] frames, not the report.
+/// `<i>` counts from 1 within its kind, and `<crc>` is [crc32] of
+/// everything after the tag but the CRC itself:
+/// `<runId> <kind> <i>/<n> <payload>`. So a reader knows which lines are
+/// missing and which arrived mangled, a mangled number included. Frames
+/// have lines of their own: a lost frame line costs [framesPerLine] frames,
+/// not the report.
 final class LineWriter {
   /// Creates a writer for the run identified by [runId].
   ///
@@ -54,15 +56,12 @@ final class LineWriter {
       jsonEncode(frames.sublist(i, math.min(i + framesPerLine, frames.length))),
   ]);
 
-  List<String> _numbered(LineKind kind, List<String> payloads) => [
-    for (final (i, payload) in payloads.indexed)
-      [
-        lineTag,
-        runId,
-        kind.name,
-        '${i + 1}/${payloads.length}',
-        crc32(payload),
-        payload,
-      ].join(' '),
-  ];
+  List<String> _numbered(LineKind kind, List<String> payloads) {
+    final lines = <String>[];
+    for (final (i, payload) in payloads.indexed) {
+      final header = '$runId ${kind.name} ${i + 1}/${payloads.length}';
+      lines.add('$lineTag $header ${crc32('$header $payload')} $payload');
+    }
+    return lines;
+  }
 }
