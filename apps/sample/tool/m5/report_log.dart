@@ -67,8 +67,9 @@ class LoggedReport {
   /// when it did not decode (then [problems] says why).
   ///
   /// M5's reports carry no validity, so a missing `valid` passes. [allow]
-  /// names guards that may void the run, such as `thermal` while the
-  /// iPhone reads "fair" on its cable; a run void by those alone passes.
+  /// names guards that may void the run, such as `thermal` for M6's iPhone
+  /// runs at "fair" (void until decision record 0007); a run void by those
+  /// alone passes.
   List<String> unusable({double? minHz, Set<String> allow = const {}}) {
     final json = this.json;
     if (json == null) return const [];

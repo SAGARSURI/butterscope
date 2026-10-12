@@ -5,8 +5,8 @@
 //   fvm dart run tool/m6/compare_semantics.dart --on <log> ... --off <log> ...
 //
 // Add `--allow <guard>`, once per guard, to count runs void by those guards
-// alone, such as `--allow thermal` for an iPhone that read "fair" on its
-// cable.
+// alone, such as `--allow thermal` for M6's iPhone runs at "fair", which
+// voided a run until decision record 0007.
 //
 // Prints, per metric, each span's median and spread (largest value less
 // smallest) over the runs with semantics on and over those with it off.

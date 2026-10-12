@@ -58,10 +58,27 @@ void main() {
   });
 
   test('a warm phone fails, naming its state', () async {
-    reader.device = deviceWith(thermal: 'fair', thermalNominal: false);
+    reader.device = deviceWith(thermal: 'serious', thermalNominal: false);
     await guards.atRunStart();
     expect(reasons(), [
-      ['thermal', 'run start', 'fair'],
+      ['thermal', 'run start', 'serious'],
+    ]);
+  });
+
+  test('an iPhone at fair is stamped, not failed', () async {
+    reader.device = deviceWith(thermal: 'fair', thermalNominal: false);
+    await guards.atRunStart();
+    await guards.atTestStart('opens');
+    await guards.atRunEnd();
+    expect(guards.failures, isEmpty);
+    expect(guards.identity.toJson()['thermalAtStart'], 'fair');
+  });
+
+  test("an Android phone's lightest throttling still fails", () async {
+    reader.device = deviceWith(thermal: 'light', thermalNominal: false);
+    await guards.atRunStart();
+    expect(reasons(), [
+      ['thermal', 'run start', 'light'],
     ]);
   });
 

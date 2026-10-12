@@ -81,11 +81,19 @@ final class RunGuards {
       return;
     }
     // An Android phone before 10 cannot say: that is not nominal either.
-    if (device.thermalNominal != true) {
+    if (device.thermalNominal != true && device.thermal != _iosFair) {
       _fail(GuardFailure(Guard.thermal, at, device.thermal ?? 'unknown'));
     }
     if (device.lowPower) _fail(GuardFailure(Guard.lowPower, at));
   }
+
+  /// iOS's `fair` state leaves a run valid
+  /// (`docs/decisions/0007-m6-guard-findings.md`). Apple calls it slightly
+  /// elevated, and `serious` the state where performance may suffer
+  /// (`ProcessInfo.ThermalState`). An iPhone reads it within minutes on
+  /// its cable, and runs at fair lost about as many frames as at nominal.
+  /// The run's identity still records it.
+  static const String _iosFair = 'fair';
 
   void _checkBinding(String at) {
     if (!_reader.benchmarkLive) _fail(GuardFailure(Guard.framePolicy, at));

@@ -50,9 +50,10 @@ enum Guard {
 /// The fewest vsyncs a span must last: the 11 frames one rate slice needs
 /// for its 10 gaps (`docs/decisions/0001-metric-definitions.md` item 6).
 ///
-/// Elapsed vsyncs count the frames drawn and the vsyncs that passed
-/// without one, so a span that janks badly is not voided for drawing few
-/// frames.
+/// Elapsed vsyncs are the span's rendering time over the budget: the
+/// frames drawn, plus the missed vsyncs and the late frames' overrun as a
+/// share of the budget. So a span that janks badly is not voided for
+/// drawing few frames.
 const int minimumSpanVsyncs = 11;
 
 /// How far, as a share of the starting rate, a declared rate may move

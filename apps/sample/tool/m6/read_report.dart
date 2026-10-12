@@ -11,7 +11,8 @@
 // for a screen forced below its rate), or a guard's name such as
 // `lowPower` (the run void by that guard). --void-span names a span a
 // clean run should void, and by which guard. --allow names a guard that
-// may also void the run, such as `thermal` while an iPhone reads "fair".
+// may also void the run, such as `thermal` for M6's iPhone runs at "fair",
+// which voided a run until decision record 0007.
 //
 // Exits 1 when the report is missing, unreadable or incomplete, or does
 // not show what it should.

@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **approved** in M0; current through M5
+- Status: **approved** in M0; current through M6
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
@@ -163,6 +163,10 @@ one-second slices, because one mode over a whole span hides a drop in part
 of it. A slice with at least 10 qualifying gaps whose rate differs from the
 declared one by more than 5% is a **rate mismatch**. Clean slices on both
 phones varied by 0.2% ([0002](decisions/0002-m2-recorder-findings.md)).
+A screen held at 60 Hz under a declared 120 flagged every judged slice:
+the S24 switched to Standard mid-run, and the iPhone with Limit Frame
+Rate or Low Power Mode on. No clean run flagged one
+([0007](decisions/0007-m6-guard-findings.md)).
 (Outside a test Flutter draws on demand, and the gaps follow the requests
 instead.)
 
@@ -325,15 +329,21 @@ cause rather than set a threshold
 
    A span with gestures carries their cost. Base and head run the same
    test code, so comparisons stand, but a clean span on the S24 does not
-   read 0.
+   read 0. With semantics on, as an ordinary test leaves it, each step
+   cost at most 0.1 ms more, except typing on the iPhone: 7.0 ms a
+   keystroke against 5.2 ([0007](decisions/0007-m6-guard-findings.md)).
 9. **Recording is cheap; metrics come later.** While recording, the
    recorder only stores timings and the refresh rates it reads. Metrics are
    computed after recording stops, so they never cost a measured frame.
 
 ### What the report contains
 
-- **Identity** (section 7.3) and **validity** with reasons.
-- **Per span:** its declared and observed refresh rate, and every gate and
+- **Identity** (section 7.3) and the run's **validity**, with the guards
+  that failed: each with where it was seen and, when it says more, the
+  value read.
+- **Per span:** its validity and its own failed guards, whether semantics
+  was on at its start and end, its declared and observed refresh rate,
+  the rate slices judged and the mismatches flagged, and every gate and
   diagnostic metric.
 - **Per episode:** its declared and observed refresh rate and the same
   metrics, plus the route tag when available. An episode whose declared
@@ -355,26 +365,50 @@ as an infrastructure problem, and it never counts against the code.
 ### 7.2 Guards
 
 Every variable is either pinned on the rig or detected by Butterscope. A
-detected mismatch makes the run `INVALID` with a named reason.
+detected mismatch makes the run, or for a span guard the span, `INVALID`
+with a named reason: the guard, where it was seen and, when it says more,
+the value read. Run guards are read at the run's start, each test's
+start and end, and the run's end, outside every test's frames, so they
+cost no measured frame. A void run voids every span in it
+([0007](decisions/0007-m6-guard-findings.md)).
 
-| Guard | Detection | Rule |
-| --- | --- | --- |
-| Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Debug is `INVALID`. Profile and release are both valid and recorded. |
-| Frame policy | The binding's `framePolicy` | Must be `benchmarkLive`. |
-| Refresh rate | Declared (`Display.refreshRate`, read as in section 4), for every span and episode | Every declared read after the one that set `B` must match it within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them; an episode that fails reports the reason instead of metrics. A declared rate that is 0 or not finite is `INVALID`. The observed rate is not a guard: a rate mismatch is flagged and settled by comparison (sections 4 and 9). |
-| Animations | `WidgetsBinding.instance.disableAnimations`; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Both must be false. |
-| Text scale | `PlatformDispatcher.textScaleFactor` | Must equal the declared value (1.0 unless the run declares otherwise). |
-| Locale | `PlatformDispatcher.locale` | Must equal the declared value. |
-| Semantics | `PlatformDispatcher.semanticsEnabled` | **(open, M6.)** `testWidgets` turns semantics on by default (`semanticsEnabled: true`), so either observed tests pass `semanticsEnabled: false`, or semantics becomes part of the identity. On the S24, semantics cost the sample's scrolling Feed 4.5 to 6.1% of frames, against 0.3 to 0.8% with it off ([0004](decisions/0004-m4-sample-findings.md)). |
-| Too few frames | Frame count per span | Below the span's minimum is `INVALID` (for example, a list too short to scroll). |
-| Thermal | Android `PowerManager` thermal status (Android 10+); iOS `ProcessInfo.thermalState`; both through a small plugin | Above nominal: wait and retry. |
-| Low-power mode | Android `PowerManager.isPowerSaveMode()`; iOS `ProcessInfo.isLowPowerModeEnabled` | Must be off. |
+| Guard | Detection | Level | Rule |
+| --- | --- | --- | --- |
+| Build mode | `kDebugMode`, `kProfileMode`, `kReleaseMode` | Run | Debug is `INVALID`. Profile and release are both valid and recorded. |
+| Frame policy | The binding's `framePolicy`, at each test's start and end | Run | Must be `benchmarkLive`. |
+| Refresh rate | Declared (`Display.refreshRate`, read as in section 4), for every span and episode | Span; run for 0 | Every declared read after the one that set `B` must match it within 5%. A span that fails is `INVALID` and none of its metrics are used, since a wrong `B` distorts all of them; an episode that fails reports the reason instead of metrics. A declared rate that is 0 or not finite anywhere makes the run `INVALID`. The observed rate is not a guard: a rate mismatch is flagged and settled by comparison (sections 4 and 9). |
+| Animations | `SemanticsBinding.disableAnimations`, which `WidgetsBinding` mixes in; on iOS also `PlatformDispatcher.accessibilityFeatures.reduceMotion`, because Reduce Motion does not set `disableAnimations` | Run | Both must be false. |
+| Text scale | `PlatformDispatcher.textScaleFactor`, at each test's start | Run | Stamped in the identity at the run's start; a later read that differs is `INVALID`. |
+| Locale | `PlatformDispatcher.locale`, at each test's start | Run | As text scale. |
+| Too few vsyncs | The span's rendering time ÷ `B`: frames drawn, plus missed vsyncs and late frames' overrun as a share of `B` | Span | Fewer than 11, the frames one rate slice needs, is `INVALID`. Hitch time counts, so a span that janks badly is not voided for drawing few frames. |
+| Span left open | A span still open when its test ends | Span | `INVALID`. |
+| Thermal | Android `PowerManager` thermal status (Android 10+); iOS `ProcessInfo.thermalState`; both through `butterscope`'s own plugin | Run | On Android any status but `none` is `INVALID`; on iOS `serious` or `critical`. A phone that cannot say is `INVALID`. iOS `fair` is valid and recorded in the identity: an iPhone reads it within minutes on its cable, and runs at `fair` lost about as many frames as at nominal. On Android the runner waits for a cool phone before each run (section 7.4), and a void run is retried (section 7.1). |
+| Low-power mode | Android `PowerManager.isPowerSaveMode()`; iOS `ProcessInfo.isLowPowerModeEnabled`; through the plugin | Run | Must be off. |
+| Device state | The plugin answers | Run | An app built without it is `INVALID`. |
+
+**Semantics is recorded, never a guard.** Each span records
+`SemanticsBinding.semanticsEnabled` at its start and its end, and is
+compared only with spans that read the same at both (section 7.3).
+`testWidgets` turns semantics on with a handle that sets this flag, not
+`PlatformDispatcher.semanticsEnabled`, which reports only the phone's
+accessibility services; the binding's flag follows those too. With
+semantics on, the S24's spans missed a few more vsyncs and the iPhone's
+feed scroll moved, each gap within the spread across runs of one group or
+the other; the janky rate barely moved
+([0007](decisions/0007-m6-guard-findings.md)). A test that fails leaves
+semantics on for the rest of its file, because `testWidgets` disposes its
+handle only when the test body returns. **(open, M8: whether semantics-on
+noise hides a small regression.)**
 
 ### 7.3 Identity
 
 Every run is stamped with: device model, OS version, build mode, thermal
-state at start, Flutter version and app commit (both passed with
-`--dart-define`), and the Butterscope report schema version.
+state at start, Flutter version and engine revision, app commit, text
+scale, locale, and the Butterscope report schema version. The `flutter`
+tool defines the Flutter version and engine revision in every build, and
+the app reads them through `FlutterVersion`; the app commit is passed
+with `--dart-define=BUTTERSCOPE_APP_COMMIT=<sha>`
+([0007](decisions/0007-m6-guard-findings.md)).
 
 The refresh rate is not a run field. Each span and episode records the
 declared rate it was measured at and its observed rate, because the declared
@@ -384,9 +418,10 @@ rate can change during a run. A change inside a span makes that span
 Two runs are **comparable** only when every identity field except the app
 commit matches. Within comparable runs, spans are matched by name, and a
 span's results are compared, or pooled across repetitions, only with results
-whose declared rate matches its own within 5%. A candidate span with no
-baseline at its rate is `INVALID` and retried, like a failed guard; the run's
-other spans are still judged. Where possible, base and candidate run on the
+whose declared rate matches its own within 5% and whose semantics read the
+same at start and end. A candidate span with no baseline at its rate and
+semantics is `INVALID` and retried, like a failed guard; the run's other spans
+are still judged. Where possible, base and candidate run on the
 same physical unit in the same session, interleaved.
 
 ### 7.4 Rig rules
@@ -397,18 +432,20 @@ same physical unit in the same session, interleaved.
 - Each batch of runs starts with one warm-up run that is not counted. On
   the S24, the first clean runs of a batch lost up to about 4 points more
   of their frames than later ones
-  ([0004](decisions/0004-m4-sample-findings.md)). Until M6's rate
-  mismatch exists, the warm-up must draw at 114 Hz or more in every test
-  of 11 frames or more, or the batch stops: a capped screen reads as an
-  app losing half its frames. A shorter test has fewer than the 10 vsync
-  gaps 0001 asks of a slice; the S24 draws its first few launch frames at
-  60 Hz
+  ([0004](decisions/0004-m4-sample-findings.md)). The warm-up must be
+  `VALID` and flag no rate mismatch, or the batch stops: a capped screen
+  reads as an app losing half its frames
+  ([0007](decisions/0007-m6-guard-findings.md)). Only a guard the batch
+  allows (the runner's `ALLOW`) may void it, as it may void a counted
+  run. The S24 draws its first
+  few launch frames at 60 Hz, too few gaps for a slice to judge
   ([0005](decisions/0005-m5-attach-findings.md)).
 - On Android the runner checks before each run that the phone is not
   thermally throttled, the battery is at 38 °C or less, power saving is
-  off, Stay awake covers the charger in use, and at least 2 GB of memory
-  is free. iOS reports none of these to the host, so they are kept by
-  hand.
+  off, Stay awake covers the charger in use, at least 2 GB of memory is
+  free, and no third-party app holds more than 300 MB. iOS reports none
+  of these to the host, so they are kept by hand; the report itself
+  reads the thermal state and Low Power Mode.
 - **Samsung Galaxy S24** (Android): Motion smoothness set to Adaptive,
   which allows up to 120 Hz. Adaptive lets the screen drop its rate on its
   own. When the S24 was forced to 60 Hz mid-run, `Display.refreshRate`
@@ -423,8 +460,10 @@ same physical unit in the same session, interleaved.
   screen ran at 60 Hz, so only a rate mismatch flags a capped or slower
   screen ([0002](decisions/0002-m2-recorder-findings.md)). Runs go over
   the USB cable, never Wi-Fi debugging: both runs that fell back to
-  Wi-Fi failed ([0005](decisions/0005-m5-attach-findings.md)). On iOS no
-  runner stops the previous app yet, so it is stopped by hand.
+  Wi-Fi failed ([0005](decisions/0005-m5-attach-findings.md)). The
+  runner stops the previous app with `devicectl` before each run. Low
+  Power Mode also caps the screen at 60 Hz while `Display.refreshRate`
+  reports 120 ([0007](decisions/0007-m6-guard-findings.md)).
 - **Info.plist on iOS:** `CADisableMinimumFrameDurationOnPhone` matches what
   ships to users. Without it a ProMotion iPhone holds a Flutter app to 60 Hz.
   Flutter 3.47.6's app template sets it to true, so the sample app can reach
@@ -443,7 +482,8 @@ same physical unit in the same session, interleaved.
   overlay runners and, since the ordinary tests record frames, M5's
   `tool/m5/run_tests.sh`. `flutter drive` does not drive release builds,
   so release runs are launched directly. Xcode stays closed during iOS
-  runs, or the launch goes through it and stalls.
+  runs, or the launch goes through it and stalls; the runner will not
+  start while it is open.
 - Same Flutter SDK and flavour as the release build; only the data layer is
   faked.
 - Third-party SDKs (analytics, crash reporting, APM) stay initialised: their
@@ -533,7 +573,7 @@ window on `main`.)**
 
 | Package | Role | Dependencies |
 | --- | --- | --- |
-| `butterscope` | Recorder, metrics, report, episode split, `ButterscopeRouteObserver` | Flutter only. Safe to ship in an app later; the observer does nothing outside a run. |
+| `butterscope` | Recorder, metrics, report, episode split, `ButterscopeRouteObserver`, and a plugin that reads the phone's state for the guards | Flutter, plus its own Kotlin and Swift for the device reads ([0007](decisions/0007-m6-guard-findings.md)). Safe to ship in an app later; the observer and the plugin do nothing outside a run. An app that runs Android release builds lists it under its own dependencies, since Flutter leaves plugins reached only through dev dependencies out of those builds. |
 | `butterscope_test` | One-line attach, spans, activity for episodes | `butterscope`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.6), for the running test's name. A dev dependency. |
 | `butterscope_cli` | `collect`, `judge` | Pure Dart; host only. |
 | `butterscope_sample` | Proof app with ordinary tests and planted regressions | Not shipped. |
