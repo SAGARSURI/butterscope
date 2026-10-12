@@ -1,6 +1,6 @@
 # 0007: Guards, rate mismatch, run identity and semantics
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-12
 - Milestone: M6
 
