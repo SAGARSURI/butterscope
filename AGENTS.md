@@ -89,6 +89,7 @@ only.
 - Commits follow [Conventional Commits](https://www.conventionalcommits.org/en/v1.0.0/):
   `<type>(<scope>): <imperative summary>`. Types: `feat`, `fix`, `perf`,
   `refactor`, `test`, `docs`, `build`, `ci`, `chore`. The scope is the
-  package when the change sits in one (`butterscope`, `butterscope_test`,
-  `butterscope_cli`, `butterscope_sample`). A breaking change adds `!` after
-  the scope and a `BREAKING CHANGE:` footer. The body says why.
+  package when the change sits in one (`butterscope`, `butterscope_report`,
+  `butterscope_test`, `butterscope_cli`, `butterscope_sample`). A breaking
+  change adds `!` after the scope and a `BREAKING CHANGE:` footer. The body
+  says why.

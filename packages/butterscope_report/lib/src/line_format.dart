@@ -8,15 +8,17 @@ const String lineTag = 'BSCOPE';
 
 /// The most characters of report JSON one `report` line carries.
 ///
-/// Android's logcat cuts long lines (`docs/decisions/0002-m2-recorder-findings.md`),
-/// and schema 0's 800-character lines arrived whole in every M5 and M6 run.
+/// Device logs can cut long lines (`docs/DESIGN.md` section 8). Schema 0's
+/// 800-character lines arrived whole in every counted M5 run
+/// (`docs/measurements/m5.md`). iOS release logs are not yet checked at
+/// this length. **(open, M7)**
 const int defaultChunkLength = 800;
 
 /// The frames one `frames` line carries, except the last, which carries the
 /// rest.
 ///
-/// In M2 logcat dropped about 400 of 1,300 one-frame lines a run; with 20
-/// frames a line it dropped none (`docs/measurements/m2.md`).
+/// In M2 logcat dropped about 400 of 1,300 one-frame lines a run, and
+/// packing 20 frames a line fixed it (`docs/measurements/m2.md`).
 const int defaultFramesPerLine = 20;
 
 /// The most lines of one kind a run may have. A line that claims more is

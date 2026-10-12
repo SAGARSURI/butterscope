@@ -3,9 +3,10 @@ import 'dart:convert';
 /// The CRC-32 of [text]'s UTF-8 bytes, as 8 lowercase hex digits.
 ///
 /// The IEEE 802.3 polynomial (reflected, 0xEDB88320), as zlib and PNG use,
-/// so `crc32('123456789')` is `cbf43926`, the standard check value. A line
-/// carries the CRC of its payload, so a reader can tell a line that a log
-/// cut or mangled from one that arrived whole.
+/// so `crc32('123456789')` is `cbf43926`, the standard check value. Each
+/// numbered line carries the CRC of its header and payload (`LineWriter`),
+/// so a reader can tell a line that a log cut or mangled from one that
+/// arrived whole.
 String crc32(String text) {
   var crc = 0xFFFFFFFF;
   for (final byte in utf8.encode(text)) {
