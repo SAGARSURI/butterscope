@@ -47,6 +47,17 @@ void main() {
     expect(() => LineWriter(7, framesPerLine: 0), throwsRangeError);
   });
 
+  test('writes up to maxLineCount lines, and refuses more', () {
+    final writer = LineWriter(7, chunkLength: 1);
+
+    // jsonEncode adds 2 quotes: 99,998 x's make 100,000 one-character
+    // chunks, the limit; 99,999 make 100,001.
+    final lines = writer.report('x' * 99998);
+    expect(lines, hasLength(maxLineCount));
+    expect(readLog(lines).runs.single.report, 'x' * 99998);
+    expect(() => writer.report('x' * 99999), throwsArgumentError);
+  });
+
   group('chunk', () {
     test('cuts at the length, keeping every character in order', () {
       expect(chunk('abcdefg', 3), ['abc', 'def', 'g']);

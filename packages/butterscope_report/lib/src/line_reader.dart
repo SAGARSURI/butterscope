@@ -197,8 +197,16 @@ final class _Numbered {
     return null;
   }
 
-  /// Adds a problem to [problems] when whole lines disagree on their count.
+  /// Adds to [problems] each mangled line numbered past [count], which no
+  /// other check visits, and a problem when whole lines disagree on their
+  /// count.
   void checkCounts(List<LineProblem> problems) {
+    final beyond = _mangled.where((index) => index > count).toList()..sort();
+    for (final index in beyond) {
+      problems.add(
+        LineProblem(ProblemKind.badChecksum, lines: kind, index: index),
+      );
+    }
     if (_counts.length < 2) return;
     problems.add(
       LineProblem(

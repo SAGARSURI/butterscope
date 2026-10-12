@@ -46,17 +46,29 @@ final class LineWriter {
   String start() => '$lineTag $runId start';
 
   /// The `report` lines that carry [json], encoded with [jsonEncode].
+  ///
+  /// Throws an [ArgumentError] when that takes more than [maxLineCount]
+  /// lines, since no reader would accept them.
   List<String> report(Object? json) =>
       _numbered(LineKind.report, chunk(jsonEncode(json), chunkLength));
 
   /// The `frames` lines that carry [frames], each a JSON array of up to
   /// [framesPerLine] of them, in order. No frames, no lines.
+  ///
+  /// Throws an [ArgumentError] when that takes more than [maxLineCount]
+  /// lines.
   List<String> frames(List<Object?> frames) => _numbered(LineKind.frames, [
     for (var i = 0; i < frames.length; i += framesPerLine)
       jsonEncode(frames.sublist(i, math.min(i + framesPerLine, frames.length))),
   ]);
 
   List<String> _numbered(LineKind kind, List<String> payloads) {
+    if (payloads.length > maxLineCount) {
+      throw ArgumentError(
+        '${payloads.length} ${kind.name} lines, more than a reader accepts '
+        '($maxLineCount)',
+      );
+    }
     final lines = <String>[];
     for (final (i, payload) in payloads.indexed) {
       final header = '$runId ${kind.name} ${i + 1}/${payloads.length}';

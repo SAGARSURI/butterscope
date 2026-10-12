@@ -109,6 +109,23 @@ void main() {
     ]);
   });
 
+  test('names a mangled line numbered past the count', () {
+    // Lines 1/4 to 4/4 arrived whole; a mangled 5/5 is outside that count
+    // but still named.
+    final extra = reportLines[3].replaceFirst('4/4', '5/5');
+    final run = readOne([...whole, extra]);
+
+    expect(run.report, report);
+    expect(run.problems, [
+      const LineProblem(
+        ProblemKind.badChecksum,
+        lines: LineKind.report,
+        index: 5,
+      ),
+    ]);
+    expect(run.isWhole, isFalse);
+  });
+
   test('takes the whole copy when another copy is mangled', () {
     expect(readOne([mangle(reportLines[1]), ...whole]).isWhole, isTrue);
   });
