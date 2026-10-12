@@ -1,7 +1,8 @@
 /// Reads the reports `attachButterscope` prints, from a saved device log.
 ///
-/// Each report is JSON split over numbered `BSCOPE-REPORT` lines (see
-/// `packages/butterscope_test/lib/src/report_writer.dart`). A log can hold
+/// Each report is JSON split over numbered `BSCOPE-REPORT` lines, schema 0
+/// as printed through M6. M7's schema 1 lines are read by
+/// `butterscope_report` instead (`docs/report-schema.md`). A log can hold
 /// a line twice, from the `flutter drive` transcript and from logcat, and
 /// lines logcat dropped. This joins each run's chunks and says what is
 /// missing. It is M5's stand-in for M7's `butterscope collect`.

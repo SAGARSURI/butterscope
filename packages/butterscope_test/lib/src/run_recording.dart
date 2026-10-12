@@ -142,10 +142,11 @@ final class RunRecording implements ActivityListener {
     _pages.add(PageChange(_recorder.mark(), page, cuts: !first));
   }
 
-  /// Stops recording and reports the run as measured on [identity], with
-  /// the run guards that [failures] lists, each test split into episodes
-  /// by [rule] and listed before it.
+  /// Stops recording and reports the run [runId] as measured on
+  /// [identity], with the run guards that [failures] lists, each test
+  /// split into episodes by [rule] and listed before it.
   Future<RunReport> finish({
+    required int runId,
     required RunIdentity identity,
     List<GuardFailure> failures = const [],
     EpisodeRule rule = EpisodeRule.inputOnly,
@@ -169,6 +170,7 @@ final class RunRecording implements ActivityListener {
     return RunReport(
       window,
       List.unmodifiable(parts),
+      runId: runId,
       identity: identity,
       failures: failures,
       activities: List.unmodifiable(_activities),

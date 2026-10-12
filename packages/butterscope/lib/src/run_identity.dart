@@ -8,6 +8,7 @@ import 'package:butterscope/src/device_state.dart';
 final class RunIdentity {
   /// Creates an identity, for example in a test.
   const new({
+    required this.platform,
     required this.device,
     required this.buildMode,
     required this.flutterVersion,
@@ -16,6 +17,9 @@ final class RunIdentity {
     required this.textScale,
     required this.locale,
   });
+
+  /// The operating system: `android` or `ios`.
+  final String platform;
 
   /// The phone's state at the run's start, or `null` when it could not be
   /// read. Its model, OS version and thermal state are identity fields.
@@ -45,6 +49,7 @@ final class RunIdentity {
   /// The identity as a JSON-ready map.
   Map<String, Object?> toJson() {
     return {
+      'platform': platform,
       'model': device?.model,
       'osVersion': device?.osVersion,
       'buildMode': buildMode,

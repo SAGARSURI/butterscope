@@ -1,36 +1,83 @@
 import 'dart:convert';
 
+import 'package:butterscope/butterscope.dart';
+import 'package:butterscope_report/butterscope_report.dart';
 import 'package:butterscope_test/src/report_writer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
-  test('prints the JSON in numbered chunks a reader can join', () {
-    final lines = <String>[];
-    final json = {'name': 'open detail', 'frames': 120};
-    // {"name":"open detail","frames":120} is 35 characters: chunks of 10,
-    // 10, 10 and 5.
-    ReportWriter(lines.add, chunkLength: 10).write(json, runId: 42);
+  RunReport reportOf(int frames) {
+    return RunReport(
+      RecordedWindow(
+        startFrameNumber: 0,
+        endFrameNumber: frames,
+        samples: [
+          for (var number = 1; number <= frames; number++)
+            FrameSample(
+              vsyncStartMicros: number * 8333,
+              buildMicros: 2000,
+              rasterMicros: 2000,
+              frameNumber: number,
+            ),
+        ],
+        refreshRateReads: const [],
+        flushTimedOut: false,
+        flushMicros: 0,
+        callbackMicros: 0,
+      ),
+      const [],
+      runId: 42,
+      identity: const RunIdentity(
+        platform: 'android',
+        device: null,
+        buildMode: 'profile',
+        flutterVersion: '3.47.6',
+        engineRevision: 'abc',
+        appCommit: 'unknown',
+        textScale: 1,
+        locale: 'en-GB',
+      ),
+    );
+  }
 
-    expect(lines, hasLength(4));
-    expect(lines.first, 'BSCOPE-REPORT 42 1 4 {"name":"o');
-    expect(lines.last, 'BSCOPE-REPORT 42 4 4 :120}');
-    final chunks = [
-      for (final line in lines) line.split(' ').skip(4).join(' '),
-    ];
-    expect(jsonDecode(chunks.join()), json);
+  test('prints the start line for the run id it is given', () {
+    final lines = <String>[];
+    ReportWriter(lines.add).start(42);
+
+    expect(lines, ['BSCOPE 42 start']);
   });
 
-  test('never splits a character made of two code units', () {
+  test('prints the report lines, then the frame lines', () {
     final lines = <String>[];
-    // ["a😀"] is 7 code units: [ " a, the emoji's two (indices 3 and 4),
-    // then " ]. A cut at 4 would split the emoji, so the first chunk stops
-    // at 3 and the second takes the other 4.
-    ReportWriter(lines.add, chunkLength: 4).write(['a😀'], runId: 7);
+    // 5 frames at 2 a line: lines of 2, 2 and 1.
+    ReportWriter(
+      lines.add,
+      chunkLength: 100,
+      framesPerLine: 2,
+    ).write(reportOf(5));
 
-    expect(lines, ['BSCOPE-REPORT 7 1 2 ["a', 'BSCOPE-REPORT 7 2 2 😀"]']);
+    final kinds = [for (final line in lines) line.split(' ')[2]];
+    expect(kinds.where((kind) => kind == 'frames'), hasLength(3));
+    expect(kinds.indexOf('frames'), kinds.lastIndexOf('report') + 1);
   });
 
-  test('refuses a chunk length that could not carry the report', () {
+  test('prints lines a reader reads back whole', () {
+    final lines = <String>[];
+    final report = reportOf(5);
+    ReportWriter(lines.add, framesPerLine: 2)
+      ..start(42)
+      ..write(report);
+
+    final run = readLog(lines).runs.single;
+    expect(run.isWhole, isTrue);
+    expect(run.started, isTrue);
+    // Doubles such as the text scale come back as JSON wrote them.
+    expect(run.report, jsonDecode(jsonEncode(report.toJson())));
+    expect(run.frames, report.frameRows);
+  });
+
+  test('refuses a line that could not carry anything', () {
     expect(() => ReportWriter((_) {}, chunkLength: 0), throwsRangeError);
+    expect(() => ReportWriter((_) {}, framesPerLine: 0), throwsRangeError);
   });
 }
