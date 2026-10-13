@@ -83,6 +83,25 @@ void main() {
     expect(outcome.problems, ['not schema v1: expected an object, got null']);
   });
 
+  test('checks a report read back beside a damaged report line', () {
+    final report = reportOf(7, 45)..remove('frameCount');
+    final broken = linesOf(7, 45, report: report);
+    // The report fits one line, so a damaged line 2 lies past its count.
+    final outcome = onlyRun([
+      broken.start,
+      ...broken.report,
+      'BSCOPE 7 report 2/2 00000000 x',
+      ...broken.frames,
+    ]);
+
+    expect(broken.report, hasLength(1));
+    expect(outcome.file, isNull);
+    expect(outcome.problems, [
+      'badChecksum, report, line 2',
+      'not schema v1: frameCount: missing',
+    ]);
+  });
+
   test('writes no file when the report names another run', () {
     final other = linesOf(7, 45, report: reportOf(42, 45));
     final outcome = onlyRun([other.start, ...other.report, ...other.frames]);

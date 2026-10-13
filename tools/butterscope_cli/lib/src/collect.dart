@@ -88,9 +88,9 @@ RunOutcome _collect(CollectedRun run) {
   );
 }
 
-/// Where the report and frames break schema v1. A report whose lines were
-/// lost is already a problem and is not checked; one that arrived whole is,
-/// even when its JSON is `null`.
+/// Where the report and frames break schema v1. Every report read back is
+/// checked, even when a damaged line was found beside it. No report is
+/// checked only when no line problem explains it, so its JSON was `null`.
 List<SchemaProblem> _schemaProblems(CollectedRun run) {
   final reportLost = run.problems.any(
     (problem) =>
@@ -98,7 +98,7 @@ List<SchemaProblem> _schemaProblems(CollectedRun run) {
         problem.lines == LineKind.report,
   );
   return [
-    if (!reportLost) ...checkReport(run.report),
+    if (run.report != null || !reportLost) ...checkReport(run.report),
     ...checkFrames(run.frames),
   ];
 }
