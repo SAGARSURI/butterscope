@@ -95,6 +95,18 @@ void main() {
     expect(err.toString(), startsWith('Cannot read '));
   });
 
+  test('exits 1 and names the file when it cannot write a run', () async {
+    // A file where the output folder should be.
+    File('${folder.path}/runs').writeAsStringSync('');
+
+    expect(await collect([logOf('logcat.txt', whole)]), 1);
+
+    expect(
+      err.toString(),
+      startsWith('Cannot write ${folder.path}/runs/7.json'),
+    );
+  });
+
   test('exits 64 with the usage for a command line it cannot read', () async {
     final codes = [
       await runCli([], input: const Stream.empty(), out: out, err: err),

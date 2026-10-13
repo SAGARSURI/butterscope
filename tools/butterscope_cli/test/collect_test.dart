@@ -1,4 +1,5 @@
 import 'package:butterscope_cli/src/collect.dart';
+import 'package:butterscope_report/butterscope_report.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'support/runs.dart';
@@ -72,6 +73,24 @@ void main() {
 
     expect(outcome.file, isNull);
     expect(outcome.problems, ['not schema v1: runId: missing']);
+  });
+
+  test('writes no file for a report whose JSON is null', () {
+    final writer = LineWriter(7);
+    final outcome = onlyRun([writer.start(), ...writer.report(null)]);
+
+    expect(outcome.file, isNull);
+    expect(outcome.problems, ['not schema v1: expected an object, got null']);
+  });
+
+  test('writes no file when the report names another run', () {
+    final other = linesOf(7, 45, report: reportOf(42, 45));
+    final outcome = onlyRun([other.start, ...other.report, ...other.frames]);
+
+    expect(outcome.file, isNull);
+    expect(outcome.problems, [
+      'the report names run 42, but its lines name run 7',
+    ]);
   });
 
   test('says when the frames lines hold another count than the report', () {

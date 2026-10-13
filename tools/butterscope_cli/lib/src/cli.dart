@@ -69,7 +69,7 @@ Future<int> runCli(
     err.writeln('Cannot read ${error.path}: ${error.message}');
     return 1;
   }
-  return _write(collectLog(lines), Directory(command.option('out')!), out);
+  return _write(collectLog(lines), Directory(command.option('out')!), out, err);
 }
 
 /// The lines of [sources] that carry Butterscope's tag, in order. Bytes
@@ -89,18 +89,25 @@ Future<List<String>> _readLines(List<Stream<List<int>>> sources) async {
 }
 
 /// Writes each run's file into [folder], says on [out] what happened to
-/// each run, and returns the exit code.
-int _write(LogOutcome log, Directory folder, StringSink out) {
+/// each run and on [err] each file it could not write, and returns the
+/// exit code.
+int _write(LogOutcome log, Directory folder, StringSink out, StringSink err) {
   if (log.runs.isEmpty) out.writeln('No Butterscope run in the log.');
+  var written = true;
   for (final run in log.runs) {
     final file = run.file;
     if (file == null) {
       out.writeln('${run.runId}: no file');
     } else {
-      folder.createSync(recursive: true);
       final path = '${folder.path}${Platform.pathSeparator}${run.runId}.json';
-      File(path).writeAsStringSync(jsonEncode(file));
-      out.writeln('${run.runId}: wrote $path');
+      try {
+        folder.createSync(recursive: true);
+        File(path).writeAsStringSync(jsonEncode(file));
+        out.writeln('${run.runId}: wrote $path');
+      } on FileSystemException catch (error) {
+        err.writeln('Cannot write $path: ${error.message}');
+        written = false;
+      }
     }
     for (final problem in run.problems) {
       out.writeln('  $problem');
@@ -109,5 +116,5 @@ int _write(LogOutcome log, Directory folder, StringSink out) {
   for (final stray in log.strays) {
     out.writeln('A line with no run id: $stray');
   }
-  return log.isWhole ? 0 : 1;
+  return log.isWhole && written ? 0 : 1;
 }

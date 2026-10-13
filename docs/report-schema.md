@@ -163,8 +163,9 @@ fields, plus two.
 | `frames` | list of frame rows | Every frame that arrived, in order. |
 | `framesMissing` | list of `[first, count]` | The frames lost with their lines, `first` counted from 0. Empty when every frame arrived. |
 
-It writes no file for a run whose report did not arrive whole, or whose
-report or frames do not match this schema. It exits 0 only when the log
+It writes no file for a run whose report did not arrive whole, whose
+report or frames do not match this schema, or whose report names another
+run id than its lines. It exits 0 only when the log
 held at least one run and every run arrived whole: a start line, every
-line, and as many frames as `frameCount`. Otherwise it names each problem
-and exits 1.
+line, and as many frames as `frameCount`, with every file written.
+Otherwise it names each problem and exits 1.

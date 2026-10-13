@@ -51,19 +51,16 @@ RunOutcome _collect(CollectedRun run) {
     for (final problem in run.problems) '$problem',
   ];
   final report = run.report;
-  // A report that did not arrive is already a problem; it has no schema.
-  final schema = [
-    if (report != null) ...checkReport(report),
-    ...checkFrames(run.frames),
+  final unusable = [
+    for (final problem in _schemaProblems(run)) 'not schema v1: $problem',
+    if (report case {'runId': final int id} when id != run.runId)
+      'the report names run $id, but its lines name run ${run.runId}',
   ];
-  if (report is! Map<String, Object?> || schema.isNotEmpty) {
+  if (report is! Map<String, Object?> || unusable.isNotEmpty) {
     return RunOutcome(
       run.runId,
       file: null,
-      problems: [
-        ...problems,
-        for (final problem in schema) 'not schema v1: $problem',
-      ],
+      problems: [...problems, ...unusable],
     );
   }
   final frameCount = report['frameCount']! as int;
@@ -89,6 +86,21 @@ RunOutcome _collect(CollectedRun run) {
     },
     problems: problems,
   );
+}
+
+/// Where the report and frames break schema v1. A report whose lines were
+/// lost is already a problem and is not checked; one that arrived whole is,
+/// even when its JSON is `null`.
+List<SchemaProblem> _schemaProblems(CollectedRun run) {
+  final reportLost = run.problems.any(
+    (problem) =>
+        problem.kind == ProblemKind.noReport ||
+        problem.lines == LineKind.report,
+  );
+  return [
+    if (!reportLost) ...checkReport(run.report),
+    ...checkFrames(run.frames),
+  ];
 }
 
 /// The frames lost, as `(first, count)`. A gap that runs to the end of the
