@@ -151,3 +151,21 @@ reported them. A row is 10 ints, named by `frameFields` in
 | 2 | `vsyncOverheadUs` | 7 | `cacheLayerBytes` |
 | 3 | `buildUs` | 8 | `cachePictures` |
 | 4 | `rasterUs` | 9 | `cachePictureBytes` |
+
+## Collected file
+
+`butterscope collect` (in [`tools/butterscope_cli`](../tools/butterscope_cli))
+reads the lines back and writes each run as `<runId>.json`: the report's
+fields, plus two.
+
+| Field | Type | Meaning |
+| --- | --- | --- |
+| `frames` | list of frame rows | Every frame that arrived, in order. |
+| `framesMissing` | list of `[first, count]` | The frames lost with their lines, `first` counted from 0. Empty when every frame arrived. |
+
+It writes no file for a run whose report did not arrive whole, whose
+report or frames do not match this schema, or whose report names a
+different run id from its lines. It exits 0 only when the log held at
+least one run and every run arrived whole: a start line, every line, and
+as many frames as `frameCount`, with every file written. Otherwise it
+names each problem and exits 1.
