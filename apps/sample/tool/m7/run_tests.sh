@@ -226,7 +226,10 @@ launch_release() {
 drive() {
   local run_target=$1 run_mode=$2 name=$3 log=$out/$3.log
   local device_log=$out/$3.device.log status=0
+  # Emptied now: a forced-loss run writes its device log only at the end,
+  # and the deadline must not read the last run's start line from it.
   : >"$log"
+  : >"$device_log"
   if $android; then
     android_ready 2>&1 | tee -a "$log"
     [ "${PIPESTATUS[0]}" -eq 0 ] || return 2
