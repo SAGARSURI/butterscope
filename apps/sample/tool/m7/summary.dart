@@ -28,14 +28,16 @@ void main(List<String> args) {
   var failed = false;
   for (final path in files) {
     final Map<String, Object?> run;
+    // A file of another shape fails its cast or a field's, which are
+    // errors, not exceptions; the next file is still read.
     try {
       run = jsonDecode(File(path).readAsStringSync()) as Map<String, Object?>;
-    } on Exception catch (error) {
+      stdout.writeln(summarise(run));
+    } on Object catch (error) {
       stdout.writeln('$path: cannot read it: $error');
       failed = true;
       continue;
     }
-    stdout.writeln(summarise(run));
     if (!warmup) continue;
     for (final problem in notClean(run)) {
       stdout.writeln('  not clean: $problem');

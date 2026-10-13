@@ -17,7 +17,8 @@
 #                  during it, so lines are lost on purpose. Such a run
 #                  passes when collect fails and names what was lost.
 #   RUN_TIMEOUT=s  how long a run may take from its start line to its last
-#                  line (default 1200).
+#                  line (default 1200). A profile run still going then is
+#                  stopped.
 #   WARMUP=off     skips the warm-up run.
 #
 # A batch starts with one warm-up run of app_test.dart in profile, not
@@ -125,7 +126,17 @@ stop_app() {
 restore_buffer() {
   [ -n "${original_size:-}" ] && adb -s "$device" logcat -G "$original_size"
 }
-trap restore_buffer EXIT
+
+# On any exit, stops what a run left going: flutter drive, the log reader
+# and the app. A cancelled batch would otherwise leave them running.
+cleanup() {
+  [ -n "${flutter:-}" ] && stop_tree "$flutter"
+  [ -n "${stream:-}" ] && kill "$stream" 2>/dev/null
+  [ -n "${flutter:-}${stream:-}" ] && stop_app >/dev/null
+  restore_buffer
+}
+trap cleanup EXIT
+trap 'exit 130' INT TERM
 
 # Starts streaming the phone's log to <file>, and sets $stream to the
 # reader's pid. The reader is started directly and stopped by its pid:
@@ -172,6 +183,23 @@ wait_for_end() {
     fi
     sleep 5
     waited=$((waited + 5))
+  done
+}
+
+# Stops flutter drive (<pid>) when the run in <files> has gone on for
+# $run_timeout seconds since its start line, and returns 1.
+watch_deadline() {
+  local pid=$1 waited=0
+  shift
+  while kill -0 "$pid" 2>/dev/null; do
+    if [ "$waited" -gt 0 ] || grep -q 'BSCOPE [0-9][0-9]* start' "$@"; then
+      waited=$((waited + 5))
+      if [ "$waited" -gt "$run_timeout" ]; then
+        stop_tree "$pid"
+        return 1
+      fi
+    fi
+    sleep 5
   done
 }
 
@@ -231,12 +259,20 @@ drive() {
       --driver=test_driver/integration_test.dart \
       --target="$run_target" "${defines[@]}" \
       -d "$device" >>"$log" 2>&1 &
-    local flutter=$!
+    flutter=$!
+    watch_deadline "$flutter" "$log" "$device_log" 2>/dev/null &
+    local deadline=$!
     if watch_launch "$flutter" "$log"; then
       wait "$flutter" || status=1
     else
       wait "$flutter"
       status=2
+    fi
+    flutter=
+    if ! wait "$deadline"; then
+      echo "  The run went on over $run_timeout s from its start line;" \
+        "stopped it."
+      status=1
     fi
     # The device log lags the transcript a little. Collect then judges
     # what arrived, so a run that never ends in it only costs the wait.
@@ -250,6 +286,7 @@ drive() {
   else
     kill "$stream" 2>/dev/null
     wait "$stream" 2>/dev/null
+    stream=
   fi
   stop_app >/dev/null
   return "$status"
@@ -285,11 +322,15 @@ run() {
   collect "$name" "$run_mode"
   local collected=$?
   if [ "$loss" = on ]; then
-    # A forced loss passes when collect fails and says what was lost.
-    if [ "$collected" -eq 1 ] && grep -q '^  ' "$out/$name.collect.txt"; then
+    # A forced loss passes when the test passed and collect fails naming
+    # lines that never arrived, not some other problem.
+    if [ "$drove" -eq 0 ] && [ "$collected" -eq 1 ] &&
+      grep -qE '^  (missingLine|noReport|no start line|no frames line)' \
+        "$out/$name.collect.txt"; then
       return 0
     fi
-    echo "  FAIL: collect did not name a lost line; see $out/$name.collect.txt"
+    echo "  FAIL: the test failed, or collect named no lost line; see" \
+      "$out/$name.log and $out/$name.collect.txt"
     return 1
   fi
   local files=("$out/$name"/*.json)
@@ -307,8 +348,13 @@ run() {
 
 if [ "$warmup" = on ]; then
   echo "== warm-up: app_test.dart in profile, not counted"
-  (loss=off run integration_test/app_test.dart profile warmup --warmup)
-  case $? in
+  # Run here, not in a subshell, so a cancel stops what it started.
+  batch_loss=$loss
+  loss=off
+  run integration_test/app_test.dart profile warmup --warmup
+  warmed=$?
+  loss=$batch_loss
+  case $warmed in
     0) ;;
     2) exit 1 ;;
     *)
