@@ -41,7 +41,8 @@ final class SchemaProblem {
   /// Creates a problem at [path], such as `parts[2].metrics.janky`.
   const new(this.path, this.message);
 
-  /// Where it is: keys joined by dots, list indices in brackets.
+  /// Where it is: keys joined by dots, list indices in brackets. Empty for
+  /// the report itself.
   final String path;
 
   /// What is wrong there.
@@ -55,7 +56,7 @@ final class SchemaProblem {
   int get hashCode => Object.hash(path, message);
 
   @override
-  String toString() => '$path: $message';
+  String toString() => path.isEmpty ? message : '$path: $message';
 }
 
 /// Checks a decoded report, the JSON of its `report` lines, against schema

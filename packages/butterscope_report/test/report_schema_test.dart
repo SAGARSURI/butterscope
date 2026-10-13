@@ -185,8 +185,9 @@ void main() {
     ]);
   });
 
-  test('refuses a report that is not an object', () {
-    expect(checkReport([1]).single.message, 'expected an object, got [1]');
+  test('refuses a report that is not an object, at no path', () {
+    // The report itself has no path, so the problem reads as its message.
+    expect('${checkReport([1]).single}', 'expected an object, got [1]');
   });
 
   test('wants one integer per frame field in each frame row', () {

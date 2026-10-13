@@ -7,5 +7,18 @@ resolution: workspace
 environment:
   sdk: ^3.13.0
 
+executables:
+  butterscope:
+
+dependencies:
+  args: ^2.7.0
+  butterscope_report:
+    path: ../../packages/butterscope_report
+
+# Tests run with flutter_test, as in butterscope_report: the `test` package
+# would pull in an older analyzer than the code-health tools use. Only a dev
+# dependency, so the CLI itself stays pure Dart.
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   very_good_analysis: ^11.0.0
