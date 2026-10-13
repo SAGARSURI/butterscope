@@ -2,31 +2,39 @@ import 'package:butterscope/src/activity.dart';
 import 'package:butterscope/src/classified_frame.dart';
 import 'package:butterscope/src/diagnostic_metrics.dart';
 import 'package:butterscope/src/frame_budget.dart';
+import 'package:butterscope/src/frame_sample.dart';
 import 'package:butterscope/src/guards.dart';
 import 'package:butterscope/src/marks.dart';
 import 'package:butterscope/src/recorded_window.dart';
+import 'package:butterscope/src/report_issues.dart';
 import 'package:butterscope/src/run_identity.dart';
 import 'package:butterscope/src/window_metrics.dart';
 
 /// The report of one run: what is printed after the last test.
 ///
-/// The schema is provisional (version 0). M7 freezes version 1 and the way
-/// it leaves the phone (`docs/DESIGN.md` section 8).
+/// Schema version 1 (`docs/report-schema.md`), proposed until M7's gate
+/// freezes it. The report and its frames leave the phone on separate
+/// lines (`docs/DESIGN.md` section 8): [toJson] holds everything but the
+/// frames, and [frameRows] holds the frames.
 final class RunReport {
-  /// Builds the report of [window], split into [parts], with the
-  /// [activities] and [pages] that episodes were split on, the run's
-  /// [identity], and the run guards that [failures] lists.
+  /// Builds the report of the run [runId] from [window], split into
+  /// [parts], with the [activities] and [pages] that episodes were split
+  /// on, the run's [identity], and the run guards that [failures] lists.
   new(
     this.window,
     this.parts, {
+    required this.runId,
     required this.identity,
     this.failures = const [],
     this.activities = const [],
     this.pages = const [],
   });
 
-  /// The provisional schema's version.
-  static const int schemaVersion = 0;
+  /// The schema's version.
+  static const int schemaVersion = 1;
+
+  /// The id the run's lines carry, picked when it started.
+  final int runId;
 
   /// The run's whole recording.
   final RecordedWindow window;
@@ -70,6 +78,11 @@ final class RunReport {
 
   /// The report as JSON-ready maps and lists.
   ///
+  /// It names the run by [runId] and counts its frames as `frameCount`;
+  /// the frames themselves are [frameRows]. `rateReads` lists each read of
+  /// the declared rate during the recording as
+  /// `[afterSamples, micros, hertz]`.
+  ///
   /// The run says whether it is valid, and lists the guards that failed as
   /// `[guard, at]` or `[guard, at, value]`. A failed run guard voids every
   /// span in it. Each span also says whether it is valid, lists its own
@@ -89,6 +102,11 @@ final class RunReport {
   /// `[second, gaps, observedHz]`. No slice judged means the part was not
   /// checked.
   ///
+  /// `issues` lists every janky frame of each span or episode that has
+  /// metrics and whose declared rate did not move, as [issuesOf] writes
+  /// them, with `part` an index into `parts`. A span left void by another
+  /// guard keeps its issues: its `valid` says it is not gated.
+  ///
   /// The activity and page changes go in too, as lists of
   /// `[kind, startFrame, startMicros, endFrame, endMicros]` and
   /// `[frame, micros, page, cuts]`, so a reader can split the tests again
@@ -96,16 +114,30 @@ final class RunReport {
   Map<String, Object?> toJson() {
     final runFailures = this.runFailures;
     final runValid = runFailures.isEmpty;
+    final measured = [for (final part in parts) _Measured.of(part, window)];
     return {
       'schema': schemaVersion,
+      'runId': runId,
       'identity': identity.toJson(),
       'valid': runValid,
       'reasons': [for (final failure in runFailures) failure.toJson()],
-      'frames': window.samples.length,
+      'frameCount': window.samples.length,
       'flushTimedOut': window.flushTimedOut,
       'flushMicros': window.flushMicros,
       'callbackMicros': window.callbackMicros,
-      'parts': [for (final part in parts) _partJson(part, runValid: runValid)],
+      'rateReads': [
+        for (final RefreshRateRead(:afterSamples, :micros, :hertz)
+            in window.refreshRateReads)
+          [afterSamples, micros, _finiteOrNull(hertz)],
+      ],
+      'parts': [
+        for (final part in measured) _partJson(part, runValid: runValid),
+      ],
+      'issues': [
+        for (final (index, part) in measured.indexed)
+          if (part.judgesIssues)
+            ...issuesOf(index, part.frames, part.metrics!.budget),
+      ],
       'activity': [
         for (final Activity(:kind, :start, :end) in activities)
           [
@@ -123,15 +155,33 @@ final class RunReport {
     };
   }
 
-  Map<String, Object?> _partJson(MarkedPart part, {required bool runValid}) {
-    final frames = window.samplesBetween(part.start, part.end);
+  /// The run's frames, one row per frame in the order the engine reported
+  /// them: the engine's frame number, its vsync start, vsync overhead,
+  /// build, raster and total span in µs, then the raster cache's layer
+  /// count and bytes and picture count and bytes. `butterscope_report`'s
+  /// `frameFields` names them for readers.
+  List<List<int>> get frameRows {
+    return [
+      for (final sample in window.samples)
+        [
+          sample.frameNumber,
+          sample.vsyncStartMicros,
+          sample.vsyncOverheadMicros,
+          sample.buildMicros,
+          sample.rasterMicros,
+          sample.totalSpanMicros,
+          sample.rasterCache.layerCount,
+          sample.rasterCache.layerBytes,
+          sample.rasterCache.pictureCount,
+          sample.rasterCache.pictureBytes,
+        ],
+    ];
+  }
+
+  Map<String, Object?> _partJson(_Measured measured, {required bool runValid}) {
+    final _Measured(:part, :frames, :rateChanged, :metrics) = measured;
     final hertz = part.start.declaredRefreshRate;
-    final rateChanged =
-        part.kind != PartKind.test && declaredRateChanged(part, window);
     final episodeMoved = part.kind == PartKind.episode && rateChanged;
-    final metrics = FrameBudget.isValidRefreshRate(hertz) && !episodeMoved
-        ? WindowMetrics.of(frames, FrameBudget(hertz))
-        : null;
     return {
       'kind': part.kind.name,
       'name': part.name,
@@ -155,6 +205,45 @@ final class RunReport {
           runValid: runValid,
         ),
     };
+  }
+}
+
+/// One part with what its JSON and its issues are both built from.
+final class _Measured {
+  /// Measures [part]'s frames in [window] against the budget its start
+  /// declared. An episode whose declared rate moved gets no metrics.
+  factory of(MarkedPart part, RecordedWindow window) {
+    final frames = window.samplesBetween(part.start, part.end);
+    final hertz = part.start.declaredRefreshRate;
+    final rateChanged =
+        part.kind != PartKind.test && declaredRateChanged(part, window);
+    final episodeMoved = part.kind == PartKind.episode && rateChanged;
+    final metrics = FrameBudget.isValidRefreshRate(hertz) && !episodeMoved
+        ? WindowMetrics.of(frames, FrameBudget(hertz))
+        : null;
+    return _Measured._(part, frames, metrics, rateChanged: rateChanged);
+  }
+
+  const new _(
+    this.part,
+    this.frames,
+    this.metrics, {
+    required this.rateChanged,
+  });
+
+  final MarkedPart part;
+  final List<FrameSample> frames;
+  final WindowMetrics? metrics;
+
+  /// Whether the declared rate moved more than 5% inside a span or
+  /// episode.
+  final bool rateChanged;
+
+  /// Whether its janky frames go in the issue list: it is a span or an
+  /// episode that passed the refresh-rate guard, with a declared rate
+  /// that gives a budget and did not move.
+  bool get judgesIssues {
+    return part.kind != PartKind.test && metrics != null && !rateChanged;
   }
 }
 

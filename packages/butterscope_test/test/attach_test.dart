@@ -16,7 +16,8 @@ void main() {
   final source = FakeFrameSource();
 
   tearDownAll(() {
-    final report = reportIn(printed);
+    final run = runIn(printed);
+    final report = run.report! as Map<String, Object?>;
     final parts = report['parts']! as List<Object?>;
     // Episodes are checked in episode_test.dart.
     final tests = [
@@ -24,11 +25,13 @@ void main() {
         if (part['kind'] != 'episode') part,
     ];
 
-    expect(report['schema'], 0);
+    expect(report['schema'], 1);
+    expect(report['runId'], run.runId);
     // A clean phone, as the fake reader starts.
     expect(report['valid'], isTrue);
     expect(report['reasons'], isEmpty);
     expect(report['identity'], {
+      'platform': 'android',
       'model': 'samsung SM-S921B',
       'osVersion': 'Android 16 (API 36)',
       'buildMode': 'profile',
@@ -55,7 +58,13 @@ void main() {
     // Each test keeps its own frames. The 4 rendered after each test belong
     // to none, but are in the run: 2 + 0 + 10 + 6 + 4 × 4 = 34.
     expect([for (final test in tests) test['frames']], [2, 0, 10, 6]);
-    expect(report['frames'], 34);
+    expect(report['frameCount'], 34);
+    // Every frame of the run is printed, in order, on lines of its own.
+    expect(run.frames, hasLength(34));
+    expect(
+      [for (final row in run.frames.cast<List<Object?>>()) row.first],
+      [for (var frame = 1; frame <= 34; frame++) frame],
+    );
 
     final smooth = tests[2]['metrics']! as Map<String, Object?>;
     expect(smooth['janky'], 0);

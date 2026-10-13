@@ -22,7 +22,8 @@ RunRecording? _run;
 /// [attachTo]. It records every frame from the first
 /// test to the last, attributes them to the test that produced them,
 /// splits each test into episodes on input, and prints the
-/// report after the last test. With a [ButterscopeRouteObserver] in the
+/// report, with every frame, after the last test
+/// (`docs/report-schema.md`). With a [ButterscopeRouteObserver] in the
 /// app, a change of page splits an episode too and tags it.
 ///
 /// The report says whether the run and each span can be trusted, and what
@@ -84,7 +85,11 @@ void attachTo(
     () => guards.semanticsOn,
   );
   final checks = RunGuards(guards, appCommit: _appCommit);
+  // Picked before the first test, so the start line and the report carry
+  // the same id, and a run that stops before it reports still shows.
+  final runId = DateTime.now().microsecondsSinceEpoch;
   setUpAll(() async {
+    writer.start(runId);
     await checks.atRunStart();
     run.start();
     activity.start(run);
@@ -106,11 +111,11 @@ void attachTo(
     activity.stop();
     await checks.atRunEnd();
     final report = await run.finish(
+      runId: runId,
       identity: checks.identity,
       failures: checks.failures,
     );
-    final runId = DateTime.now().microsecondsSinceEpoch;
-    writer.write(report.toJson(), runId: runId);
+    writer.write(report);
   });
 }
 

@@ -15,11 +15,13 @@ void main() {
   final source = FakeFrameSource();
 
   tearDownAll(() {
+    final report = reportIn(printed);
+    final allParts = (report['parts']! as List<Object?>)
+        .cast<Map<String, Object?>>();
     final parts = [
-      for (final part in reportIn(printed)['parts']! as List<Object?>)
+      for (final part in allParts)
         // Episodes are checked in episode_test.dart.
-        if ((part! as Map<String, Object?>)['kind'] != 'episode')
-          part as Map<String, Object?>,
+        if (part['kind'] != 'episode') part,
     ];
 
     // In the order they ended: each span before the test it is in. The
@@ -73,6 +75,24 @@ void main() {
     );
     // Builds of 2, 2, 2 and 12 ms: 18 ms over 4 frames.
     expect(diagnostics['avgBuildMs'], closeTo(18 / 4, 1e-9));
+
+    // The 12 ms frame is frame 6: an issue of the span and of its test's
+    // one episode, never of the test. Each names its part by index.
+    final issues = (report['issues']! as List<Object?>).cast<List<Object?>>();
+    expect(
+      [for (final issue in issues) issue.take(2).toList()],
+      [
+        [allParts.indexOf(parts[0]), 6],
+        [allParts.indexWhere((part) => part['kind'] == 'episode'), 6],
+      ],
+    );
+    // In the span, frame 6 is 3 frames after frame 3, its first:
+    // 3 × 8333 µs = 24.999 ms. 12 000 µs is 1.44 B at 120 Hz, over by
+    // 0.44 B.
+    expect(issues[0][2], closeTo(24.999, 1e-9));
+    expect(issues[0][3], 'ui');
+    expect(issues[0][4], closeTo(0.44, 1e-9));
+    expect(issues[0][5], 'janky');
   });
 
   final binding = IntegrationTestWidgetsFlutterBinding.ensureInitialized();

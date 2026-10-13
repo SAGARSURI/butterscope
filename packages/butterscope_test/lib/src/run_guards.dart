@@ -36,6 +36,7 @@ final class RunGuards {
     final device = await _reader.readDevice();
     final flutter = _reader.flutter;
     _identity = RunIdentity(
+      platform: _reader.platform,
       device: device,
       buildMode: _reader.buildMode,
       flutterVersion: flutter.version,

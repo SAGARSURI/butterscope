@@ -1,41 +1,51 @@
-import 'dart:convert';
+import 'package:butterscope/butterscope.dart';
+import 'package:butterscope_report/butterscope_report.dart';
 
-import 'package:butterscope_report/butterscope_report.dart' show chunk;
-
-/// The tag that starts every report line.
-const String reportTag = 'BSCOPE-REPORT';
-
-/// Prints a report as numbered lines short enough for a device log.
+/// Prints a run's lines to the device log, as [LineWriter] formats them
+/// (`docs/report-schema.md`).
 ///
-/// Android's logcat cuts long lines and drops lines that come too fast
-/// (`docs/decisions/0002-m2-recorder-findings.md`), so the report's JSON is
-/// split into chunks of at most [chunkLength] characters, each on a line:
-/// `BSCOPE-REPORT <run id> <index> <count> <chunk>`, with the index counted
-/// from 1. A reader joins the chunks of one run id in index order and knows
-/// from the count whether any went missing. A chunk never splits a
-/// surrogate pair ([chunk]). M7 replaces this format with
-/// `butterscope_report`'s lines.
+/// [start] prints the `start` line before the first test, so a run that
+/// never reports still shows. [write] prints the report's lines, then its
+/// frames' lines.
 final class ReportWriter {
-  /// Creates a writer that prints each line with [_emit].
+  /// Creates a writer that prints each line with [_emit], with up to
+  /// [chunkLength] characters of report JSON and [framesPerLine] frames a
+  /// line.
   ///
-  /// Throws a [RangeError] when [chunkLength] is below 1, since no chunk
-  /// could then carry any of the report.
-  new(this._emit, {this.chunkLength = 800}) {
-    if (chunkLength < 1) {
-      throw RangeError.value(chunkLength, 'chunkLength', 'must be at least 1');
-    }
+  /// Throws a [RangeError] when either is below 1, since no line could
+  /// then carry anything.
+  new(
+    this._emit, {
+    this.chunkLength = defaultChunkLength,
+    this.framesPerLine = defaultFramesPerLine,
+  }) {
+    // Checks both now, not when the run's first line is printed.
+    _lines(0);
   }
 
   final void Function(String line) _emit;
 
-  /// The most characters of JSON a line carries.
+  /// The most characters of report JSON a `report` line carries.
   final int chunkLength;
 
-  /// Prints [json] as the report of the run identified by [runId].
-  void write(Object? json, {required int runId}) {
-    final chunks = chunk(jsonEncode(json), chunkLength);
-    for (var i = 0; i < chunks.length; i++) {
-      _emit('$reportTag $runId ${i + 1} ${chunks.length} ${chunks[i]}');
-    }
+  /// The frames a `frames` line carries, except the last.
+  final int framesPerLine;
+
+  /// Prints the `start` line of the run identified by [runId].
+  void start(int runId) => _emit(_lines(runId).start());
+
+  /// Prints [report]'s `report` lines, then its `frames` lines.
+  void write(RunReport report) {
+    final lines = _lines(report.runId);
+    lines.report(report.toJson()).forEach(_emit);
+    lines.frames(report.frameRows).forEach(_emit);
+  }
+
+  LineWriter _lines(int runId) {
+    return LineWriter(
+      runId,
+      chunkLength: chunkLength,
+      framesPerLine: framesPerLine,
+    );
   }
 }

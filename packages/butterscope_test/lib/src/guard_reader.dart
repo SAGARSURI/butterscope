@@ -10,6 +10,9 @@ import 'package:flutter_test/flutter_test.dart';
 /// dispatcher. [readDevice] is one call to the plugin in
 /// `package:butterscope`.
 abstract interface class GuardReader {
+  /// The operating system: `android` or `ios`.
+  String get platform;
+
   /// `debug`, `profile` or `release`.
   String get buildMode;
 
@@ -42,6 +45,17 @@ final class BindingGuardReader implements GuardReader {
 
   final LiveTestWidgetsFlutterBinding _binding;
   final DeviceStateSource _device;
+
+  /// Butterscope runs on Android and iOS only; any other platform is
+  /// written by its name.
+  @override
+  String get platform {
+    return switch (defaultTargetPlatform) {
+      TargetPlatform.android => 'android',
+      TargetPlatform.iOS => 'ios',
+      final other => other.name,
+    };
+  }
 
   @override
   String get buildMode {

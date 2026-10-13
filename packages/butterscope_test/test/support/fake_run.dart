@@ -1,12 +1,11 @@
 // The fake engine and report reader the attach and span tests share.
 
-import 'dart:convert';
 import 'dart:ui';
 
 import 'package:butterscope/butterscope.dart';
+import 'package:butterscope_report/butterscope_report.dart';
 import 'package:butterscope_test/src/activity_source.dart';
 import 'package:butterscope_test/src/guard_reader.dart';
-import 'package:butterscope_test/src/report_writer.dart';
 
 /// A frame source the tests advance by hand.
 class FakeFrameSource implements FrameSource {
@@ -86,6 +85,9 @@ class FakeActivitySource implements ActivitySource {
 /// profile mode.
 class FakeGuardReader implements GuardReader {
   @override
+  String platform = 'android';
+
+  @override
   String buildMode = 'profile';
 
   @override
@@ -121,11 +123,25 @@ class FakeGuardReader implements GuardReader {
   Future<DeviceState?> readDevice() async => device;
 }
 
-/// Joins the printed chunks of the one run in [lines] and decodes it.
+/// Reads back the one run in [lines], which must have arrived whole and
+/// match schema v1.
+CollectedRun runIn(List<String> lines) {
+  final read = readLog(lines);
+  if (read.strays.isNotEmpty || read.runs.length != 1) {
+    throw StateError('Expected one run in the lines, read ${read.runs}.');
+  }
+  final run = read.runs.single;
+  if (!run.started || !run.isWhole) {
+    throw StateError('The run did not arrive whole: ${run.problems}.');
+  }
+  final problems = [...checkReport(run.report), ...checkFrames(run.frames)];
+  if (problems.isNotEmpty) {
+    throw StateError('The run does not match schema v1: $problems.');
+  }
+  return run;
+}
+
+/// The report of the one run in [lines].
 Map<String, Object?> reportIn(List<String> lines) {
-  final chunks = [
-    for (final line in lines)
-      if (line.startsWith('$reportTag ')) line.split(' ').skip(4).join(' '),
-  ];
-  return jsonDecode(chunks.join()) as Map<String, Object?>;
+  return runIn(lines).report! as Map<String, Object?>;
 }

@@ -12,9 +12,11 @@ void main() {
 ```
 
 It sets the `benchmarkLive` frame policy, records every frame of the run,
-attributes frames to the test that produced them, and prints the report
-after the last test as `BSCOPE-REPORT` lines. The report's schema is
-provisional until M7.
+attributes frames to the test that produced them, and prints a `start`
+line before the first test and the report, with every frame, after the
+last test. The lines and the report's fields are in
+[`docs/report-schema.md`](../../docs/report-schema.md), proposed until
+M7's gate.
 
 Wrap each flow to gate in a named span, inside a test:
 
