@@ -30,9 +30,12 @@
 #   Android    `adb logcat`, streamed from before the launch to the run's
 #              last line. M6 read logcat after the run, which a long run
 #              can outgrow.
-#   iOS        `idevicesyslog -p Runner`, streamed the same way, as in M2's
-#              release runs. A profile run also keeps the `flutter drive`
-#              transcript, and collect reads both.
+#   iOS        `idevicesyslog -m 'BSCOPE '`, streamed the same way. M2's
+#              release runs used `-p Runner`, but idevicesyslog 1.4.0
+#              matches -p only against processes running when it starts,
+#              and the app always starts after it. A profile run also
+#              keeps the `flutter drive` transcript, and collect reads
+#              both.
 #
 # Profile runs go through `flutter drive --profile --keep-app-running`.
 # `flutter drive` refuses release builds, so release runs are launched as
@@ -146,7 +149,8 @@ start_stream() {
     adb -s "$device" logcat -c
     adb -s "$device" logcat -s flutter >"$1" 2>&1 &
   else
-    idevicesyslog -u "$device" -p Runner >"$1" 2>&1 &
+    # No colours: an escape code after a payload would break its CRC.
+    idevicesyslog -u "$device" --no-colors -m 'BSCOPE ' >"$1" 2>&1 &
   fi
   stream=$!
 }
