@@ -47,10 +47,10 @@ void main() {
     expect(lines, ['BSCOPE 42 start']);
   });
 
-  test('prints the report lines, then the frame lines', () {
+  test('prints the report lines, then the frame lines', () async {
     final lines = <String>[];
     // 5 frames at 2 a line: lines of 2, 2 and 1.
-    ReportWriter(
+    await ReportWriter(
       lines.add,
       chunkLength: 100,
       framesPerLine: 2,
@@ -61,12 +61,11 @@ void main() {
     expect(kinds.indexOf('frames'), kinds.lastIndexOf('report') + 1);
   });
 
-  test('prints lines a reader reads back whole', () {
+  test('prints lines a reader reads back whole', () async {
     final lines = <String>[];
     final report = reportOf(5);
-    ReportWriter(lines.add, framesPerLine: 2)
-      ..start(42)
-      ..write(report);
+    final writer = ReportWriter(lines.add, framesPerLine: 2)..start(42);
+    await writer.write(report);
 
     final run = readLog(lines).runs.single;
     expect(run.isWhole, isTrue);
@@ -76,8 +75,30 @@ void main() {
     expect(run.frames, report.frameRows);
   });
 
+  test('pauses after every few lines, and not after the last', () async {
+    final events = <String>[];
+    // 5 frames at 1 a line, after the report's lines.
+    await ReportWriter(
+      (_) => events.add('line'),
+      framesPerLine: 1,
+      linesPerPause: 2,
+      pause: const Duration(milliseconds: 7),
+      wait: (pause) async => events.add('pause ${pause.inMilliseconds}'),
+    ).write(reportOf(5));
+
+    final lines = events.where((event) => event == 'line').length;
+    // A pause between each pair of lines: (lines - 1) ~/ 2 of them.
+    expect(events.length - lines, (lines - 1) ~/ 2);
+    for (final (i, event) in events.indexed) {
+      // Two lines, then a pause: every third event is a pause.
+      expect(event, i % 3 == 2 ? 'pause 7' : 'line');
+    }
+    expect(events.last, 'line');
+  });
+
   test('refuses a line that could not carry anything', () {
     expect(() => ReportWriter((_) {}, chunkLength: 0), throwsRangeError);
     expect(() => ReportWriter((_) {}, framesPerLine: 0), throwsRangeError);
+    expect(() => ReportWriter((_) {}, linesPerPause: 0), throwsRangeError);
   });
 }

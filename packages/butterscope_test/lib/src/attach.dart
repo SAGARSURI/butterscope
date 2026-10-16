@@ -115,7 +115,7 @@ void attachTo(
       identity: checks.identity,
       failures: checks.failures,
     );
-    writer.write(report);
+    await writer.write(report);
   });
 }
 

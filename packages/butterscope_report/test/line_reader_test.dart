@@ -53,6 +53,19 @@ void main() {
     expect(readOne(prefixed).isWhole, isTrue);
   });
 
+  test('reads a run whose log strips spaces from the end of each line', () {
+    // The iPhone's system log does. {"name":"ab cd"} at 12 a chunk would
+    // cut after the space; the writer cuts before it.
+    const spaced = {'name': 'ab cd'};
+    final spacedWriter = LineWriter(42, chunkLength: 12);
+    final stripped = [
+      for (final line in spacedWriter.report(spaced)) line.trimRight(),
+    ];
+
+    expect(stripped, hasLength(2));
+    expect(readOne(stripped).report, spaced);
+  });
+
   test('counts a line printed twice once', () {
     // A log holding both the flutter drive transcript and logcat.
     expect(readOne([...whole, ...whole]).isWhole, isTrue);
