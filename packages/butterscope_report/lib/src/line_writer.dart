@@ -35,7 +35,8 @@ final class LineWriter {
   /// The run's id, on every line it prints.
   final int runId;
 
-  /// The most characters of report JSON a `report` line carries.
+  /// The most characters of report JSON a `report` line carries, but
+  /// where [chunk] must run past it to keep a pair or a cut whole.
   final int chunkLength;
 
   /// The frames a `frames` line carries, except the last.
