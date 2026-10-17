@@ -117,10 +117,10 @@ packages:
     dependency: "direct dev"
     description:
       name: cognitive_complexity
-      sha256: "4e7b8c32ade88d0d480b6edc1db294015616effaefb18771e61dbf7b649fac50"
+      sha256: "83f99b2f581d67bd404267c6b9565e5ef70ea576ed7b59c3eb8c77e53e96b1a4"
       url: "https://pub.dev"
     source: hosted
-    version: "0.2.5"
+    version: "2.0.1"
   collection:
     dependency: transitive
     description:
