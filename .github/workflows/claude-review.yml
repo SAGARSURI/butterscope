@@ -81,4 +81,5 @@ jobs:
                List this run's findings by severity, or say there are none,
                and name the commit reviewed (${{ github.event.pull_request.head.sha }}).
           claude_args: |
+            --model claude-opus-5-5
             --allowedTools "Read,Glob,Grep,Write,mcp__github_inline_comment__create_inline_comment,Bash(gh pr diff:*),Bash(gh pr view:*),Bash(gh pr comment:*),Bash(gh api repos/${{ github.repository }}/pulls/${{ github.event.pull_request.number }}/comments:*)"

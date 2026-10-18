@@ -180,8 +180,8 @@ Scope: `**/lib/**/*.dart`. Severity: low.
 Number of external imports (DCM number-of-external-imports, threshold 6): a
 file must have at most 6 imports of `dart:` libraries and of packages from
 outside this repository. Imports of this repository's own packages
-(`butterscope`, `butterscope_test`, `butterscope_cli`, `butterscope_sample`)
-do not count.
+(`butterscope`, `butterscope_report`, `butterscope_test`, `butterscope_cli`,
+`butterscope_sample`) do not count.
 
 Scope: `**/lib/**/*.dart`. Severity: medium.
 
