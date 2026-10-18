@@ -8,6 +8,10 @@ thresholds, so functions, classes and files stay small enough to read, test
 and change safely. A rule only reports code that the pull request adds or
 changes, and names the measured value and the threshold.
 
+Each run also rewrites a "Claude review" section at the end of the pull
+request's description: an overview, a Mermaid diagram of the change, and a
+confidence score from 1 to 5. The author's own text is kept.
+
 ## What is checked
 
 | Rule id | DCM metric | Reported when | Severity |
