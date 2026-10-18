@@ -1,6 +1,6 @@
 # 0008: Report schema v1 and the log channel
 
-- Status: proposed
+- Status: accepted
 - Date: 2026-10-18
 - Milestone: M7
 
