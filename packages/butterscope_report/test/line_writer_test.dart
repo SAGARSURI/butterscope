@@ -75,6 +75,18 @@ void main() {
       expect(chunk('a😀b', 1), ['a', '😀', 'b']);
     });
 
+    test('never ends a chunk in whitespace, but the last', () {
+      // A cut at 3 would leave 'ab ' ending in a space, which the
+      // iPhone's system log strips, so the first chunk ends after b.
+      expect(chunk('ab cd', 3), ['ab', ' cd']);
+    });
+
+    test('runs past the length for whitespace longer than a chunk', () {
+      // From 2, both cuts within 2 characters (3 and 4) fall after a
+      // space, so the cut moves forward past the run to 6, after c.
+      expect(chunk('ab   cd', 2), ['ab', '   c', 'd']);
+    });
+
     test('gives no chunks for empty text', () {
       expect(chunk('', 3), isEmpty);
     });

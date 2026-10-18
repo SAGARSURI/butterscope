@@ -41,24 +41,49 @@ enum LineKind {
 /// Splits [text] into chunks of at most [length] UTF-16 code units, in
 /// order.
 ///
-/// A cut that would fall before a low surrogate (0xDC00 to 0xDFFF) moves
-/// back one, so no chunk holds half a character that a log could mangle.
-/// When [length] is 1 it moves forward instead, so that chunk holds the
-/// whole pair, 2 code units. Throws a [RangeError] when [length] is below
-/// 1.
+/// A cut moves back while it would fall before a low surrogate (0xDC00 to
+/// 0xDFFF) or after whitespace. So no chunk holds half a character that a
+/// log could mangle, and no chunk but the last ends in whitespace, which
+/// the iPhone's system log strips from the end of a line (M7's first
+/// iPhone release run lost one space that way). When moving back would
+/// leave the chunk empty, the cut moves forward instead, and that chunk is
+/// longer than [length]: a pair when [length] is 1, or a run of whitespace
+/// longer than [length] with the character after it. Throws a [RangeError]
+/// when [length] is below 1.
 List<String> chunk(String text, int length) {
   checkAtLeastOne(length, 'length');
   final chunks = <String>[];
   var start = 0;
   while (start < text.length) {
-    var end = math.min(start + length, text.length);
-    final cutsPair =
-        end < text.length && (text.codeUnitAt(end) & 0xFC00) == 0xDC00;
-    if (cutsPair) end += end - start > 1 ? -1 : 1;
+    final end = _cut(text, start, math.min(start + length, text.length));
     chunks.add(text.substring(start, end));
     start = end;
   }
   return chunks;
+}
+
+/// Where the chunk of [text] from [start] ends, given that it may run to
+/// [end]: [end] itself when that is a good cut, else the nearest good cut
+/// before it, else the nearest after it.
+int _cut(String text, int start, int end) {
+  var cut = end;
+  while (cut > start && _isBadCut(text, cut)) {
+    cut--;
+  }
+  if (cut > start) return cut;
+  cut = end;
+  while (_isBadCut(text, cut)) {
+    cut++;
+  }
+  return cut;
+}
+
+/// Whether a cut of [text] at [cut] would fall before a low surrogate or
+/// after whitespace. The end of [text] is always a good cut.
+bool _isBadCut(String text, int cut) {
+  if (cut >= text.length) return false;
+  final isLowSurrogate = (text.codeUnitAt(cut) & 0xFC00) == 0xDC00;
+  return isLowSurrogate || text[cut - 1].trim().isEmpty;
 }
 
 /// Throws a [RangeError] naming [name] when [value] is below 1.

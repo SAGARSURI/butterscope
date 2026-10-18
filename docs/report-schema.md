@@ -17,7 +17,7 @@ BSCOPE <runId> frames <i>/<n> <crc> <json array of frames>
 | Part | Meaning |
 | --- | --- |
 | `start` | Printed before the first test. A run with a `start` line and no `report` line stopped before it reported. |
-| `report` | The report's JSON without its frames, cut into chunks of up to 800 characters. A cut never splits a surrogate pair. |
+| `report` | The report's JSON without its frames, cut into chunks of up to 800 characters. A cut never splits a surrogate pair, and no chunk but the last ends in whitespace, since the iPhone's system log strips it. A cut moves back to keep both; only where it cannot, as in a run of spaces longer than a chunk, a chunk runs longer. |
 | `frames` | 20 frames a line, the last line holding the rest, each line a JSON array of its own. |
 | `<i>/<n>` | The line's number, from 1, and how many lines of its kind there are: at most 100,000, and a writer refuses more. |
 | `<crc>` | CRC-32 (IEEE, as zlib), in 8 lowercase hex digits, of the UTF-8 bytes of `<runId> <kind> <i>/<n> <payload>`: the line after the tag, without the CRC. A mangled number fails it too. |
