@@ -1,11 +1,12 @@
 # Review rules
 
-Greptile reviews every pull request. [`.greptile/config.json`](../.greptile/config.json)
-gives it rules taken from [DCM's code metrics](https://dcm.dev/docs/metrics/),
-at DCM's default thresholds, so functions, classes and files stay small
-enough to read, test and change safely. A rule only reports code that the
-pull request adds or changes, and names the measured value and the
-threshold.
+Claude reviews every pull request that is ready for review, through
+[`.github/workflows/claude-review.yml`](../.github/workflows/claude-review.yml).
+Besides looking for bugs, it applies the rules defined below, taken from
+[DCM's code metrics](https://dcm.dev/docs/metrics/), at DCM's default
+thresholds, so functions, classes and files stay small enough to read, test
+and change safely. A rule only reports code that the pull request adds or
+changes, and names the measured value and the threshold.
 
 ## What is checked
 
@@ -41,9 +42,165 @@ DCM's definition names functions and methods, and an immutable value class
 takes one named parameter per field, so its constructor grows with its
 fields.
 
+## Rule definitions
+
+The review applies each rule below exactly as written.
+
+The rules with ids starting dcm- apply DCM code metrics
+(https://dcm.dev/docs/metrics/) at DCM's default thresholds. Apply them only
+to code this pull request adds or changes. Count each metric exactly as its
+rule defines it. When a value is over its threshold, name the metric, the
+measured value and the threshold, and suggest a change that brings it back
+under, such as extracting a function, a widget or a class. Do not report
+values that are within their thresholds.
+
+### `dcm-cyclomatic-complexity`
+
+Cyclomatic complexity (DCM cyclomatic-complexity, threshold 15): every
+function, method, getter, setter and constructor with a body must have a
+cyclomatic complexity of 15 or less. Start at 1 and add 1 for each `if`
+(statement or collection element), `for` (statement or collection element),
+`while`, `do`, `catch`, conditional expression (`? :`), `case` of a switch
+statement or expression other than `default` and the last case, `&&` or `||`
+in an expression or pattern, `??` or `??=`, and null-aware operator (`?.`,
+`?..`, `?[]`, `...?`, and `?` before a key or value in a map or set
+literal).
+
+Scope: `**/lib/**/*.dart`. Severity: high.
+
+### `dcm-maximum-nesting-level`
+
+Maximum nesting level (DCM maximum-nesting-level, threshold 5): inside a
+function, method or constructor, blocks of `if`, `else`, `do`, `while`,
+`for`, `try`, `catch`, `finally` and `case` must nest at most 5 deep. The
+body itself is level 0.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-source-lines-of-code`
+
+Source lines of code (DCM source-lines-of-code, threshold 60): the body of a
+function, method or constructor must have at most 60 lines that are neither
+blank nor only a comment.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-lines-of-code`
+
+Lines of code (DCM lines-of-code, threshold 100): a function, method or
+constructor must span at most 100 lines from the first line of its signature
+to its closing brace, counting parameters, blank lines and comments.
+
+Scope: `**/lib/**/*.dart`. Severity: low.
+
+### `dcm-number-of-parameters`
+
+Number of parameters (DCM number-of-parameters, threshold 6): a function or
+method must declare at most 6 parameters, positional and named together. A
+method that returns an instance of its own class, such as `copyWith`, is
+exempt, as in DCM. Constructors are exempt in this project, because its
+immutable value classes take one named parameter per field.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-widgets-nesting-level`
+
+Widgets nesting level (DCM widgets-nesting-level, threshold 8): in a method
+that returns a widget, such as `build`, widgets must nest at most 8 deep.
+`SizedBox` does not count toward the depth.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-number-of-used-widgets`
+
+Number of used widgets (DCM number-of-used-widgets, threshold 20): a method
+that returns a widget, such as `build`, must use at most 20 widgets in
+total.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-number-of-methods`
+
+Number of methods (DCM number-of-methods, threshold 10): a class, mixin,
+enum, extension or extension type must declare at most 10 methods. Inherited
+methods count only when the type overrides them.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-weighted-methods-per-class`
+
+Weighted methods per class (DCM weighted-methods-per-class, threshold 45):
+the cyclomatic complexities of all methods of a class, mixin, enum,
+extension or extension type, each counted as in rule
+dcm-cyclomatic-complexity, must add up to at most 45.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-depth-of-inheritance-tree`
+
+Depth of inheritance tree (DCM depth-of-inheritance-tree, threshold 5):
+following `extends` up to the root, a class must be at most 5 levels deep. A
+class with no `extends`, or that extends `Object`, is at depth 1.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-number-of-implemented-interfaces`
+
+Number of implemented interfaces (DCM number-of-implemented-interfaces,
+threshold 3): a class, enum or mixin must implement at most 3 interfaces,
+counting both the ones it names and the ones those interfaces implement.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-number-of-added-methods`
+
+Number of added methods (DCM number-of-added-methods, threshold 10): a
+non-abstract class that extends another class must add at most 10 methods of
+its own. Overridden methods do not count.
+
+Scope: `**/lib/**/*.dart`. Severity: low.
+
+### `dcm-number-of-overridden-methods`
+
+Number of overridden methods (DCM number-of-overridden-methods, threshold
+10): a class, mixin or enum must override at most 10 methods from its
+superclass or interfaces.
+
+Scope: `**/lib/**/*.dart`. Severity: low.
+
+### `dcm-number-of-imports`
+
+Number of imports (DCM number-of-imports, threshold 15): a file must have at
+most 15 import directives.
+
+Scope: `**/lib/**/*.dart`. Severity: low.
+
+### `dcm-number-of-external-imports`
+
+Number of external imports (DCM number-of-external-imports, threshold 6): a
+file must have at most 6 imports of `dart:` libraries and of packages from
+outside this repository. Imports of this repository's own packages
+(`butterscope`, `butterscope_report`, `butterscope_test`, `butterscope_cli`,
+`butterscope_sample`) do not count.
+
+Scope: `**/lib/**/*.dart`. Severity: medium.
+
+### `dcm-technical-debt`
+
+Technical debt (DCM technical-debt, threshold 0): report every TODO comment,
+`// ignore:`, `// ignore_for_file:`, `// cognitive_complexity:ignore`,
+`// cognitive_complexity:ignore_for_file`, `// undead:ignore` or
+`// undead:ignore_for_file` comment, `as dynamic` cast, `@Deprecated`
+annotation and `// @dart=` language-version comment that this pull request
+adds to a Dart file, tests included. The threshold is 0, so each one is
+reported; the author removes it or says in the pull request why it must
+stay.
+
+Scope: `**/*.dart`. Severity: medium.
+
 ## Computed in CI
 
-The rules above are judged by Greptile reading the diff. These are computed
+The rules above are judged by Claude reading the diff. These are computed
 instead, from the Dart syntax tree, by tools from
 [analytica.dart](https://github.com/kevmoo/analytica.dart):
 [`cognitive_complexity`](https://pub.dev/packages/cognitive_complexity),
@@ -120,7 +277,7 @@ for example duplication that must stay for type safety, the owner decides.
 - **Halstead volume and maintainability index.** Both are computed from
   every operator and operand token, and the index combines Halstead volume,
   cyclomatic complexity and source lines with logarithms. A reviewer reading
-  a diff cannot compute them reliably, and Greptile asks for rules it can
+  a diff cannot compute them reliably, and the review needs rules it can
   measure.
 - **Coupling between object classes and response for a class.** DCM's pages
   do not say which types or calls count (core types such as `int` and
@@ -131,9 +288,9 @@ for example duplication that must stay for type safety, the owner decides.
 
 ## Changing a rule
 
-Change the rule in `.greptile/config.json` and its row here in the same pull
-request. Greptile applies changes to `.greptile/` from the next pull request
-it reviews. The computed checks' limits live in `tool/analytica.sh`; change
+Change the rule's definition and its row in the table above in the same
+pull request. The review reads this file from the base branch, so a change
+applies from the next pull request it reviews. The computed checks' limits live in `tool/analytica.sh`; change
 them there and in the table above. The tools' versions live in the root
 `pubspec.yaml`, and Dependabot opens a pull request for each new release, so
 its CI run shows what the new version reports. undead is the exception while
