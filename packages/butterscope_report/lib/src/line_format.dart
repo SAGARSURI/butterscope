@@ -10,8 +10,8 @@ const String lineTag = 'BSCOPE';
 ///
 /// Device logs can cut long lines (`docs/DESIGN.md` section 8). Schema 0's
 /// 800-character lines arrived whole in every counted M5 run
-/// (`docs/measurements/m5.md`). iOS release logs are not yet checked at
-/// this length. **(open, M7)**
+/// (`docs/measurements/m5.md`), and v1's in every M7 run on both phones,
+/// in profile and release (`docs/measurements/m7.md`).
 const int defaultChunkLength = 800;
 
 /// The frames one `frames` line carries, except the last, which carries the

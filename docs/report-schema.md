@@ -1,6 +1,8 @@
 # Report schema v1
 
-- Status: **proposed** in M7. Decision record 0008 freezes it at M7's gate.
+- Status: **frozen** by decision record
+  [0008](decisions/0008-m7-report-schema-v1.md). A change to any line,
+  field or name is schema 2, through a new record.
 - Code: [`packages/butterscope_report`](../packages/butterscope_report),
   shared by the phone side and `butterscope collect`.
 
@@ -24,6 +26,10 @@ BSCOPE <runId> frames <i>/<n> <crc> <json array of frames>
 
 Anything before `BSCOPE` on a log line is ignored, so logcat and syslog
 prefixes may stay.
+
+The phone pauses 20 ms after every 16 lines, since Android's log drops
+lines that come in a burst. How each phone's log is read is in
+`docs/DESIGN.md` section 8.
 
 ## What a reader reports
 

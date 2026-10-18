@@ -1,6 +1,6 @@
 # Butterscope design
 
-- Status: **approved** in M0; current through M6
+- Status: **approved** in M0; current through M7
 - Scope: Android and iOS. Desktop and web are out of scope.
 - Changes: once approved, this document changes only through a decision record
   in [`docs/decisions/`](decisions/README.md).
@@ -351,8 +351,12 @@ cause rather than set a threshold
   wrong `B` would mislead its readers just the same. Rate mismatches are
   flagged beside the metrics of the span or episode they fall in.
 - **Issues:** one entry per janky frame in a span or episode that passed the
-  refresh-rate guard: time offset, span or episode, thread, overrun as a
-  multiple of `B`, class.
+  refresh-rate guard: span or episode, frame number, time offset, thread,
+  overrun as a multiple of `B`, class.
+- **Frames:** every frame of the run, with its timings.
+
+Schema v1, frozen by [0008](decisions/0008-m7-report-schema-v1.md), gives
+every field in [`docs/report-schema.md`](report-schema.md).
 
 ## 7. Validity and environment
 
@@ -402,12 +406,12 @@ noise hides a small regression.)**
 
 ### 7.3 Identity
 
-Every run is stamped with: device model, OS version, build mode, thermal
-state at start, Flutter version and engine revision, app commit, text
-scale, locale, and the Butterscope report schema version. The `flutter`
-tool defines the Flutter version and engine revision in every build, and
-the app reads them through `FlutterVersion`; the app commit is passed
-with `--dart-define=BUTTERSCOPE_APP_COMMIT=<sha>`
+Every run is stamped with: platform, device model, OS version, build
+mode, thermal state at start, Flutter version and engine revision, app
+commit, text scale, locale, and the Butterscope report schema version.
+The `flutter` tool defines the Flutter version and engine revision in
+every build, and the app reads them through `FlutterVersion`; the app
+commit is passed with `--dart-define=BUTTERSCOPE_APP_COMMIT=<sha>`
 ([0007](decisions/0007-m6-guard-findings.md)).
 
 The refresh rate is not a run field. Each span and episode records the
@@ -493,17 +497,28 @@ same physical unit in the same session, interleaved.
 
 ## 8. Getting results off the device
 
-1. **Locally**, the report is printed as tagged, numbered chunks, because
-   device logs can truncate long lines (Android logcat does). `butterscope
-   collect` reads `adb logcat` or a saved log, reassembles the chunks,
-   validates the schema and writes one JSON file per run. A missing or
-   corrupt chunk is reported, never silently dropped. Logcat drops lines
-   without warning when they come fast (about 400 of 1,300 one-frame lines
-   in an M2 run), so chunks must stay few and dense. On an iPhone, profile
-   output reaches the `flutter drive` transcript, and release output is
-   read with `idevicesyslog` from libimobiledevice
-   ([0002](decisions/0002-m2-recorder-findings.md)). **(open, M7: schema
-   v1.)**
+1. **Locally**, the report leaves through the device log, the only
+   channel in profile and release
+   ([0008](decisions/0008-m7-report-schema-v1.md)). The phone prints a
+   `start` line, the report's JSON in numbered `report` lines of up to
+   800 characters, and every frame in `frames` lines, 20 to a line, each
+   line with a CRC-32 ([`docs/report-schema.md`](report-schema.md)).
+   `butterscope collect` reads the logs, checks every line and the
+   schema, and writes one JSON file per run. A missing or corrupt line is
+   reported, never silently dropped: a lost `frames` line costs its
+   frames, a lost `report` line the report. What the logs need:
+   - Android's log drops lines that come fast: about 400 of 1,300
+     one-frame lines in an M2 run, and every line after about the 170th
+     of a 6 ms burst in M7. Lines stay few and dense, and the phone
+     pauses 20 ms after every 16. `adb logcat` is read while the run
+     goes, since a long run can outgrow the phone's log buffer.
+   - On an iPhone, `idevicesyslog --no-colors -m 'BSCOPE '` from
+     libimobiledevice reads both build modes; profile output also reaches
+     the `flutter drive` transcript. The system log strips whitespace at
+     a line's end, so no report line ends in it.
+   - `flutter drive` refuses release builds, so a release run is launched
+     as in M2 ([0002](decisions/0002-m2-recorder-findings.md)), and the
+     runner waits for its `start` line.
 2. **On the device farm** (LambdaTest, Real Device App Automation), tests run
    through the **Flutter Dart** runner as Android instrumentation, so gestures
    come from inside the app process. The Appium route is not used: it embeds
@@ -574,8 +589,9 @@ window on `main`.)**
 | Package | Role | Dependencies |
 | --- | --- | --- |
 | `butterscope` | Recorder, metrics, report, episode split, `ButterscopeRouteObserver`, and a plugin that reads the phone's state for the guards | Flutter, plus its own Kotlin and Swift for the device reads ([0007](decisions/0007-m6-guard-findings.md)). Safe to ship in an app later; the observer and the plugin do nothing outside a run. An app that runs Android release builds lists it under its own dependencies, since Flutter leaves plugins reached only through dev dependencies out of those builds. |
-| `butterscope_test` | One-line attach, spans, activity for episodes | `butterscope`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.6), for the running test's name. A dev dependency. |
-| `butterscope_cli` | `collect`, `judge` | Pure Dart; host only. |
+| `butterscope_report` | The lines a report is printed as, the schema check, and the reader that names lost lines ([0008](decisions/0008-m7-report-schema-v1.md)) | Pure Dart, `meta` only. Shared by the phone and the CLI. |
+| `butterscope_test` | One-line attach, spans, activity for episodes, printing the report | `butterscope`, `butterscope_report`, `flutter_test`, `integration_test`, and `test_api` at the version `flutter_test` pins (0.7.12 in Flutter 3.47.6), for the running test's name. A dev dependency. |
+| `butterscope_cli` | `collect` (M7), `judge` (M9) | `butterscope_report`, `args`. Pure Dart; host only. |
 | `butterscope_sample` | Proof app with ordinary tests and planted regressions | Not shipped. |
 
 - **No third-party runtime dependencies** in `butterscope`.

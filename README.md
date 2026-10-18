@@ -11,11 +11,13 @@ needs no app-specific code.
 > Status: proof of concept. M1 (metrics engine), M2 (frame recorder), M4
 > (sample app, [0004](docs/decisions/0004-m4-sample-findings.md)), M5
 > (attach, spans and episodes,
-> [0005](docs/decisions/0005-m5-attach-findings.md)) and M6 (guards, rate
+> [0005](docs/decisions/0005-m5-attach-findings.md)), M6 (guards, rate
 > mismatch and run identity,
-> [0007](docs/decisions/0007-m6-guard-findings.md)) are done. M3's farm
-> check moved to M10 ([0003](docs/decisions/0003-m3-scope-moves.md)); M7
-> is next. Nothing gates a build yet.
+> [0007](docs/decisions/0007-m6-guard-findings.md)) and M7 (report schema
+> v1 and `collect`, [0008](docs/decisions/0008-m7-report-schema-v1.md))
+> are done. M3's farm check moved to M10
+> ([0003](docs/decisions/0003-m3-scope-moves.md)); M8 is next. Nothing
+> gates a build yet.
 
 ## How it decides
 
@@ -28,6 +30,22 @@ needs no app-specific code.
   throttled phone); it never counts against your code.
 
 The full set of rules is in [docs/DESIGN.md](docs/DESIGN.md).
+
+## Getting results off the phone
+
+The phone prints each run's report and frames to its device log as
+checked lines ([docs/report-schema.md](docs/report-schema.md)).
+`butterscope collect` reads them back and writes one `<runId>.json` per
+run:
+
+```sh
+# From a saved log, or several; with none it reads stdin.
+dart run tools/butterscope_cli/bin/butterscope.dart collect --out runs run.log
+```
+
+It exits 1 and names each line it lost or could not trust. The sample
+app's `apps/sample/tool/m7/run_tests.sh` does the whole loop on one
+phone: build, run, read the log and collect.
 
 ## Layout
 
